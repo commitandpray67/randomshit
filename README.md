@@ -1,60 +1,32 @@
-# glwireframe — force wireframe rendering on AMD GPUs (Linux, OpenGL)
+# Steam Friends Tracker
 
-NVIDIA's old drivers had a "wireframe" toggle in the control panel; AMD's
-Mesa drivers (radeonsi) expose no such option. This project adds one: a
-small `LD_PRELOAD` library that forces
-`glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)` before every OpenGL draw call,
-so any GL application renders as wireframe. It works with any driver, but
-exists because AMD has no built-in switch.
+Save a snapshot of your Steam friends list and find out later **who unfriended
+you**. Each time it runs it re-fetches your current friends, compares them
+against the stored history, and reports who was added, who was removed, and who
+re-added you.
 
-## Build
+This repo has two ways to use it:
 
-```sh
-make
-```
+## [`steam-friends/`](./steam-friends) — command-line tool
 
-Produces `libglwireframe.so`. Only needs a C compiler — no GL dev headers.
+A tiny, dependency-free Python script. Runs on your own machine, stores history
+in a local JSON file. Great if you just want it for yourself. Includes a
+double-clickable `run.bat` for Windows.
 
-## Use
+→ See [`steam-friends/README.md`](./steam-friends/README.md)
 
-Run any OpenGL program through the launcher:
+## [`steam-friends-web/`](./steam-friends-web) — website
 
-```sh
-./wireframe-run glxgears
-./wireframe-run blender
-```
+A Next.js web app where anyone signs in with Steam and sees their friend
+history. Snapshots are stored per-user in Postgres, and a daily scheduled job
+re-checks every user so unfriends are caught even when nobody is on the site.
 
-Or inject manually:
+→ See [`steam-friends-web/README.md`](./steam-friends-web/README.md)
 
-```sh
-LD_PRELOAD=/path/to/libglwireframe.so some-gl-app
-```
+## The one important caveat (both versions)
 
-For Steam games, set the launch options to:
-
-```
-LD_PRELOAD=/path/to/libglwireframe.so %command%
-```
-
-## Options
-
-| Control | Effect |
-|---|---|
-| `WIREFRAME=0` (env var) | start with wireframe off (default is on) |
-| `kill -USR1 <pid>` | toggle wireframe on/off while the app is running |
-
-When wireframe is toggled off, the application's own `glPolygonMode`
-setting is restored.
-
-## Limitations
-
-- **OpenGL only.** Vulkan games are untouched — Vulkan has no global
-  polygon-mode state; forcing wireframe there requires a Vulkan layer that
-  rewrites pipeline creation.
-- **Desktop GL only.** OpenGL ES has no `glPolygonMode`, so GLES apps
-  (and some Wayland-native toolkits) can't be forced this way.
-- Linux only. On Windows, use per-app options (most engines have a
-  wireframe console command) since AMD Adrenalin has no global toggle
-  either.
-- The toggle uses `SIGUSR1`; the rare app that installs its own `SIGUSR1`
-  handler will conflict with it.
+Reading a Steam friends list requires a Steam Web API key **and** the target
+profile's friends list being set to **Public**. Steam does not let any
+third-party app read a private friends list — not even your own, and not even
+after you sign in. Set *My friends list* to *Public* in your Steam privacy
+settings first.

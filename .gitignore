@@ -1,5 +1,3 @@
-libglwireframe.so
-
 # steam-friends local history (contains your friends's SteamIDs/names)
 steam-friends/friends_history.json
 steam-friends/*.log
