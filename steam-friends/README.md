@@ -21,6 +21,16 @@ No `pip install` needed — it uses only the Python standard library
 
 ## Usage
 
+### Windows: just double-click `run.bat`
+
+The easiest way on Windows. Double-click **`run.bat`**. The first time it asks
+for your API key and SteamID, remembers them (in a local, git-ignored
+`config.bat`), then checks your friends list and keeps the window open so you
+can read the result. Run it again anytime to see who unfriended you. To change
+your saved key/SteamID, delete `config.bat` and run it again.
+
+### Any OS: the command line
+
 ```sh
 export STEAM_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 export STEAM_ID=7656119xxxxxxxxxx

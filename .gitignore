@@ -5,3 +5,4 @@ steam-friends/friends_history.json
 steam-friends/*.log
 __pycache__/
 *.pyc
+steam-friends/config.bat
