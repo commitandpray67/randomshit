@@ -2,13 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyLogin, getPlayerSummaries } from "@/lib/steam";
 import { createSession } from "@/lib/session";
 import { sql } from "@/lib/db";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // GET /api/auth/steam/return → Steam redirects here after login.
 export async function GET(req: NextRequest) {
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+
+  // Burst protection: this endpoint verifies with Steam and writes to the DB.
+  const rl = rateLimit(`login-return:${clientIp(req)}`, 15, 60);
+  if (!rl.ok) {
+    return new NextResponse("Too many requests. Try again shortly.", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
   const query = req.nextUrl.searchParams;
   const steamId = await verifyLogin(query);
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+
   if (!steamId) {
     return NextResponse.redirect(`${appUrl}/?error=auth`);
   }

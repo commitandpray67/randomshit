@@ -8,6 +8,7 @@ import { getFriendList, getPlayerSummaries } from "./steam";
 
 export type SyncResult =
   | { status: "private" }
+  | { status: "throttled" }
   | {
       status: "ok";
       firstRun: boolean;
@@ -17,8 +18,29 @@ export type SyncResult =
 /**
  * Snapshot one user's friends and update the database. Safe to call both
  * on-demand (after login) and from the scheduled cron worker.
+ *
+ * `minIntervalSec` throttles how often a given user actually hits Steam's API:
+ * if they were polled more recently than that, we skip the fetch and return
+ * "throttled" so the caller just shows already-stored data. This stops a user
+ * refreshing the dashboard from spamming the Steam Web API on your key. The
+ * cron passes 0 (always run).
  */
-export async function syncUser(steamId: string): Promise<SyncResult> {
+export async function syncUser(
+  steamId: string,
+  minIntervalSec = 0,
+): Promise<SyncResult> {
+  // Throttle before doing any Steam work.
+  const userRow = (
+    await sql`SELECT last_polled FROM users WHERE steam_id = ${steamId}`
+  )[0];
+  const isFirstRun = userRow?.last_polled == null;
+  if (!isFirstRun && minIntervalSec > 0 && userRow?.last_polled) {
+    const ageSec = (Date.now() - new Date(userRow.last_polled).getTime()) / 1000;
+    if (ageSec < minIntervalSec) {
+      return { status: "throttled" };
+    }
+  }
+
   // 1. Fetch current friends from Steam.
   let current;
   try {
@@ -42,9 +64,6 @@ export async function syncUser(steamId: string): Promise<SyncResult> {
   const knownMap = new Map<string, string>(
     known.map((r: any) => [r.friend_steam_id, r.status]),
   );
-  const isFirstRun = (
-    await sql`SELECT last_polled FROM users WHERE steam_id = ${steamId}`
-  )[0]?.last_polled == null;
 
   const counts = { total: currentIds.length, added: 0, removed: 0, readded: 0 };
   const currentSet = new Set(currentIds);

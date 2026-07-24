@@ -23,15 +23,17 @@ export default async function Dashboard() {
   const steamId = await getSession();
   if (!steamId) redirect("/");
 
-  // Refresh on visit so the page reflects the latest list.
-  // (The daily cron catches changes while you're away.)
-  const sync = await syncUser(steamId);
+  // Refresh on visit so the page reflects the latest list, but at most once
+  // per minute per user — repeated refreshes just show stored data instead of
+  // hammering Steam's API. (The daily cron catches changes while you're away.)
+  const sync = await syncUser(steamId, 60);
 
   const user = (
     await sql`SELECT display_name, avatar, last_polled FROM users WHERE steam_id = ${steamId}`
   )[0];
-  const active = sync.status === "ok" ? await getActiveFriends(steamId) : [];
-  const removed = sync.status === "ok" ? await getRemovedFriends(steamId) : [];
+  const canShow = sync.status === "ok" || sync.status === "throttled";
+  const active = canShow ? await getActiveFriends(steamId) : [];
+  const removed = canShow ? await getRemovedFriends(steamId) : [];
 
   return (
     <main>
@@ -60,7 +62,7 @@ export default async function Dashboard() {
         </div>
       )}
 
-      {sync.status === "ok" && (
+      {canShow && (
         <>
           <div className="stats">
             <div className="stat ok">
@@ -77,7 +79,7 @@ export default async function Dashboard() {
             </div>
           </div>
 
-          {sync.firstRun && (
+          {sync.status === "ok" && sync.firstRun && (
             <div className="card notice info">
               📸 Saved a baseline of <strong>{sync.counts.total}</strong> friends.
               Come back later (or let the daily check run) and we&apos;ll show you
