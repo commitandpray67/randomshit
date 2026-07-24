@@ -9,6 +9,7 @@
     "db:init": "node --experimental-strip-types scripts/init-db.ts"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "next": "^15.1.0",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
