@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { translations, type Locale } from "@/lib/i18n";
 
 export type FriendRow = {
   id: string;
   name: string;
   url: string;
   avatar: string;
-  friendSince: string; // display, e.g. "2022-02-12" or "unknown"
-  friendSinceTs: number; // sort key
+  friendSince: string;
+  friendSinceTs: number;
   removedAt?: string;
   status: "active" | "removed";
 };
@@ -18,14 +19,16 @@ type Filter = "current" | "removed" | "all";
 export default function FriendsView({
   active,
   removed,
+  locale = "en",
 }: {
   active: FriendRow[];
   removed: FriendRow[];
+  locale?: Locale;
 }) {
+  const t = translations[locale];
   const [filter, setFilter] = useState<Filter>("current");
   const [q, setQ] = useState("");
 
-  // "Ever tracked": everyone, oldest friendship first.
   const all = useMemo(
     () => [...active, ...removed].sort((a, b) => a.friendSinceTs - b.friendSinceTs),
     [active, removed],
@@ -45,7 +48,7 @@ export default function FriendsView({
           onClick={() => setFilter("current")}
         >
           <div className="num">{active.length}</div>
-          <div className="lbl">Current friends</div>
+          <div className="lbl">{t.statCurrent}</div>
         </button>
         <button
           type="button"
@@ -54,7 +57,7 @@ export default function FriendsView({
           onClick={() => setFilter("removed")}
         >
           <div className="num">{removed.length}</div>
-          <div className="lbl">Unfriended you</div>
+          <div className="lbl">{t.statRemoved}</div>
         </button>
         <button
           type="button"
@@ -63,7 +66,7 @@ export default function FriendsView({
           onClick={() => setFilter("all")}
         >
           <div className="num">{all.length}</div>
-          <div className="lbl">Ever tracked</div>
+          <div className="lbl">{t.statAll}</div>
         </button>
       </div>
 
@@ -71,11 +74,11 @@ export default function FriendsView({
         <input
           className="search"
           type="search"
-          placeholder="Search by name"
+          placeholder={t.searchPlaceholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <span className="muted">{list.length} shown</span>
+        <span className="muted">{t.shown(list.length)}</span>
       </div>
 
       <div className="card list">
@@ -84,7 +87,7 @@ export default function FriendsView({
             <div className="empty-icon" aria-hidden="true">
               {emptyIcon(filter, needle)}
             </div>
-            {emptyMessage(filter, needle)}
+            {emptyMessage(filter, needle, t)}
           </div>
         ) : (
           list.map((r) => (
@@ -103,16 +106,16 @@ export default function FriendsView({
                 <div className="s">
                   {r.status === "removed" ? (
                     <>
-                      friends {r.friendSince} →{" "}
-                      <span className="gone">gone {r.removedAt}</span>
+                      {t.friendsGonePre(r.friendSince)} &rarr;{" "}
+                      <span className="gone">{t.goneLabel(r.removedAt ?? "")}</span>
                     </>
                   ) : (
-                    `friends since ${r.friendSince}`
+                    t.friendsSince(r.friendSince)
                   )}
                 </div>
               </div>
               {r.status === "removed" && (
-                <span className="badge badge-removed">removed</span>
+                <span className="badge badge-removed">{t.badgeRemoved}</span>
               )}
             </div>
           ))
@@ -128,9 +131,13 @@ function emptyIcon(filter: Filter, needle: string): string {
   return "👥";
 }
 
-function emptyMessage(filter: Filter, needle: string): string {
-  if (needle) return `No matches for “${needle}”.`;
-  if (filter === "removed") return "Nobody has unfriended you yet.";
-  if (filter === "current") return "No friends found yet.";
-  return "No friends tracked yet.";
+function emptyMessage(
+  filter: Filter,
+  needle: string,
+  t: (typeof translations)[Locale],
+): string {
+  if (needle) return t.emptySearch(needle);
+  if (filter === "removed") return t.emptyRemoved;
+  if (filter === "current") return t.emptyCurrent;
+  return t.emptyAll;
 }

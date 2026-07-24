@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { getLocale } from "@/lib/locale";
+import { getT } from "@/lib/i18n";
+import LangSwitcher from "@/components/LangSwitcher";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
@@ -54,24 +57,27 @@ export const metadata: Metadata = {
       "Track your Steam friends over time and find out who unfriended or removed you, for free.",
   },
   robots: { index: true, follow: true },
-  // Ownership marker for AdSense site verification (the "Meta tag" method).
   ...(ADSENSE_CLIENT ? { other: { "google-adsense-account": ADSENSE_CLIENT } } : {}),
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const T = getT(locale);
+
   return (
-    <html lang="en">
+    <html lang={T.htmlLang}>
       <body>
         {children}
         <footer className="site-footer">
-          <a href="/">Home</a> · <a href="/privacy">Privacy</a> ·{" "}
-          <a href="mailto:help@steamfriends.xyz">Contact</a> ·{" "}
-          <span>Not affiliated with Steam or Valve.</span>
+          <a href="/">{T.footHome}</a> · <a href="/privacy">{T.footPrivacy}</a> ·{" "}
+          <a href="mailto:help@steamfriends.xyz">{T.footContact}</a> ·{" "}
+          <span>{T.footDisclaimer}</span>
+          <span className="lang-switcher-wrap">
+            <LangSwitcher current={locale} />
+          </span>
         </footer>
 
-        {/* Load AdSense when configured. Consent for EEA/UK/CH visitors is
-            handled by Google's own Consent Management Platform (CMP), which is
-            served through this same tag, so no separate cookie banner. */}
+        {/* AdSense — EEA/UK/CH consent handled by Google's own CMP via this tag. */}
         {ADSENSE_CLIENT && (
           <Script
             id="adsbygoogle-js"

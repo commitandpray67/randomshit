@@ -360,6 +360,15 @@ p  { margin: 0.75rem 0; }
 }
 .site-footer a { color: var(--text-dim); }
 
+/* ---- language switcher ---- */
+.lang-switcher-wrap {
+  display: block;
+  margin-top: 0.6rem;
+}
+.lang-switcher { font-size: 0.82rem; }
+.lang-switcher a { color: var(--text-dim); }
+.lang-switcher strong { color: var(--accent); font-weight: 600; }
+
 /* ---- ad slot ---- */
 .ad-slot {
   margin: 1.5rem 0;

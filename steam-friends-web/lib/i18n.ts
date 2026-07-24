@@ -1,0 +1,198 @@
+export type Locale = "en" | "ru" | "zh";
+
+export const LOCALES: Locale[] = ["en", "ru", "zh"];
+
+const en = {
+  htmlLang: "en" as string,
+  // Landing — h1 is split so the key phrase can be gradient-accented
+  h1Before: "See who ",
+  h1Accent: "unfriended you",
+  h1After: " on Steam",
+  heroSub:
+    "Steam never tells you when someone removes you. Sign in and we’ll remember your friends list, so you can see exactly who unfriended you, and when.",
+  signIn: "Sign in through Steam",
+  trust: "No password shared. We only read your public SteamID via Steam OpenID.",
+  howTitle: "How to see who unfriended you on Steam",
+  step1Pre: "Set your Steam ",
+  step1Bold: "friends list to Public",
+  step1Post:
+    " (Edit Profile → Privacy Settings → My friends list). Steam won’t let any app read a private list, not even your own.",
+  step2Pre: "Click ",
+  step2Bold: "Sign in through Steam",
+  step2Post: " above. We save a baseline snapshot of your current friends.",
+  step3Pre:
+    "Come back anytime, or let the daily check run, and we’ll highlight anyone who ",
+  step3Bold: "unfriended or removed you",
+  step3Post: ".",
+  // Dashboard topbar
+  yourAccount: "Your account",
+  lastChecked: (ago: string) => `Last checked ${ago}`,
+  appName: "Steam Friends Tracker",
+  refresh: "Refresh",
+  refreshing: "Refreshing…",
+  logout: "Log out",
+  // Dashboard notices — component renders the markup; these are the text parts
+  privateIntro: "We couldn’t read your friends list; it looks",
+  privateBold: "private",
+  privateAction:
+    "Set My friends list to Public in your Steam privacy settings, then refresh this page.",
+  privateMid: "",
+  privateEmBefore: "My friends list",
+  privateEmAfter: "Public",
+  firstRunMsg: (n: number) =>
+    `Saved a baseline of ${n} friends. Come back later (or let the daily check run) and we’ll show you anyone who unfriended you.`,
+  // FriendsView stat labels
+  statCurrent: "Current friends",
+  statRemoved: "Unfriended you",
+  statAll: "Ever tracked",
+  // FriendsView search / list
+  searchPlaceholder: "Search by name",
+  shown: (n: number) => `${n} shown`,
+  friendsSince: (d: string) => `friends since ${d}`,
+  friendsGonePre: (since: string) => `friends ${since}`,
+  goneLabel: (date: string) => `gone ${date}`,
+  badgeRemoved: "removed",
+  emptyRemoved: "Nobody has unfriended you yet.",
+  emptyCurrent: "No friends found yet.",
+  emptyAll: "No friends tracked yet.",
+  emptySearch: (q: string) => `No matches for “${q}”.`,
+  // Relative time
+  justNow: "just now",
+  minsAgo: (n: number) => `${n}m ago`,
+  hoursAgo: (n: number) => `${n}h ago`,
+  daysAgo: (n: number) => `${n}d ago`,
+  never: "never",
+  unknown: "unknown",
+  // Footer
+  footHome: "Home",
+  footPrivacy: "Privacy",
+  footContact: "Contact",
+  footDisclaimer: "Not affiliated with Steam or Valve.",
+};
+
+const ru: typeof en = {
+  htmlLang: "ru",
+  h1Before: "Узнай, ",
+  h1Accent: "кто удалил тебя",
+  h1After: " из друзей в Steam",
+  heroSub:
+    "Steam не сообщает, когда тебя удаляют из друзей. Войди — и мы запомним твой список, чтобы показать, кто и когда тебя удалил.",
+  signIn: "Войти через Steam",
+  trust: "Пароль не нужен. Мы читаем только твой публичный SteamID через Steam OpenID.",
+  howTitle: "Как узнать, кто удалил тебя из друзей в Steam",
+  step1Pre: "Открой настройки приватности Steam и выбери ",
+  step1Bold: "«Мой список друзей» → «Открытый»",
+  step1Post:
+    ". Steam не разрешает сторонним приложениям читать закрытый список, даже твой собственный.",
+  step2Pre: "Нажми ",
+  step2Bold: "«Войти через Steam»",
+  step2Post: " выше. Мы сохраним снимок твоих текущих друзей.",
+  step3Pre:
+    "Заходи в любое время — ежедневная проверка сделает всё автоматически. Мы покажем всех, кто ",
+  step3Bold: "удалил тебя из друзей",
+  step3Post: ".",
+  yourAccount: "Твой аккаунт",
+  lastChecked: (ago: string) => `Проверено ${ago}`,
+  appName: "Steam Friends Tracker",
+  refresh: "Обновить",
+  refreshing: "Обновляем…",
+  logout: "Выйти",
+  privateIntro: "Мы не смогли прочитать твой список друзей — он выглядит",
+  privateBold: "закрытым",
+  privateAction:
+    "Открой настройки приватности Steam и установи «Мой список друзей» в «Открытый», затем обнови страницу.",
+  privateMid: "",
+  privateEmBefore: "«Мой список друзей»",
+  privateEmAfter: "«Открытый»",
+  firstRunMsg: (n: number) =>
+    `Сохранён снимок ${n} друзей. Заходи позже (или подожди ежедневную проверку) — мы покажем всех, кто тебя удалил.`,
+  statCurrent: "Текущие друзья",
+  statRemoved: "Удалили тебя",
+  statAll: "Все отслеживаемые",
+  searchPlaceholder: "Поиск по имени",
+  shown: (n: number) => `Показано: ${n}`,
+  friendsSince: (d: string) => `в друзьях с ${d}`,
+  friendsGonePre: (since: string) => `в друзьях с ${since}`,
+  goneLabel: (date: string) => `удалён ${date}`,
+  badgeRemoved: "удалён",
+  emptyRemoved: "Тебя ещё никто не удалял из друзей.",
+  emptyCurrent: "Друзья пока не найдены.",
+  emptyAll: "Друзья ещё не отслеживались.",
+  emptySearch: (q: string) => `Нет результатов для «${q}».`,
+  justNow: "только что",
+  minsAgo: (n: number) => `${n} мин. назад`,
+  hoursAgo: (n: number) => `${n} ч. назад`,
+  daysAgo: (n: number) => `${n} дн. назад`,
+  never: "никогда",
+  unknown: "неизвестно",
+  footHome: "Главная",
+  footPrivacy: "Политика",
+  footContact: "Контакты",
+  footDisclaimer: "Не связано с Steam или Valve.",
+};
+
+const zh: typeof en = {
+  htmlLang: "zh",
+  h1Before: "查看",
+  h1Accent: "谁删除了你",
+  h1After: "的Steam好友",
+  heroSub:
+    "Steam不会通知你有人删除了你。登录后，我们会记录你的好友列表，精确显示谁删除了你，以及何时删除。",
+  signIn: "通过Steam登录",
+  trust: "无需密码。我们仅通过Steam OpenID读取你的公开SteamID。",
+  howTitle: "如何查看谁删除了你的Steam好友",
+  step1Pre: "打开Steam隐私设置，将",
+  step1Bold: "「我的好友列表」设为「公开」",
+  step1Post: "。Steam不允许任何应用读取私密列表，即使是你自己的账号。",
+  step2Pre: "点击上方",
+  step2Bold: "「通过Steam登录」",
+  step2Post: "。我们将保存当前好友列表的快照。",
+  step3Pre: "随时回来查看，或等待每日自动检查。我们会显示所有",
+  step3Bold: "删除了你的人",
+  step3Post: "。",
+  yourAccount: "你的账户",
+  lastChecked: (ago: string) => `上次检查：${ago}`,
+  appName: "Steam好友追踪器",
+  refresh: "刷新",
+  refreshing: "刷新中…",
+  logout: "退出登录",
+  privateIntro: "无法读取你的好友列表，列表似乎是",
+  privateBold: "私密的",
+  privateAction:
+    "请在Steam隐私设置中将「我的好友列表」设为「公开」，然后刷新此页面。",
+  privateMid: "",
+  privateEmBefore: "「我的好友列表」",
+  privateEmAfter: "「公开」",
+  firstRunMsg: (n: number) =>
+    `已保存 ${n} 位好友的基础快照。稍后回来（或等待每日检查），我们将显示删除你的人。`,
+  statCurrent: "当前好友",
+  statRemoved: "删除了你",
+  statAll: "追踪记录",
+  searchPlaceholder: "按名称搜索",
+  shown: (n: number) => `显示 ${n} 个`,
+  friendsSince: (d: string) => `好友自 ${d}`,
+  friendsGonePre: (since: string) => `好友 ${since}`,
+  goneLabel: (date: string) => `删除 ${date}`,
+  badgeRemoved: "已删除",
+  emptyRemoved: "还没有人删除你。",
+  emptyCurrent: "暂未找到好友。",
+  emptyAll: "暂无追踪记录。",
+  emptySearch: (q: string) => `没有找到「${q}」的相关结果。`,
+  justNow: "刚刚",
+  minsAgo: (n: number) => `${n} 分钟前`,
+  hoursAgo: (n: number) => `${n} 小时前`,
+  daysAgo: (n: number) => `${n} 天前`,
+  never: "从未",
+  unknown: "未知",
+  footHome: "首页",
+  footPrivacy: "隐私政策",
+  footContact: "联系我们",
+  footDisclaimer: "与Steam或Valve无关。",
+};
+
+export const translations = { en, ru, zh } satisfies Record<Locale, typeof en>;
+export type T = typeof en;
+
+export function getT(locale: Locale): T {
+  return translations[locale];
+}
