@@ -61,8 +61,8 @@ export default function Privacy() {
 
       <h2>Contact</h2>
       <p>
-        Questions about this policy, or requests to delete your data, can be
-        sent to <a href="mailto:help@steamfriends.xyz">help@steamfriends.xyz</a>.
+        Questions about this policy can be sent to{" "}
+        <a href="mailto:help@steamfriends.xyz">help@steamfriends.xyz</a>.
       </p>
 
       <p style={{ marginTop: "2rem" }}>

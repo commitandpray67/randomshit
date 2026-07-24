@@ -44,7 +44,7 @@ export default async function Home() {
           Sign in through Steam
         </a>
         <p className="trust">
-          No password shared. We only read your public SteamID via Steam OpenID.
+          We only read your public SteamID via Steam OpenID.
         </p>
       </section>
 
