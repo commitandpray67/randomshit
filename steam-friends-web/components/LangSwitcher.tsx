@@ -7,6 +7,7 @@ const LANGS: { code: Locale; label: string; page: string }[] = [
   { code: "en", label: "EN", page: "/" },
   { code: "ru", label: "RU", page: "/ru" },
   { code: "zh", label: "中文", page: "/zh" },
+  { code: "tr", label: "TR", page: "/tr" },
 ];
 
 export default function LangSwitcher({ current }: { current: Locale }) {

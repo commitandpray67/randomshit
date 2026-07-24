@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: `${SITE}/ru`,
-    languages: { en: `${SITE}/`, ru: `${SITE}/ru`, zh: `${SITE}/zh` },
+    languages: { en: `${SITE}/`, ru: `${SITE}/ru`, zh: `${SITE}/zh`, tr: `${SITE}/tr` },
   },
   openGraph: {
     type: "website",

@@ -32,6 +32,10 @@ export const metadata: Metadata = {
     "Steam好友追踪",
     "谁删除了我的Steam好友",
     "Steam好友记录",
+    // Turkish
+    "steam arkadaş takip",
+    "steam arkadaşlıktan kim çıkardı",
+    "steam arkadaş silme takip",
   ],
   applicationName: "Steam Friends Tracker",
   alternates: {
@@ -40,6 +44,7 @@ export const metadata: Metadata = {
       en: `${SITE}/`,
       ru: `${SITE}/ru`,
       zh: `${SITE}/zh`,
+      tr: `${SITE}/tr`,
     },
   },
   openGraph: {

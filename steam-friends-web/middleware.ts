@@ -17,15 +17,20 @@ export function middleware(request: NextRequest) {
     response.cookies.set(COOKIE, "zh", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     return response;
   }
+  if (path === "/tr" || path.startsWith("/tr/")) {
+    response.cookies.set(COOKIE, "tr", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
+    return response;
+  }
 
   // First visit (no cookie) — auto-detect from Accept-Language.
   if (!request.cookies.has(COOKIE)) {
     const al = (request.headers.get("accept-language") ?? "").toLowerCase();
-    // "ru" before checking "zh" — no overlap.
     if (al.includes("ru")) {
       response.cookies.set(COOKIE, "ru", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     } else if (/zh|cn/.test(al)) {
       response.cookies.set(COOKIE, "zh", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
+    } else if (al.includes("tr")) {
+      response.cookies.set(COOKIE, "tr", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     }
     // en is the default — no cookie needed; getLocale() falls back to en.
   }

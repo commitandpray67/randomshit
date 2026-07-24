@@ -1,6 +1,6 @@
-export type Locale = "en" | "ru" | "zh";
+export type Locale = "en" | "ru" | "zh" | "tr";
 
-export const LOCALES: Locale[] = ["en", "ru", "zh"];
+export const LOCALES: Locale[] = ["en", "ru", "zh", "tr"];
 
 const en = {
   htmlLang: "en" as string,
@@ -190,7 +190,67 @@ const zh: typeof en = {
   footDisclaimer: "与Steam或Valve无关。",
 };
 
-export const translations = { en, ru, zh } satisfies Record<Locale, typeof en>;
+const tr: typeof en = {
+  htmlLang: "tr",
+  h1Before: "Steam'da seni ",
+  h1Accent: "kim sildi",
+  h1After: "?",
+  heroSub:
+    "Steam, biri seni arkadaş listesinden çıkardığında haber vermez. Giriş yap, biz listeni kaydedelim; tam olarak kimin ve ne zaman seni sildiğini görebilirsin.",
+  signIn: "Steam ile Giriş Yap",
+  trust: "Şifre paylaşılmaz. Yalnızca Steam OpenID aracılığıyla genel SteamID'ni okuruz.",
+  howTitle: "Steam'da Seni Kim Sildi? Nasıl Öğrenilir",
+  step1Pre: "Steam ",
+  step1Bold: "arkadaş listeni Herkese Açık",
+  step1Post:
+    " yap (Profili Düzenle → Gizlilik Ayarları → Arkadaş Listem). Steam, gizli listeleri hiçbir uygulamanın okumasına izin vermez.",
+  step2Pre: "Yukarıdaki ",
+  step2Bold: "\"Steam ile Giriş Yap\"",
+  step2Post: " düğmesine tıkla. Mevcut arkadaşlarının anlık görüntüsünü kaydediyoruz.",
+  step3Pre: "İstediğin zaman geri dön ya da günlük kontrolü bekle; ",
+  step3Bold: "seni listesinden çıkaranları",
+  step3Post: " göstereceğiz.",
+  yourAccount: "Hesabın",
+  lastChecked: (ago: string) => `Son kontrol: ${ago}`,
+  appName: "Steam Arkadaş Takipçisi",
+  refresh: "Yenile",
+  refreshing: "Yenileniyor…",
+  logout: "Çıkış Yap",
+  privateIntro: "Arkadaş listeni okuyamadık; liste görünüşe göre",
+  privateBold: "gizli",
+  privateAction:
+    "Steam gizlilik ayarlarında Arkadaş Listem'i Herkese Açık olarak ayarla ve sayfayı yenile.",
+  privateMid: "",
+  privateEmBefore: "Arkadaş Listem",
+  privateEmAfter: "Herkese Açık",
+  firstRunMsg: (n: number) =>
+    `${n} arkadaşının temel görüntüsü kaydedildi. Daha sonra geri dön (ya da günlük kontrolü bekle) — seni silenler gösterilecek.`,
+  statCurrent: "Mevcut Arkadaşlar",
+  statRemoved: "Seni Silen",
+  statAll: "Tüm Takip",
+  searchPlaceholder: "İsme göre ara",
+  shown: (n: number) => `${n} gösteriliyor`,
+  friendsSince: (d: string) => `${d} tarihinden arkadaş`,
+  friendsGonePre: (since: string) => `${since} tarihinde arkadaş`,
+  goneLabel: (date: string) => `silindi ${date}`,
+  badgeRemoved: "silindi",
+  emptyRemoved: "Henüz kimse seni arkadaş listesinden çıkarmadı.",
+  emptyCurrent: "Henüz arkadaş bulunamadı.",
+  emptyAll: "Henüz takip edilen arkadaş yok.",
+  emptySearch: (q: string) => `"${q}" için sonuç bulunamadı.`,
+  justNow: "az önce",
+  minsAgo: (n: number) => `${n} dk önce`,
+  hoursAgo: (n: number) => `${n} sa önce`,
+  daysAgo: (n: number) => `${n} gün önce`,
+  never: "hiçbir zaman",
+  unknown: "bilinmiyor",
+  footHome: "Ana Sayfa",
+  footPrivacy: "Gizlilik",
+  footContact: "İletişim",
+  footDisclaimer: "Steam veya Valve ile bağlantısı yoktur.",
+};
+
+export const translations = { en, ru, zh, tr } satisfies Record<Locale, typeof en>;
 export type T = typeof en;
 
 export function getT(locale: Locale): T {
