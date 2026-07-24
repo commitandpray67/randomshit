@@ -126,7 +126,7 @@ export async function getActiveFriends(steamId: string) {
 /** People who have unfriended you, most recent first. */
 export async function getRemovedFriends(steamId: string) {
   return sql`
-    SELECT friend_steam_id, name, profile_url, friend_since, removed_at
+    SELECT friend_steam_id, name, profile_url, avatar, friend_since, removed_at
     FROM friends
     WHERE user_steam_id = ${steamId} AND status = 'removed'
     ORDER BY removed_at DESC

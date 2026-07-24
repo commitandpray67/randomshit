@@ -10,24 +10,41 @@ function fmt(d: string | Date | null): string {
   return new Date(d).toISOString().slice(0, 10);
 }
 
+function initialAvatar() {
+  // Fallback grey square is handled by CSS background; empty src is fine.
+  return "";
+}
+
 export default async function Dashboard() {
   const steamId = await getSession();
   if (!steamId) redirect("/");
 
-  // Refresh on visit too, so the page always reflects the latest list.
-  // (The daily cron is what catches changes while you're away.)
+  // Refresh on visit so the page reflects the latest list.
+  // (The daily cron catches changes while you're away.)
   const sync = await syncUser(steamId);
 
-  const user = (await sql`SELECT display_name FROM users WHERE steam_id = ${steamId}`)[0];
+  const user = (
+    await sql`SELECT display_name, avatar, last_polled FROM users WHERE steam_id = ${steamId}`
+  )[0];
   const active = sync.status === "ok" ? await getActiveFriends(steamId) : [];
   const removed = sync.status === "ok" ? await getRemovedFriends(steamId) : [];
 
   return (
     <main>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>{user?.display_name ?? "Your"} friends</h1>
+      <div className="topbar">
+        {user?.avatar ? (
+          <img className="avatar" src={user.avatar} alt="" />
+        ) : (
+          <div className="avatar" />
+        )}
+        <div className="who">
+          <div className="name">{user?.display_name ?? "Your"} </div>
+          <div className="meta">
+            {user?.last_polled ? `Last checked ${fmt(user.last_polled)}` : "Steam Friends Tracker"}
+          </div>
+        </div>
         <form action="/api/auth/logout" method="post">
-          <button className="btn" type="submit">Log out</button>
+          <button className="btn btn-ghost" type="submit">Log out</button>
         </form>
       </div>
 
@@ -39,48 +56,82 @@ export default async function Dashboard() {
         </div>
       )}
 
-      {sync.status === "ok" && sync.firstRun && (
-        <div className="card">
-          Saved a baseline of <strong>{sync.counts.total}</strong> friends. Come
-          back later (or let the daily check run) to catch any unfriends.
-        </div>
-      )}
-
-      {removed.length > 0 && (
+      {sync.status === "ok" && (
         <>
-          <h2 className="tag-removed">Unfriended you ({removed.length})</h2>
-          <div className="card">
-            {removed.map((f: any) => (
-              <div className="row" key={f.friend_steam_id}>
-                <div style={{ flex: 1 }}>
-                  <a href={f.profile_url ?? "#"} target="_blank" rel="noreferrer">
-                    {f.name ?? f.friend_steam_id}
-                  </a>
-                  <div className="muted">
-                    friends {fmt(f.friend_since)} → gone {fmt(f.removed_at)}
+          <div className="stats">
+            <div className="stat ok">
+              <div className="num">{active.length}</div>
+              <div className="lbl">Current friends</div>
+            </div>
+            <div className="stat danger">
+              <div className="num">{removed.length}</div>
+              <div className="lbl">Unfriended you</div>
+            </div>
+            <div className="stat">
+              <div className="num">{active.length + removed.length}</div>
+              <div className="lbl">Ever tracked</div>
+            </div>
+          </div>
+
+          {sync.firstRun && (
+            <div className="card notice info">
+              📸 Saved a baseline of <strong>{sync.counts.total}</strong> friends.
+              Come back later (or let the daily check run) and we&apos;ll show you
+              anyone who unfriended you.
+            </div>
+          )}
+
+          {removed.length > 0 && (
+            <>
+              <div className="section-head">
+                <h2 className="tag-removed" style={{ color: "var(--danger)" }}>
+                  Unfriended you
+                </h2>
+                <span className="count">{removed.length}</span>
+              </div>
+              <div className="card list">
+                {removed.map((f: any) => (
+                  <div className="row" key={f.friend_steam_id}>
+                    <img src={f.avatar || initialAvatar()} alt="" />
+                    <div className="info">
+                      <div className="n">
+                        <a href={f.profile_url ?? "#"} target="_blank" rel="noreferrer">
+                          {f.name ?? f.friend_steam_id}
+                        </a>
+                      </div>
+                      <div className="s">
+                        friends {fmt(f.friend_since)} → gone {fmt(f.removed_at)}
+                      </div>
+                    </div>
+                    <span className="badge badge-removed">removed</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="section-head">
+            <h2>Current friends</h2>
+            <span className="count">{active.length}</span>
+          </div>
+          <div className="card list">
+            {active.length === 0 ? (
+              <div className="empty">No friends found yet.</div>
+            ) : (
+              active.map((f: any) => (
+                <div className="row" key={f.friend_steam_id}>
+                  <img src={f.avatar || initialAvatar()} alt="" />
+                  <div className="info">
+                    <div className="n">
+                      <a href={f.profile_url ?? "#"} target="_blank" rel="noreferrer">
+                        {f.name ?? f.friend_steam_id}
+                      </a>
+                    </div>
+                    <div className="s">friends since {fmt(f.friend_since)}</div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {active.length > 0 && (
-        <>
-          <h2>Current friends ({active.length})</h2>
-          <div className="card">
-            {active.map((f: any) => (
-              <div className="row" key={f.friend_steam_id}>
-                {f.avatar ? <img src={f.avatar} alt="" /> : null}
-                <div style={{ flex: 1 }}>
-                  <a href={f.profile_url ?? "#"} target="_blank" rel="noreferrer">
-                    {f.name ?? f.friend_steam_id}
-                  </a>
-                  <div className="muted">friends since {fmt(f.friend_since)}</div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </>
       )}
