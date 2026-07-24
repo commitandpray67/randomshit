@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <footer className="site-footer">
           <a href="/">Home</a> · <a href="/privacy">Privacy</a> ·{" "}
+          <a href="mailto:help@steamfriends.xyz">Contact</a> ·{" "}
           <span>Not affiliated with Steam or Valve.</span>
         </footer>
 

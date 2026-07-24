@@ -54,11 +54,16 @@ export default function Privacy() {
       <h2>Deleting your data</h2>
       <p>
         You can request deletion of all data associated with your account at any
-        time. Contact the site owner and your records will be removed.
+        time. Email{" "}
+        <a href="mailto:help@steamfriends.xyz">help@steamfriends.xyz</a> and your
+        records will be removed.
       </p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy can be sent to the site owner.</p>
+      <p>
+        Questions about this policy, or requests to delete your data, can be
+        sent to <a href="mailto:help@steamfriends.xyz">help@steamfriends.xyz</a>.
+      </p>
 
       <p style={{ marginTop: "2rem" }}>
         <a href="/">← Back to home</a>
