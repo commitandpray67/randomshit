@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
+        <Analytics />
         <footer className="site-footer">
           <a href="/">Home</a> · <a href="/privacy">Privacy</a> ·{" "}
           <a href="mailto:help@steamfriends.xyz">Contact</a> ·{" "}
