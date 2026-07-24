@@ -134,11 +134,12 @@ async function logEvent(
 
 /** Current (active) friends for the dashboard. */
 export async function getActiveFriends(steamId: string) {
+  // Oldest friendships first. Unknown friend_since (nulls) sort last.
   return sql`
     SELECT friend_steam_id, name, profile_url, avatar, friend_since, first_seen
     FROM friends
     WHERE user_steam_id = ${steamId} AND status = 'active'
-    ORDER BY lower(name)
+    ORDER BY friend_since ASC NULLS LAST
   `;
 }
 
