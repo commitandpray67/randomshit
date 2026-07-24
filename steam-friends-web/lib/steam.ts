@@ -47,9 +47,13 @@ export async function verifyLogin(query: URLSearchParams): Promise<string | null
   const text = await res.text();
   if (!/is_valid\s*:\s*true/.test(text)) return null;
 
-  // The verified identity URL looks like .../openid/id/7656119XXXXXXXXXX
+  // The verified identity URL must be a genuine Steam identity URL, e.g.
+  // https://steamcommunity.com/openid/id/7656119XXXXXXXXXX — anchor the host
+  // so a signed-but-oddly-shaped claimed_id can't slip a bad id through.
   const claimed = query.get("openid.claimed_id") ?? "";
-  const match = claimed.match(/\/openid\/id\/(\d{17})/);
+  const match = claimed.match(
+    /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/,
+  );
   return match ? match[1] : null;
 }
 

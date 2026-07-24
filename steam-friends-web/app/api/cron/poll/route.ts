@@ -10,8 +10,11 @@ import { syncUser } from "@/lib/tracker";
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
+  // Fail closed: if no secret is configured, reject everything rather than
+  // letting `Bearer ` (empty secret) match and expose the poll to anyone.
+  const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
