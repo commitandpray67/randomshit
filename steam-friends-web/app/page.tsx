@@ -56,7 +56,6 @@ export default async function Home() {
   return (
     <main>
       <div className="hero">
-        <div className="logo">🎮</div>
         <h1>See who unfriended you on Steam</h1>
         <p className="sub">
           Steam never tells you when someone removes you. Sign in and we&apos;ll
@@ -70,17 +69,14 @@ export default async function Home() {
 
       <div className="features">
         <div className="card feature">
-          <div className="ico">📸</div>
           <h3>Snapshot your friends</h3>
           <p>Sign in once and we save exactly who your Steam friends are right now.</p>
         </div>
         <div className="card feature">
-          <div className="ico">🔍</div>
           <h3>Catch unfriends</h3>
           <p>Come back anytime to see who was added — and who quietly removed you.</p>
         </div>
         <div className="card feature">
-          <div className="ico">🗓️</div>
           <h3>Automatic daily checks</h3>
           <p>We re-check every day, so a removal is caught even while you&apos;re away.</p>
         </div>

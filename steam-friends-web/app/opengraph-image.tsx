@@ -21,8 +21,7 @@ export default function Image() {
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ fontSize: 96 }}>🎮</div>
-        <div style={{ fontSize: 64, fontWeight: 800, marginTop: 12 }}>
+        <div style={{ fontSize: 64, fontWeight: 800 }}>
           Steam Friends Tracker
         </div>
         <div style={{ fontSize: 34, color: "#66c0f4", marginTop: 16 }}>

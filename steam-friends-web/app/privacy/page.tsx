@@ -66,7 +66,7 @@ export default function Privacy() {
       </p>
 
       <p style={{ marginTop: "2rem" }}>
-        <a href="/">← Back to home</a>
+        <a href="/">Back to home</a>
       </p>
     </main>
   );

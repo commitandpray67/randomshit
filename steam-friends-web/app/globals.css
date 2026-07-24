@@ -84,7 +84,6 @@ p  { margin: 0.75rem 0; }
   text-align: center;
   padding: 2rem 0 1rem;
 }
-.hero .logo { font-size: 3rem; line-height: 1; }
 .hero h1 { font-size: 2.5rem; margin-top: 0.5rem; }
 .hero .sub { color: var(--text-dim); font-size: 1.1rem; max-width: 30rem; margin: 0.75rem auto 1.5rem; }
 
@@ -95,8 +94,7 @@ p  { margin: 0.75rem 0; }
   margin-top: 2rem;
 }
 .feature { text-align: left; }
-.feature .ico { font-size: 1.5rem; }
-.feature h3 { color: var(--heading); font-size: 1rem; margin: 0.5rem 0 0.25rem; }
+.feature h3 { color: var(--heading); font-size: 1rem; margin: 0 0 0.25rem; }
 .feature p { color: var(--text-dim); font-size: 0.9rem; margin: 0; }
 
 /* ---- dashboard header ---- */
@@ -208,8 +206,8 @@ p  { margin: 0.75rem 0; }
   list-style: none;
 }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::before { content: "▸ "; color: var(--accent); }
-.faq[open] summary::before { content: "▾ "; }
+.faq summary::before { content: "+ "; color: var(--accent); font-weight: 700; }
+.faq[open] summary::before { content: "\2013 "; }
 .faq p { color: var(--text-dim); margin: 0.5rem 0 0.25rem 1rem; }
 
 @media (max-width: 520px) {

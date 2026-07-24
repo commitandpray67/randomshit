@@ -81,7 +81,7 @@ export default async function Dashboard() {
 
           {sync.status === "ok" && sync.firstRun && (
             <div className="card notice info">
-              📸 Saved a baseline of <strong>{sync.counts.total}</strong> friends.
+              Saved a baseline of <strong>{sync.counts.total}</strong> friends.
               Come back later (or let the daily check run) and we&apos;ll show you
               anyone who unfriended you.
             </div>
