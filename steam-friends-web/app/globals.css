@@ -111,6 +111,7 @@ p  { margin: 0.75rem 0; }
 .topbar .who { flex: 1; }
 .topbar .who .name { color: var(--heading); font-size: 1.4rem; font-weight: 700; }
 .topbar .who .meta { color: var(--text-dim); font-size: 0.85rem; }
+.topbar-actions { display: flex; gap: 0.5rem; }
 
 /* ---- stat tiles ---- */
 .stats {
@@ -196,24 +197,6 @@ p  { margin: 0.75rem 0; }
 .steps { padding-left: 1.2rem; margin: 0.5rem 0; }
 .steps li { margin: 0.5rem 0; }
 
-/* ---- FAQ ---- */
-.faq { border-bottom: 1px solid var(--border); padding: 0.6rem 0; }
-.faq:last-child { border-bottom: none; }
-.faq summary {
-  cursor: pointer;
-  color: var(--heading);
-  font-weight: 600;
-  list-style: none;
-}
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::before {
-  content: "+";
-  color: var(--accent);
-  font-weight: 700;
-  margin-right: 0.5rem;
-}
-.faq[open] summary::before { content: "\2212"; }
-.faq p { color: var(--text-dim); margin: 0.5rem 0 0.25rem 1rem; }
 
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr 1fr; }

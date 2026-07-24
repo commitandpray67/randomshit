@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/session";
 import { syncUser, getActiveFriends, getRemovedFriends } from "@/lib/tracker";
 import { sql } from "@/lib/db";
 import AdSlot from "@/components/AdSlot";
 
 export const dynamic = "force-dynamic";
+
+// Manual refresh. Fetches from Steam at most once per 20s per user, so it can't
+// be spammed to hammer the Steam API on your key.
+async function refresh() {
+  "use server";
+  const sid = await getSession();
+  if (sid) await syncUser(sid, 20);
+  revalidatePath("/dashboard");
+}
 
 // Private, per-user page, keep it out of search indexes.
 export const metadata = { robots: { index: false, follow: false } };
@@ -49,9 +59,14 @@ export default async function Dashboard() {
             {user?.last_polled ? `Last checked ${fmt(user.last_polled)}` : "Steam Friends Tracker"}
           </div>
         </div>
-        <form action="/api/auth/logout" method="post">
-          <button className="btn btn-ghost" type="submit">Log out</button>
-        </form>
+        <div className="topbar-actions">
+          <form action={refresh}>
+            <button className="btn" type="submit">Refresh</button>
+          </form>
+          <form action="/api/auth/logout" method="post">
+            <button className="btn btn-ghost" type="submit">Log out</button>
+          </form>
+        </div>
       </div>
 
       {sync.status === "private" && (
