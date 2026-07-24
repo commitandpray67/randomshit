@@ -192,6 +192,35 @@ p  { margin: 0.75rem 0; }
   color: var(--text-dim);
   overflow: hidden;
 }
+.ad-slot .adsbygoogle { width: 100%; }
+
+/* ---- cookie consent banner ---- */
+.consent {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 100;
+  background: rgba(11, 18, 26, 0.97);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+}
+.consent-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.consent-inner p { margin: 0; flex: 1; min-width: 220px; font-size: 0.9rem; }
+.consent-actions { display: flex; gap: 0.5rem; }
+.consent-actions .btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+
+@media (max-width: 520px) {
+  .consent-inner { justify-content: center; }
+  .consent-actions { width: 100%; }
+  .consent-actions .btn { flex: 1; justify-content: center; }
+}
 
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr 1fr; }

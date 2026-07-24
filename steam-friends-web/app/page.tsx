@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import AdSlot from "@/components/AdSlot";
 
 export default async function Home() {
   const steamId = await getSession();
@@ -43,6 +44,8 @@ export default async function Home() {
         friends list → Public). Steam doesn&apos;t let any third-party app read a
         private friends list — not even your own.
       </div>
+
+      <AdSlot />
 
       <p className="muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>
         Not affiliated with Steam or Valve.

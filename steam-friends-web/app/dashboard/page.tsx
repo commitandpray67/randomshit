@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { syncUser, getActiveFriends, getRemovedFriends } from "@/lib/tracker";
 import { sql } from "@/lib/db";
+import AdSlot from "@/components/AdSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,8 @@ export default async function Dashboard() {
               anyone who unfriended you.
             </div>
           )}
+
+          <AdSlot />
 
           {removed.length > 0 && (
             <>

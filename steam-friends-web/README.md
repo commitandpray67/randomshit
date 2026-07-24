@@ -76,6 +76,33 @@ Fill `.env.local`:
    which the endpoint checks.
 4. Create the tables against your production database (run the schema once).
 
+## Ads (Google AdSense)
+
+Ads are **off by default** — no ad code and no cookie banner load unless you
+configure them. To turn ads on after your AdSense account is approved:
+
+1. Get approved at <https://adsense.google.com> for `your-domain`.
+2. Create a display ad unit → note the **slot id**, and your **publisher id**
+   (`ca-pub-...`).
+3. Set two env vars (in Vercel → Settings → Environment Variables, then redeploy):
+   ```
+   NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX
+   NEXT_PUBLIC_ADSENSE_SLOT=XXXXXXXXXX
+   ```
+
+What this wires up:
+
+- `components/AdSlot.tsx` — a responsive ad unit, placed on the landing page and
+  the dashboard. Renders nothing until both env vars are set.
+- `components/Consent.tsx` — a cookie-consent banner. The AdSense script is
+  loaded **only after the visitor clicks Accept** (GDPR-correct). "Reject"
+  never loads ads. The choice is remembered in `localStorage`. The banner only
+  appears when ads are configured.
+- `/privacy` documents the AdSense cookie use, as AdSense requires.
+
+To place more ad units, drop `<AdSlot slot="ANOTHER_SLOT_ID" />` wherever you
+like (or reuse the default slot with just `<AdSlot />`).
+
 ## What to build next
 
 - **Notifications** on an unfriend (email via Resend, or a Discord webhook).

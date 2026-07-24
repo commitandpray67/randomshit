@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import Consent from "@/components/Consent";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,11 +7,6 @@ export const metadata: Metadata = {
   description:
     "Sign in with Steam and we'll remember your friends list, so you can find out later who unfriended you.",
 };
-
-// Set NEXT_PUBLIC_ADSENSE_CLIENT (e.g. "ca-pub-1234567890123456") in your
-// environment once your AdSense account is approved. Until then, no ad code
-// loads at all.
-const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,14 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <span>Not affiliated with Steam or Valve.</span>
         </footer>
 
-        {ADSENSE_CLIENT && (
-          <Script
-            async
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-          />
-        )}
+        {/* Shows a cookie banner and loads AdSense only after consent.
+            Renders nothing unless NEXT_PUBLIC_ADSENSE_CLIENT is set. */}
+        <Consent />
       </body>
     </html>
   );
