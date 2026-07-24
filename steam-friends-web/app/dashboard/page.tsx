@@ -6,6 +6,9 @@ import AdSlot from "@/components/AdSlot";
 
 export const dynamic = "force-dynamic";
 
+// Private, per-user page — keep it out of search indexes.
+export const metadata = { robots: { index: false, follow: false } };
+
 function fmt(d: string | Date | null): string {
   if (!d) return "unknown";
   return new Date(d).toISOString().slice(0, 10);

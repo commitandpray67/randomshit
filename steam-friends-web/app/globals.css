@@ -194,6 +194,24 @@ p  { margin: 0.75rem 0; }
 }
 .ad-slot .adsbygoogle { width: 100%; }
 
+/* ---- how-it-works steps ---- */
+.steps { padding-left: 1.2rem; margin: 0.5rem 0; }
+.steps li { margin: 0.5rem 0; }
+
+/* ---- FAQ ---- */
+.faq { border-bottom: 1px solid var(--border); padding: 0.6rem 0; }
+.faq:last-child { border-bottom: none; }
+.faq summary {
+  cursor: pointer;
+  color: var(--heading);
+  font-weight: 600;
+  list-style: none;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::before { content: "▸ "; color: var(--accent); }
+.faq[open] summary::before { content: "▾ "; }
+.faq p { color: var(--text-dim); margin: 0.5rem 0 0.25rem 1rem; }
+
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr 1fr; }
   .hero h1 { font-size: 2rem; }
