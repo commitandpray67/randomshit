@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Privacy Policy — Steam Friends Tracker",
+  title: "Privacy Policy",
 };
 
 export default function Privacy() {
@@ -29,7 +29,7 @@ export default function Privacy() {
       </ul>
       <p>
         We only read information that Steam already exposes publicly through its
-        Web API. We never see or store your Steam password — sign-in happens on
+        Web API. We never see or store your Steam password; sign-in happens on
         Steam&apos;s own servers via Steam OpenID.
       </p>
 

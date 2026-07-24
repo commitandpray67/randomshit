@@ -6,7 +6,7 @@ import { syncUser } from "@/lib/tracker";
 // with `Authorization: Bearer <CRON_SECRET>`. It snapshots every user so
 // unfriends are detected even when nobody is on the site.
 //
-// Give it room to run — many users means many Steam calls.
+// Give it room to run, many users means many Steam calls.
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {

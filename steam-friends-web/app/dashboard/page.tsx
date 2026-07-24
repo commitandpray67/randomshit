@@ -6,7 +6,7 @@ import AdSlot from "@/components/AdSlot";
 
 export const dynamic = "force-dynamic";
 
-// Private, per-user page — keep it out of search indexes.
+// Private, per-user page, keep it out of search indexes.
 export const metadata = { robots: { index: false, follow: false } };
 
 function fmt(d: string | Date | null): string {
@@ -24,7 +24,7 @@ export default async function Dashboard() {
   if (!steamId) redirect("/");
 
   // Refresh on visit so the page reflects the latest list, but at most once
-  // per minute per user — repeated refreshes just show stored data instead of
+  // per minute per user, repeated refreshes just show stored data instead of
   // hammering Steam's API. (The daily cron catches changes while you're away.)
   const sync = await syncUser(steamId, 60);
 
@@ -56,7 +56,7 @@ export default async function Dashboard() {
 
       {sync.status === "private" && (
         <div className="notice">
-          We couldn&apos;t read your friends list — it looks <strong>private</strong>.
+          We couldn&apos;t read your friends list; it looks <strong>private</strong>.
           Set <em>My friends list</em> to <em>Public</em> in your Steam privacy
           settings, then refresh this page.
         </div>

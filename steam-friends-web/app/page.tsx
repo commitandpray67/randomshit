@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     q: "Does Steam notify you when someone unfriends you?",
-    a: "No. Steam removes them silently — you just quietly have one fewer friend. That's the whole reason this tool exists: it remembers your list so a removal doesn't go unnoticed.",
+    a: "No. Steam removes them silently, and you just quietly have one fewer friend. That's the whole reason this tool exists: it remembers your list so a removal doesn't go unnoticed.",
   },
   {
     q: "Is it free?",
@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: "Do I need to make my friends list public?",
-    a: "Yes. Steam only lets third-party apps read a friends list that is set to Public — not even your own private list is readable. Set 'My friends list' to Public in your Steam privacy settings first.",
+    a: "Yes. Steam only lets third-party apps read a friends list that is set to Public. Not even your own private list is readable. Set 'My friends list' to Public in your Steam privacy settings first.",
   },
   {
     q: "Is my account safe? Do you get my password?",
@@ -60,7 +60,7 @@ export default async function Home() {
         <p className="sub">
           Steam never tells you when someone removes you. Sign in and we&apos;ll
           remember your friends list, so you can find out exactly who unfriended
-          you — and when.
+          you, and when.
         </p>
         <a className="btn" href="/api/auth/steam">
           <span>Sign in through Steam</span>
@@ -74,7 +74,7 @@ export default async function Home() {
         </div>
         <div className="card feature">
           <h3>Catch unfriends</h3>
-          <p>Come back anytime to see who was added — and who quietly removed you.</p>
+          <p>Come back anytime to see who was added, and who quietly removed you.</p>
         </div>
         <div className="card feature">
           <h3>Automatic daily checks</h3>
@@ -91,7 +91,7 @@ export default async function Home() {
           Profile → Privacy Settings → My friends list → Public).
         </li>
         <li>
-          Click <strong>Sign in through Steam</strong> above — no password is
+          Click <strong>Sign in through Steam</strong> above. No password is
           shared, only your public SteamID.
         </li>
         <li>
@@ -113,7 +113,7 @@ export default async function Home() {
       <div className="card notice info">
         <strong>One requirement:</strong> your Steam <em>friends list</em> must be
         set to <em>Public</em>. Steam doesn&apos;t let any third-party app read a
-        private friends list — not even your own.
+        private friends list, not even your own.
       </div>
 
       <p className="muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>

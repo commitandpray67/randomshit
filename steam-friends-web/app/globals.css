@@ -206,8 +206,13 @@ p  { margin: 0.75rem 0; }
   list-style: none;
 }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::before { content: "+ "; color: var(--accent); font-weight: 700; }
-.faq[open] summary::before { content: "\2013 "; }
+.faq summary::before {
+  content: "+";
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 0.5rem;
+}
+.faq[open] summary::before { content: "\2212"; }
 .faq p { color: var(--text-dim); margin: 0.5rem 0 0.25rem 1rem; }
 
 @media (max-width: 520px) {

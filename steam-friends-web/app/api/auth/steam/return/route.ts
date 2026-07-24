@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     displayName = me?.personaname ?? null;
     avatar = me?.avatar ?? null;
   } catch {
-    // Non-fatal — we can still log the user in without their display name.
+    // Non-fatal, we can still log the user in without their display name.
   }
 
   await sql`

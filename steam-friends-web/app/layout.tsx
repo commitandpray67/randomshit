@@ -8,11 +8,11 @@ const SITE = process.env.APP_URL || "https://steamfriends.xyz";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
-    default: "Steam Friends Tracker — See Who Unfriended You on Steam",
+    default: "Steam Friends Tracker: See Who Unfriended You on Steam",
     template: "%s · Steam Friends Tracker",
   },
   description:
-    "Free tool to track your Steam friends list and find out who unfriended or removed you. Sign in with Steam and we'll show you exactly who dropped you — and when.",
+    "Free tool to track your Steam friends list and find out who unfriended or removed you. Sign in with Steam and we'll show you exactly who dropped you, and when.",
   keywords: [
     "steam friends tracker",
     "who unfriended me on steam",
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     siteName: "Steam Friends Tracker",
     title: "See Who Unfriended You on Steam",
     description:
-      "Track your Steam friends over time and find out who unfriended or removed you — for free.",
+      "Track your Steam friends over time and find out who unfriended or removed you, for free.",
   },
   twitter: {
     card: "summary_large_image",
     title: "See Who Unfriended You on Steam",
     description:
-      "Track your Steam friends over time and find out who unfriended or removed you — for free.",
+      "Track your Steam friends over time and find out who unfriended or removed you, for free.",
   },
   robots: { index: true, follow: true },
   // Ownership marker for AdSense site verification (the "Meta tag" method).
@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Load AdSense when configured. Consent for EEA/UK/CH visitors is
             handled by Google's own Consent Management Platform (CMP), which is
-            served through this same tag — so no separate cookie banner. */}
+            served through this same tag, so no separate cookie banner. */}
         {ADSENSE_CLIENT && (
           <Script
             id="adsbygoogle-js"
