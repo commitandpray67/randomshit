@@ -94,10 +94,11 @@ What this wires up:
 
 - `components/AdSlot.tsx` — a responsive ad unit, placed on the landing page and
   the dashboard. Renders nothing until both env vars are set.
-- `components/Consent.tsx` — a cookie-consent banner. The AdSense script is
-  loaded **only after the visitor clicks Accept** (GDPR-correct). "Reject"
-  never loads ads. The choice is remembered in `localStorage`. The banner only
-  appears when ads are configured.
+- The AdSense script is loaded site-wide (in `app/layout.tsx`) only when
+  `NEXT_PUBLIC_ADSENSE_CLIENT` is set. Consent for EEA/UK/Switzerland visitors
+  is handled by **Google's Consent Management Platform (CMP)**, configured in
+  the AdSense dashboard (Privacy & messaging → GDPR message) — no separate
+  cookie banner is needed.
 - `/privacy` documents the AdSense cookie use, as AdSense requires.
 
 To place more ad units, drop `<AdSlot slot="ANOTHER_SLOT_ID" />` wherever you
