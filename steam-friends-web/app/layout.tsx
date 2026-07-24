@@ -21,9 +21,24 @@ export const metadata: Metadata = {
     "check steam friends",
     "steam friend list history",
     "did someone unfriend me steam",
+    // Russian
+    "кто удалил меня из друзей стим",
+    "трекер друзей стим",
+    "история друзей steam",
+    // Chinese
+    "Steam好友追踪",
+    "谁删除了我的Steam好友",
+    "Steam好友记录",
   ],
   applicationName: "Steam Friends Tracker",
-  alternates: { canonical: "/" },
+  alternates: {
+    canonical: "/",
+    languages: {
+      en: `${SITE}/`,
+      ru: `${SITE}/ru`,
+      zh: `${SITE}/zh`,
+    },
+  },
   openGraph: {
     type: "website",
     url: SITE,
