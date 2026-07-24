@@ -41,6 +41,7 @@ export default function FriendsView({
         <button
           type="button"
           className={`stat ok ${filter === "current" ? "active" : ""}`}
+          aria-pressed={filter === "current"}
           onClick={() => setFilter("current")}
         >
           <div className="num">{active.length}</div>
@@ -49,6 +50,7 @@ export default function FriendsView({
         <button
           type="button"
           className={`stat danger ${filter === "removed" ? "active" : ""}`}
+          aria-pressed={filter === "removed"}
           onClick={() => setFilter("removed")}
         >
           <div className="num">{removed.length}</div>
@@ -57,6 +59,7 @@ export default function FriendsView({
         <button
           type="button"
           className={`stat ${filter === "all" ? "active" : ""}`}
+          aria-pressed={filter === "all"}
           onClick={() => setFilter("all")}
         >
           <div className="num">{all.length}</div>
@@ -77,11 +80,20 @@ export default function FriendsView({
 
       <div className="card list">
         {list.length === 0 ? (
-          <div className="empty">{emptyMessage(filter, needle)}</div>
+          <div className="empty">
+            <div className="empty-icon" aria-hidden="true">
+              {emptyIcon(filter, needle)}
+            </div>
+            {emptyMessage(filter, needle)}
+          </div>
         ) : (
           list.map((r) => (
             <div className="row" key={`${r.status}:${r.id}`}>
-              <img src={r.avatar || ""} alt="" />
+              {r.avatar ? (
+                <img src={r.avatar} alt="" loading="lazy" />
+              ) : (
+                <div className="avatar-fallback">{r.name.slice(0, 1)}</div>
+              )}
               <div className="info">
                 <div className="n">
                   <a href={r.url || "#"} target="_blank" rel="noreferrer">
@@ -89,9 +101,14 @@ export default function FriendsView({
                   </a>
                 </div>
                 <div className="s">
-                  {r.status === "removed"
-                    ? `friends ${r.friendSince} → gone ${r.removedAt}`
-                    : `friends since ${r.friendSince}`}
+                  {r.status === "removed" ? (
+                    <>
+                      friends {r.friendSince} →{" "}
+                      <span className="gone">gone {r.removedAt}</span>
+                    </>
+                  ) : (
+                    `friends since ${r.friendSince}`
+                  )}
                 </div>
               </div>
               {r.status === "removed" && (
@@ -103,6 +120,12 @@ export default function FriendsView({
       </div>
     </>
   );
+}
+
+function emptyIcon(filter: Filter, needle: string): string {
+  if (needle) return "🔍";
+  if (filter === "removed") return "🎉";
+  return "👥";
 }
 
 function emptyMessage(filter: Filter, needle: string): string {

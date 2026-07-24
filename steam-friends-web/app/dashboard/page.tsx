@@ -5,6 +5,7 @@ import { syncUser, getActiveFriends, getRemovedFriends } from "@/lib/tracker";
 import { sql } from "@/lib/db";
 import AdSlot from "@/components/AdSlot";
 import FriendsView, { type FriendRow } from "@/components/FriendsView";
+import RefreshButton from "@/components/RefreshButton";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function Dashboard() {
         </div>
         <div className="topbar-actions">
           <form action={refresh}>
-            <button className="btn" type="submit">Refresh</button>
+            <RefreshButton />
           </form>
           <form action="/api/auth/logout" method="post">
             <button className="btn btn-ghost" type="submit">Log out</button>
