@@ -62,6 +62,9 @@ export const metadata: Metadata = {
       "Track your Steam friends over time and find out who unfriended or removed you, for free.",
   },
   robots: { index: true, follow: true },
+  verification: {
+    yandex: "2ea4e745f4f45dbf",
+  },
   ...(ADSENSE_CLIENT ? { other: { "google-adsense-account": ADSENSE_CLIENT } } : {}),
 };
 
