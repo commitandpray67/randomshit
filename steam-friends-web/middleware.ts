@@ -39,6 +39,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except Next.js internals and static files.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  // Run on page routes only. Crawler-facing files (sitemap, robots, ads.txt)
+  // and static assets are excluded so they are served without a Set-Cookie
+  // and without any locale handling.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|api/).*)",
+  ],
 };
