@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/check-assets.mjs",
     "build": "next build",
     "start": "next start",
     "db:init": "node --experimental-strip-types scripts/init-db.ts"
