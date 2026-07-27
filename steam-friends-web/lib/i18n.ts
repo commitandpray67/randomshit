@@ -11,7 +11,7 @@ const en = {
   heroSub:
     "Steam never tells you when someone removes you. Sign in and we’ll remember your friends list, so you can see exactly who unfriended you, and when.",
   signIn: "Sign in through Steam",
-  trust: "No password shared. We only read your public SteamID via Steam OpenID.",
+  trust: "We only read your public SteamID via Steam OpenID.",
   howTitle: "How to see who unfriended you on Steam",
   step1Pre: "Set your Steam ",
   step1Bold: "friends list to Public",
@@ -78,7 +78,7 @@ const ru: typeof en = {
   heroSub:
     "Steam не сообщает, когда тебя удаляют из друзей. Войди — и мы запомним твой список, чтобы показать, кто и когда тебя удалил.",
   signIn: "Войти через Steam",
-  trust: "Пароль не нужен. Мы читаем только твой публичный SteamID через Steam OpenID.",
+  trust: "Мы читаем только твой публичный SteamID через Steam OpenID.",
   howTitle: "Как узнать, кто удалил тебя из друзей в Steam",
   step1Pre: "Открой настройки приватности Steam и выбери ",
   step1Bold: "«Мой список друзей» → «Открытый»",
@@ -139,7 +139,7 @@ const zh: typeof en = {
   heroSub:
     "Steam不会通知你有人删除了你。登录后，我们会记录你的好友列表，精确显示谁删除了你，以及何时删除。",
   signIn: "通过Steam登录",
-  trust: "无需密码。我们仅通过Steam OpenID读取你的公开SteamID。",
+  trust: "我们仅通过Steam OpenID读取你的公开SteamID。",
   howTitle: "如何查看谁删除了你的Steam好友",
   step1Pre: "打开Steam隐私设置，将",
   step1Bold: "「我的好友列表」设为「公开」",
@@ -198,7 +198,7 @@ const tr: typeof en = {
   heroSub:
     "Steam, biri seni arkadaş listesinden çıkardığında haber vermez. Giriş yap, biz listeni kaydedelim; tam olarak kimin ve ne zaman seni sildiğini görebilirsin.",
   signIn: "Steam ile Giriş Yap",
-  trust: "Şifre paylaşılmaz. Yalnızca Steam OpenID aracılığıyla genel SteamID'ni okuruz.",
+  trust: "Yalnızca Steam OpenID aracılığıyla genel SteamID'ni okuruz.",
   howTitle: "Steam'da Seni Kim Sildi? Nasıl Öğrenilir",
   step1Pre: "Steam ",
   step1Bold: "arkadaş listeni Herkese Açık",
