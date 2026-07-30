@@ -1,0 +1,223 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-size: 13px;
+  min-height: 80px;
+}
+
+.container {
+  padding: 12px;
+}
+
+/* ── Header ─────────────────────────────────────── */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 13px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #2a0000;
+}
+
+.pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3333;
+  box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.7);
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(255, 51, 51, 0.7); }
+  70%  { box-shadow: 0 0 0 7px rgba(255, 51, 51, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(255, 51, 51, 0); }
+}
+
+h1 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #ff4444;
+  text-transform: uppercase;
+}
+
+/* ── Form ────────────────────────────────────────── */
+
+#add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 11px;
+}
+
+input[type="text"] {
+  width: 100%;
+  background: #181818;
+  border: 1px solid #2d2d2d;
+  border-radius: 4px;
+  color: #e0e0e0;
+  padding: 7px 10px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus {
+  border-color: #ff3333;
+  background: #1a1a1a;
+}
+
+input[type="text"]::placeholder {
+  color: #4a4a4a;
+}
+
+button[type="submit"] {
+  background: #cc0000;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+button[type="submit"]:hover {
+  background: #ff1a1a;
+}
+
+button[type="submit"]:active {
+  background: #aa0000;
+}
+
+/* ── List header ──────────────────────────────────── */
+
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.list-header input {
+  flex: 1;
+}
+
+#count {
+  color: #555;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ── Terrorist list ───────────────────────────────── */
+
+#terrorist-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+#terrorist-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+#terrorist-list::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+#terrorist-list::-webkit-scrollbar-thumb {
+  background: #cc0000;
+  border-radius: 2px;
+}
+
+.terrorist-item {
+  background: #141414;
+  border: 1px solid #220000;
+  border-left: 3px solid #ff3333;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.player-name {
+  color: #ff4444;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.player-name:hover {
+  text-decoration: underline;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #444;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.delete-btn:hover {
+  color: #ff3333;
+}
+
+.item-comment {
+  color: #aaa;
+  font-size: 12px;
+  margin-bottom: 4px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.item-meta {
+  color: #444;
+  font-size: 10px;
+}
+
+.empty {
+  color: #444;
+  text-align: center;
+  padding: 24px 0;
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Flash animation when a new terrorist is added */
+@keyframes flash-added {
+  0%   { background: #2a0000; border-left-color: #ff6666; }
+  100% { background: #141414; border-left-color: #ff3333; }
+}
+
+.terrorist-item.just-added {
+  animation: flash-added 0.6s ease-out;
+}

@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ELO TERRORISTS",
+  "version": "1.0.0",
+  "description": "Flag FACEIT griefers. See them glow red in your next match before you accept.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.faceit.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ELO TERRORISTS"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.faceit.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

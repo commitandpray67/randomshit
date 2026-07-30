@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ELO TERRORISTS</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <span class="pulse"></span>
+        <h1>ELO TERRORISTS</h1>
+      </header>
+
+      <form id="add-form">
+        <input
+          type="text"
+          id="player-name"
+          placeholder="FACEIT nickname"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
+        <input
+          type="text"
+          id="comment"
+          placeholder="Reason (e.g. selling games, throwing)"
+          required
+        />
+        <button type="submit">FLAG TERRORIST</button>
+      </form>
+
+      <div class="list-header">
+        <input type="text" id="search" placeholder="Search flagged..." />
+        <span id="count">0 flagged</span>
+      </div>
+
+      <ul id="terrorist-list"></ul>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
