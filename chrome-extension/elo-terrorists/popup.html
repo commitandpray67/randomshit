@@ -10,10 +10,10 @@
       <header>
         <span class="pulse"></span>
         <h1>ELO TERRORISTS</h1>
-        <span id="db-badge" class="db-badge" title="Community database">COMMUNITY DB</span>
+        <span class="db-badge">COMMUNITY DB</span>
       </header>
 
-      <!-- Search a player in the community DB -->
+      <!-- Community search -->
       <section class="search-section">
         <div class="search-row">
           <input
@@ -32,22 +32,50 @@
 
       <!-- Flag a player -->
       <section>
-        <form id="add-form">
-          <input
-            type="text"
-            id="player-name"
-            placeholder="FACEIT nickname to flag"
-            autocomplete="off"
-            spellcheck="false"
-            required
-          />
-          <input
-            type="text"
-            id="comment"
-            placeholder="Reason (e.g. selling games, AFK, throwing)"
-            required
-          />
-          <button type="submit">FLAG TERRORIST</button>
+        <form id="add-form" novalidate>
+          <!-- Step 1: nickname -->
+          <div class="field-row">
+            <input
+              type="text"
+              id="player-name"
+              placeholder="FACEIT nickname to flag"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" id="resolve-btn">FIND</button>
+          </div>
+          <div id="resolve-status" class="resolve-status hidden"></div>
+
+          <!-- Step 2: rank (shown after successful resolve) -->
+          <div id="rank-section" class="hidden">
+            <div class="rank-header">
+              <span class="rank-label">Assign Rank</span>
+              <span class="rank-hint">S = worst terrorist · F = least bad</span>
+            </div>
+            <div class="rank-row">
+              <button type="button" class="rank-btn" data-rank="S"
+                      data-desc="Hardcore — confirmed account seller / throwing for money">S</button>
+              <button type="button" class="rank-btn" data-rank="A"
+                      data-desc="Severe — consistent intentional losing, AFK farming">A</button>
+              <button type="button" class="rank-btn" data-rank="B"
+                      data-desc="High — frequent thrower, obvious game-throwing">B</button>
+              <button type="button" class="rank-btn" data-rank="C"
+                      data-desc="Mid — suspicious, repeated bad games">C</button>
+              <button type="button" class="rank-btn" data-rank="D"
+                      data-desc="Low — possible troll, minor recurring issues">D</button>
+              <button type="button" class="rank-btn" data-rank="F"
+                      data-desc="Minimal — one-time incident or uncertain">F</button>
+            </div>
+            <div id="rank-desc" class="rank-desc"></div>
+
+            <input
+              type="text"
+              id="comment"
+              placeholder="Reason — required (e.g. sold 3 games in a row)"
+              maxlength="500"
+            />
+            <button type="submit" id="submit-btn">FLAG TERRORIST</button>
+          </div>
         </form>
       </section>
 

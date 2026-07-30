@@ -43,14 +43,27 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_user_at_idx
     ON events (user_steam_id, at DESC);
 
--- ELO Terrorists: community FACEIT griefer database (Chrome extension)
-CREATE TABLE IF NOT EXISTS et_flags (
-    id           BIGSERIAL PRIMARY KEY,
-    nickname     TEXT NOT NULL,                  -- stored lowercase
-    comment      TEXT NOT NULL,
-    reporter_id  TEXT NOT NULL,                  -- anonymous UUID from the extension
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (reporter_id, nickname)
+-- ELO Terrorists: community FACEIT griefer database (Chrome extension).
+-- See db/migrations/002_et_v2.sql for the upgrade from nickname-based v1.
+
+CREATE TABLE IF NOT EXISTS et_player_cache (
+    nickname          TEXT PRIMARY KEY,   -- lowercase FACEIT nickname
+    faceit_player_id  TEXT NOT NULL,
+    steam_id          TEXT NOT NULL,
+    cached_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS et_flags_nickname_idx ON et_flags (nickname);
+CREATE INDEX IF NOT EXISTS et_player_cache_steam_id_idx ON et_player_cache (steam_id);
+
+CREATE TABLE IF NOT EXISTS et_flags (
+    id            BIGSERIAL PRIMARY KEY,
+    steam_id      TEXT NOT NULL,
+    display_name  TEXT,
+    rank          TEXT NOT NULL CHECK (rank IN ('S','A','B','C','D','F')),
+    comment       TEXT NOT NULL,
+    reporter_id   TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (reporter_id, steam_id)
+);
+
+CREATE INDEX IF NOT EXISTS et_flags_steam_id_idx ON et_flags (steam_id);

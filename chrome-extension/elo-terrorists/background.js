@@ -1,15 +1,22 @@
-// Service worker — owns all API calls and the local lookup cache.
+// Service worker — owns all API calls and two-level cache.
 //
-// Content scripts never call the API directly; they send messages here.
-// This avoids CORS issues, centralises caching, and lets the popup and
-// content script share the same in-flight request for the same nickname.
+// Flow per page load:
+//   content.js  →  LOOKUP_NAMES(nicknames)
+//   background  →  /api/et/resolve → { nickname: steamId }  (24h cache)
+//   background  →  /api/et/lookup  → flag data per steamId  (15min cache)
+//   background  →  reply to content.js with { nickname: flagData | null }
+//
+// Popup flag flow:
+//   popup.js  →  RESOLVE_ONE(nickname)  → { steamId, displayName } | null
+//   popup.js  →  FLAG({ steamId, displayName, rank, comment })
 
 const API = "https://steamfriends.xyz/api/et";
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const RESOLVE_TTL = 24 * 60 * 60 * 1000; // 24 h — matches server cache
+const LOOKUP_TTL  = 15 * 60 * 1000;      // 15 min
 
-// In-memory cache: nickname -> { data: {...} | null, cachedAt: timestamp }
-// null means "looked up and confirmed clean". Lives until the SW sleeps.
-const cache = new Map();
+// In-memory caches (survive until the SW sleeps).
+const nameCache  = new Map(); // nickname → { steamId, cachedAt }
+const flagCache  = new Map(); // steamId  → { data: obj|null, cachedAt }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -28,85 +35,140 @@ async function setup() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   switch (msg.type) {
-    case "LOOKUP":
+    case "LOOKUP_NAMES":
       lookupNames(msg.names).then(reply);
       return true;
+    case "RESOLVE_ONE":
+      resolveOne(msg.nickname).then(reply);
+      return true;
     case "FLAG":
-      flagPlayer(msg.nickname, msg.comment).then(reply);
+      flagPlayer(msg).then(reply);
       return true;
     case "UNFLAG":
-      unflagPlayer(msg.nickname).then(reply);
+      unflagPlayer(msg.steamId).then(reply);
       return true;
     case "MY_FLAGS":
       getMyFlags().then(reply);
       return true;
     case "COMMUNITY_SEARCH":
-      lookupNames([msg.nickname.toLowerCase()]).then((r) =>
-        reply(r[msg.nickname.toLowerCase()] ?? null)
-      );
+      communitySearch(msg.nickname).then(reply);
       return true;
   }
 });
 
-// ── API helpers ──────────────────────────────────────────────────────────────
+// ── Core pipeline ────────────────────────────────────────────────────────────
 
-async function lookupNames(names) {
+async function lookupNames(nicknames) {
+  const now = Date.now();
+  const resolved = {};   // nickname → steamId
+  const toResolve = [];
+
+  for (const name of nicknames) {
+    const hit = nameCache.get(name);
+    if (hit && now - hit.cachedAt < RESOLVE_TTL) {
+      resolved[name] = hit.steamId;
+    } else {
+      toResolve.push(name);
+    }
+  }
+
+  if (toResolve.length > 0) {
+    try {
+      const qs = toResolve.map(encodeURIComponent).join(",");
+      const res = await fetch(`${API}/resolve?names=${qs}`);
+      if (res.ok) {
+        const { resolved: fresh } = await res.json();
+        for (const [name, steamId] of Object.entries(fresh)) {
+          nameCache.set(name, { steamId, cachedAt: Date.now() });
+          resolved[name] = steamId;
+        }
+      }
+    } catch { /* network error — use whatever we resolved so far */ }
+  }
+
+  // Deduplicate steam IDs, then look up flags in one batch.
+  const steamIds = [...new Set(Object.values(resolved).filter(Boolean))];
+  const flagData = await lookupSteamIds(steamIds);
+
+  // Map back to nickname → flag data (or null if clean / unresolved).
+  const result = {};
+  for (const name of nicknames) {
+    const steamId = resolved[name];
+    result[name] = steamId ? (flagData[steamId] ?? null) : null;
+  }
+  return result;
+}
+
+async function lookupSteamIds(steamIds) {
+  if (!steamIds.length) return {};
+
+  const now = Date.now();
   const result = {};
   const toFetch = [];
-  const now = Date.now();
 
-  for (const name of names) {
-    const hit = cache.get(name);
-    if (hit && now - hit.cachedAt < CACHE_TTL_MS) {
-      result[name] = hit.data;
+  for (const id of steamIds) {
+    const hit = flagCache.get(id);
+    if (hit && now - hit.cachedAt < LOOKUP_TTL) {
+      result[id] = hit.data;
     } else {
-      toFetch.push(name);
+      toFetch.push(id);
     }
   }
 
   if (toFetch.length > 0) {
     try {
       const qs = toFetch.map(encodeURIComponent).join(",");
-      const res = await fetch(`${API}/lookup?names=${qs}`);
+      const res = await fetch(`${API}/lookup?steam_ids=${qs}`);
       if (res.ok) {
         const { terrorists } = await res.json();
-        // Build index from API response
-        const byName = {};
-        for (const t of terrorists) byName[t.nickname] = t;
-
-        for (const name of toFetch) {
-          const data = byName[name] ?? null;
-          cache.set(name, { data, cachedAt: Date.now() });
-          result[name] = data;
+        const byId = Object.fromEntries(terrorists.map((t) => [t.steam_id, t]));
+        for (const id of toFetch) {
+          const data = byId[id] ?? null;
+          flagCache.set(id, { data, cachedAt: Date.now() });
+          result[id] = data;
         }
       }
-    } catch {
-      // Network error — leave uncached names as undefined so content
-      // script can retry on next mutation.
-    }
+    } catch { /* leave uncached */ }
   }
 
   return result;
 }
 
-async function flagPlayer(nickname, comment) {
-  const { reporterId } = await chrome.storage.local.get("reporterId");
+// ── Popup helpers ─────────────────────────────────────────────────────────────
 
+async function resolveOne(nickname) {
+  const name = nickname.trim().toLowerCase();
+  const hit = nameCache.get(name);
+  if (hit && Date.now() - hit.cachedAt < RESOLVE_TTL) {
+    return { steamId: hit.steamId, displayName: nickname };
+  }
+  try {
+    const res = await fetch(`${API}/resolve?names=${encodeURIComponent(name)}`);
+    if (res.ok) {
+      const { resolved } = await res.json();
+      const steamId = resolved[name];
+      if (steamId) {
+        nameCache.set(name, { steamId, cachedAt: Date.now() });
+        return { steamId, displayName: nickname };
+      }
+    }
+  } catch { /* fall through */ }
+  return null; // FACEIT account not found or not linked to Steam
+}
+
+async function flagPlayer({ steamId, displayName, rank, comment }) {
+  const { reporterId } = await chrome.storage.local.get("reporterId");
   try {
     const res = await fetch(`${API}/flag`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: nickname.toLowerCase(), comment, reporterId }),
+      body: JSON.stringify({ steamId, displayName, rank, comment, reporterId }),
     });
-
     if (res.ok) {
-      // Track locally so the popup can list "my flags" even without a login
       const { myFlags = {} } = await chrome.storage.local.get("myFlags");
-      myFlags[nickname.toLowerCase()] = { comment, addedAt: new Date().toISOString() };
+      myFlags[steamId] = { displayName, rank, comment, addedAt: new Date().toISOString() };
       await chrome.storage.local.set({ myFlags });
-
-      // Bust cache so the content script sees the new flag immediately
-      cache.delete(nickname.toLowerCase());
+      flagCache.delete(steamId);
       return { ok: true };
     }
     return { ok: false };
@@ -115,22 +177,19 @@ async function flagPlayer(nickname, comment) {
   }
 }
 
-async function unflagPlayer(nickname) {
+async function unflagPlayer(steamId) {
   const { reporterId } = await chrome.storage.local.get("reporterId");
-
   try {
     const res = await fetch(`${API}/flag`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: nickname.toLowerCase(), reporterId }),
+      body: JSON.stringify({ steamId, reporterId }),
     });
-
     if (res.ok) {
       const { myFlags = {} } = await chrome.storage.local.get("myFlags");
-      delete myFlags[nickname.toLowerCase()];
+      delete myFlags[steamId];
       await chrome.storage.local.set({ myFlags });
-
-      cache.delete(nickname.toLowerCase());
+      flagCache.delete(steamId);
       return { ok: true };
     }
     return { ok: false };
@@ -144,33 +203,32 @@ async function getMyFlags() {
   return myFlags;
 }
 
+async function communitySearch(nickname) {
+  const result = await lookupNames([nickname.trim().toLowerCase()]);
+  return result[nickname.trim().toLowerCase()] ?? null;
+}
+
 // ── Icon ─────────────────────────────────────────────────────────────────────
 
 function drawIcon() {
   try {
-    const size = 128;
-    const canvas = new OffscreenCanvas(size, size);
+    const s = 128;
+    const canvas = new OffscreenCanvas(s, s);
     const ctx = canvas.getContext("2d");
-
     ctx.fillStyle = "#0d0d0d";
-    ctx.fillRect(0, 0, size, size);
-
+    ctx.fillRect(0, 0, s, s);
     ctx.shadowColor = "#ff3333";
-    ctx.shadowBlur = size * 0.2;
+    ctx.shadowBlur = s * 0.2;
     ctx.fillStyle = "#ff3333";
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size * 0.38, 0, Math.PI * 2);
+    ctx.arc(s / 2, s / 2, s * 0.38, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${Math.floor(size * 0.34)}px Arial`;
+    ctx.font = `bold ${Math.floor(s * 0.34)}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("ET", size / 2, size / 2);
-
-    chrome.action.setIcon({ imageData: ctx.getImageData(0, 0, size, size) });
-  } catch {
-    // OffscreenCanvas unavailable
-  }
+    ctx.fillText("ET", s / 2, s / 2);
+    chrome.action.setIcon({ imageData: ctx.getImageData(0, 0, s, s) });
+  } catch { /* OffscreenCanvas unavailable */ }
 }

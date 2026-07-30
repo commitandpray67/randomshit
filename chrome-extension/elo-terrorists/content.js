@@ -1,23 +1,30 @@
 // Injected into every faceit.com page.
-// Asks the background service worker to look up player names, then highlights
-// flagged ones red. Never calls the API directly.
+// Sends FACEIT nicknames to the background SW → resolves to Steam IDs →
+// checks the community database → highlights flagged players by rank.
+
+const RANK = {
+  S: { color: "#cc0000", glow: "rgba(204,0,0,.95), 0 0 22px rgba(204,0,0,.6)" },
+  A: { color: "#ff3333", glow: "rgba(255,51,51,.9),  0 0 16px rgba(255,51,51,.5)" },
+  B: { color: "#ff6600", glow: "rgba(255,102,0,.9),  0 0 14px rgba(255,102,0,.4)" },
+  C: { color: "#ffaa00", glow: "rgba(255,170,0,.8),  0 0 12px rgba(255,170,0,.3)" },
+  D: { color: "#ddcc00", glow: "rgba(221,204,0,.7),  0 0 10px rgba(221,204,0,.3)" },
+  F: { color: "#888888", glow: "rgba(136,136,136,.6)" },
+};
 
 // nickname (lowercase) → API result object | null ("confirmed clean")
-// undefined = not yet looked up
-const lookup = {};
-let debounceTimer = null;
+// key absent = not yet looked up
+const known = {};
+let timer = null;
 
-function norm(name) {
-  return name.trim().toLowerCase();
-}
+function norm(s) { return s.trim().toLowerCase(); }
 
-function playerLinksOnPage() {
-  const names = new Set();
+function pageNicknames() {
+  const set = new Set();
   document.querySelectorAll("a[href*='/players/']").forEach((a) => {
     const m = (a.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (m) names.add(norm(decodeURIComponent(m[1])));
+    if (m) set.add(norm(decodeURIComponent(m[1])));
   });
-  return [...names];
+  return [...set];
 }
 
 function applyHighlights() {
@@ -26,62 +33,71 @@ function applyHighlights() {
     if (!m) return;
 
     const name = norm(decodeURIComponent(m[1]));
-    const entry = lookup[name];
-    if (!entry) return; // null = clean; undefined = pending
+    const entry = known[name];
+    if (!entry) return; // null = clean, undefined = still pending
 
-    if (link.dataset.etTagged) {
-      // Refresh tooltip in case flag count changed
+    const rank = entry.worst_rank;
+
+    // Already tagged with the same rank — just refresh the tooltip.
+    if (link.dataset.etRank === rank) {
       const badge = link.querySelector(".et-badge");
-      if (badge) badge.title = tooltip(entry);
+      if (badge) badge.title = makeTooltip(entry);
       return;
     }
 
-    link.dataset.etTagged = "1";
+    // Remove any previous badge (rank may have changed after a cache refresh).
+    link.querySelector(".et-badge")?.remove();
+
+    const { color, glow } = RANK[rank] || RANK.F;
+    link.dataset.etRank = rank;
     link.style.cssText +=
-      ";color:#ff3333!important" +
-      ";text-shadow:0 0 6px rgba(255,51,51,.9),0 0 14px rgba(255,51,51,.5)!important" +
-      ";font-weight:700!important";
+      `;color:${color}!important` +
+      `;text-shadow:0 0 6px ${glow}!important` +
+      `;font-weight:700!important`;
 
     const badge = document.createElement("span");
     badge.className = "et-badge";
-    badge.textContent = " ☠";
-    badge.title = tooltip(entry);
-    badge.style.cssText = "cursor:help;font-style:normal;text-shadow:0 0 4px #ff3333";
+    badge.textContent = ` [${rank}]`;
+    badge.title = makeTooltip(entry);
+    badge.style.cssText =
+      `cursor:help;font-style:normal;font-size:.82em;font-weight:900;` +
+      `color:${color};text-shadow:none;letter-spacing:.04em`;
     link.appendChild(badge);
   });
 }
 
-function tooltip(entry) {
-  const plural = entry.flag_count !== 1 ? "s" : "";
-  return `☠ ELO TERRORIST — ${entry.flag_count} report${plural}\n${entry.latest_comment}`;
+function makeTooltip(entry) {
+  const who = entry.display_name ? `${entry.display_name}  ·  ` : "";
+  const n = entry.flag_count;
+  return `${who}Rank ${entry.worst_rank}  ·  ${n} community report${n !== 1 ? "s" : ""}\n${entry.top_comment}`;
 }
 
 function refresh() {
-  const allNames = playerLinksOnPage();
-  const unknown = allNames.filter((n) => !(n in lookup));
+  const all = pageNicknames();
+  const unknown = all.filter((n) => !(n in known));
 
   if (unknown.length === 0) {
     applyHighlights();
     return;
   }
 
-  chrome.runtime.sendMessage({ type: "LOOKUP", names: unknown }, (result) => {
+  chrome.runtime.sendMessage({ type: "LOOKUP_NAMES", names: unknown }, (result) => {
     if (!result) return;
     for (const [name, data] of Object.entries(result)) {
-      lookup[name] = data; // data is the API object or null
+      known[name] = data; // null = clean, object = flagged
     }
     applyHighlights();
   });
 }
 
-function scheduleRefresh() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(refresh, 150);
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(refresh, 150);
 }
 
 function init() {
   refresh();
-  new MutationObserver(scheduleRefresh).observe(document.body, {
+  new MutationObserver(schedule).observe(document.body, {
     childList: true,
     subtree: true,
   });
