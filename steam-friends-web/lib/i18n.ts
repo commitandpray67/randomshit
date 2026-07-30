@@ -1,6 +1,6 @@
-export type Locale = "en" | "ru" | "zh" | "tr";
+export type Locale = "en" | "ru" | "zh" | "tr" | "es";
 
-export const LOCALES: Locale[] = ["en", "ru", "zh", "tr"];
+export const LOCALES: Locale[] = ["en", "ru", "zh", "tr", "es"];
 
 const en = {
   htmlLang: "en" as string,
@@ -250,7 +250,68 @@ const tr: typeof en = {
   footDisclaimer: "Steam veya Valve ile bağlantısı yoktur.",
 };
 
-export const translations = { en, ru, zh, tr } satisfies Record<Locale, typeof en>;
+const es: typeof en = {
+  htmlLang: "es",
+  h1Before: "Mira quién te ",
+  h1Accent: "eliminó de amigos",
+  h1After: " en Steam",
+  heroSub:
+    "Steam nunca te avisa cuando alguien te elimina. Inicia sesión y guardaremos tu lista de amigos para que puedas ver exactamente quién te eliminó y cuándo.",
+  signIn: "Iniciar sesión con Steam",
+  trust: "Solo leemos tu SteamID público mediante Steam OpenID.",
+  howTitle: "Cómo ver quién te eliminó de amigos en Steam",
+  step1Pre: "Configura tu lista de amigos de Steam como ",
+  step1Bold: "Pública",
+  step1Post:
+    " (Editar perfil → Configuración de privacidad → Mi lista de amigos). Steam no permite que ninguna app lea una lista privada.",
+  step2Pre: "Haz clic en ",
+  step2Bold: "Iniciar sesión con Steam",
+  step2Post: " arriba. Guardaremos una instantánea base de tus amigos actuales.",
+  step3Pre:
+    "Vuelve cuando quieras, o deja que la revisión diaria lo haga, y destacaremos a quienes te ",
+  step3Bold: "eliminaron o te quitaron de amigos",
+  step3Post: ".",
+  yourAccount: "Tu cuenta",
+  lastChecked: (ago: string) => `Última revisión ${ago}`,
+  appName: "Steam Friends Tracker",
+  refresh: "Actualizar",
+  refreshing: "Actualizando…",
+  logout: "Cerrar sesión",
+  privateIntro: "No pudimos leer tu lista de amigos; parece",
+  privateBold: "privada",
+  privateAction:
+    "Configura Mi lista de amigos como Pública en la configuración de privacidad de Steam y luego recarga esta página.",
+  privateMid: "",
+  privateEmBefore: "Mi lista de amigos",
+  privateEmAfter: "Pública",
+  firstRunMsg: (n: number) =>
+    `Se guardó una instantánea base de ${n} amigos. Vuelve más tarde (o espera la revisión diaria) y te mostraremos quién te eliminó.`,
+  statCurrent: "Amigos actuales",
+  statRemoved: "Te eliminaron",
+  statAll: "Total rastreados",
+  searchPlaceholder: "Buscar por nombre",
+  shown: (n: number) => `${n} mostrados`,
+  friendsSince: (d: string) => `amigos desde ${d}`,
+  friendsGonePre: (since: string) => `amigos ${since}`,
+  goneLabel: (date: string) => `eliminado ${date}`,
+  badgeRemoved: "eliminado",
+  emptyRemoved: "Nadie te ha eliminado de amigos aún.",
+  emptyCurrent: "Aún no se encontraron amigos.",
+  emptyAll: "Aún no hay amigos rastreados.",
+  emptySearch: (q: string) => `Sin resultados para "${q}".`,
+  justNow: "justo ahora",
+  minsAgo: (n: number) => `hace ${n} min`,
+  hoursAgo: (n: number) => `hace ${n} h`,
+  daysAgo: (n: number) => `hace ${n} d`,
+  never: "nunca",
+  unknown: "desconocido",
+  footHome: "Inicio",
+  footPrivacy: "Privacidad",
+  footContact: "Contacto",
+  footDisclaimer: "No afiliado con Steam ni Valve.",
+};
+
+export const translations = { en, ru, zh, tr, es } satisfies Record<Locale, typeof en>;
 export type T = typeof en;
 
 export function getT(locale: Locale): T {

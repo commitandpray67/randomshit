@@ -21,6 +21,10 @@ export function middleware(request: NextRequest) {
     response.cookies.set(COOKIE, "tr", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     return response;
   }
+  if (path === "/es" || path.startsWith("/es/")) {
+    response.cookies.set(COOKIE, "es", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
+    return response;
+  }
 
   // First visit (no cookie) — auto-detect from Accept-Language.
   if (!request.cookies.has(COOKIE)) {
@@ -31,6 +35,8 @@ export function middleware(request: NextRequest) {
       response.cookies.set(COOKIE, "zh", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     } else if (al.includes("tr")) {
       response.cookies.set(COOKIE, "tr", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
+    } else if (al.includes("es")) {
+      response.cookies.set(COOKIE, "es", { path: "/", maxAge: MAX_AGE, sameSite: "lax" });
     }
     // en is the default — no cookie needed; getLocale() falls back to en.
   }

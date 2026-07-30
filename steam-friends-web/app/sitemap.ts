@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/ru`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/zh`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/tr`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE}/es`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/privacy`, changeFrequency: "yearly", priority: 0.3 },
   ];
 }
