@@ -42,3 +42,15 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS events_user_at_idx
     ON events (user_steam_id, at DESC);
+
+-- ELO Terrorists: community FACEIT griefer database (Chrome extension)
+CREATE TABLE IF NOT EXISTS et_flags (
+    id           BIGSERIAL PRIMARY KEY,
+    nickname     TEXT NOT NULL,                  -- stored lowercase
+    comment      TEXT NOT NULL,
+    reporter_id  TEXT NOT NULL,                  -- anonymous UUID from the extension
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (reporter_id, nickname)
+);
+
+CREATE INDEX IF NOT EXISTS et_flags_nickname_idx ON et_flags (nickname);

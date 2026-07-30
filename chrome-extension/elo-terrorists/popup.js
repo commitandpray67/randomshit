@@ -1,21 +1,13 @@
-const STORAGE_KEY = "eloTerrorists";
-
 function norm(name) {
   return name.trim().toLowerCase();
 }
 
-function load() {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(STORAGE_KEY, (data) => {
-      resolve(data[STORAGE_KEY] || {});
-    });
-  });
-}
-
-function save(data) {
-  return new Promise((resolve) => {
-    chrome.storage.sync.set({ [STORAGE_KEY]: data }, resolve);
-  });
+function escHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function timeAgo(iso) {
@@ -27,93 +19,124 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
-function render(terrorists, filter, flashName) {
-  const list = document.getElementById("terrorist-list");
-  const countEl = document.getElementById("count");
+function send(msg) {
+  return new Promise((resolve) => chrome.runtime.sendMessage(msg, resolve));
+}
 
-  const entries = Object.entries(terrorists);
-  countEl.textContent = `${entries.length} flagged`;
+// ── My flags list ────────────────────────────────────────────────────────────
 
-  const q = (filter || "").toLowerCase().trim();
-  const visible = q
-    ? entries.filter(([name, info]) =>
-        name.includes(q) || info.comment.toLowerCase().includes(q)
-      )
-    : entries;
+async function loadMyFlags() {
+  return (await send({ type: "MY_FLAGS" })) ?? {};
+}
 
-  if (visible.length === 0) {
-    list.innerHTML = `<li class="empty">${
-      q ? `No results for "${filter}".` : "No one flagged yet."
-    }</li>`;
+function renderMyFlags(myFlags) {
+  const list = document.getElementById("my-list");
+  const count = document.getElementById("my-count");
+  const entries = Object.entries(myFlags).sort(
+    ([, a], [, b]) => new Date(b.addedAt) - new Date(a.addedAt)
+  );
+
+  count.textContent = entries.length;
+
+  if (entries.length === 0) {
+    list.innerHTML = `<li class="empty-my">No players flagged yet.</li>`;
     return;
   }
 
-  // Most recently added first
-  visible.sort(([, a], [, b]) => new Date(b.addedAt) - new Date(a.addedAt));
-
-  list.innerHTML = visible
+  list.innerHTML = entries
     .map(
       ([name, info]) => `
-    <li class="terrorist-item${name === flashName ? " just-added" : ""}" data-name="${name}">
-      <div class="item-top">
-        <a class="player-name" href="https://www.faceit.com/en/players/${encodeURIComponent(name)}" target="_blank" rel="noopener">${name}</a>
-        <button class="delete-btn" data-name="${name}" title="Remove">✕</button>
+    <li class="my-item">
+      <div class="my-item-top">
+        <a class="my-item-name"
+           href="https://www.faceit.com/en/players/${encodeURIComponent(name)}"
+           target="_blank" rel="noopener">${escHtml(name)}</a>
+        <button class="remove-btn" data-name="${escHtml(name)}" title="Remove my flag">✕</button>
       </div>
-      <div class="item-comment">${escHtml(info.comment)}</div>
-      <div class="item-meta">Added ${timeAgo(info.addedAt)}</div>
-    </li>
-  `
+      <div class="my-item-comment">${escHtml(info.comment)}</div>
+      <div class="my-item-meta">Flagged ${timeAgo(info.addedAt)}</div>
+    </li>`
     )
     .join("");
 
-  list.querySelectorAll(".delete-btn").forEach((btn) => {
+  list.querySelectorAll(".remove-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
+      btn.disabled = true;
       const name = btn.dataset.name;
-      const data = await load();
-      delete data[name];
-      await save(data);
-      render(data, searchInput.value);
+      await send({ type: "UNFLAG", nickname: name });
+      renderMyFlags(await loadMyFlags());
     });
   });
 }
 
-function escHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+// ── Search ───────────────────────────────────────────────────────────────────
+
+async function doSearch(nickname) {
+  const box = document.getElementById("search-result");
+  const name = norm(nickname);
+  if (!name) { box.className = "search-result hidden"; return; }
+
+  box.className = "search-result";
+  box.innerHTML = `<span class="result-loading">Looking up ${escHtml(name)}…</span>`;
+
+  const data = await send({ type: "COMMUNITY_SEARCH", nickname: name });
+
+  if (!data) {
+    box.className = "search-result clean";
+    box.innerHTML = `<strong>${escHtml(name)}</strong> — no community reports. They're clean (so far).`;
+  } else {
+    const plural = data.flag_count !== 1 ? "s" : "";
+    box.className = "search-result flagged";
+    box.innerHTML = `
+      <div><span class="result-name">☠ ${escHtml(data.nickname)}</span>
+           &nbsp;<span class="result-count">${data.flag_count} report${plural}</span></div>
+      <div class="result-comment">${escHtml(data.latest_comment)}</div>`;
+  }
 }
 
-const nameInput = document.getElementById("player-name");
-const commentInput = document.getElementById("comment");
-const searchInput = document.getElementById("search");
-const form = document.getElementById("add-form");
-
-let state = {};
+// ── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", async () => {
-  state = await load();
-  render(state, "");
+  // Render my flags
+  renderMyFlags(await loadMyFlags());
+
+  // Search
+  const searchInput = document.getElementById("search-input");
+  document.getElementById("search-btn").addEventListener("click", () => {
+    doSearch(searchInput.value);
+  });
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doSearch(searchInput.value);
+  });
+
+  // Add flag form
+  const form = document.getElementById("add-form");
+  const nameInput = document.getElementById("player-name");
+  const commentInput = document.getElementById("comment");
+  const submitBtn = form.querySelector("button[type=submit]");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = norm(nameInput.value);
+    const nickname = norm(nameInput.value);
     const comment = commentInput.value.trim();
-    if (!name || !comment) return;
+    if (!nickname || !comment) return;
 
-    state = await load();
-    state[name] = { comment, addedAt: new Date().toISOString() };
-    await save(state);
+    submitBtn.disabled = true;
+    submitBtn.textContent = "FLAGGING…";
 
-    nameInput.value = "";
-    commentInput.value = "";
-    nameInput.focus();
+    const result = await send({ type: "FLAG", nickname, comment });
 
-    render(state, searchInput.value, name);
-  });
+    submitBtn.disabled = false;
+    submitBtn.textContent = "FLAG TERRORIST";
 
-  searchInput.addEventListener("input", () => {
-    render(state, searchInput.value);
+    if (result?.ok) {
+      nameInput.value = "";
+      commentInput.value = "";
+      nameInput.focus();
+      renderMyFlags(await loadMyFlags());
+    } else {
+      submitBtn.textContent = "FAILED — RETRY";
+      setTimeout(() => { submitBtn.textContent = "FLAG TERRORIST"; }, 2000);
+    }
   });
 });

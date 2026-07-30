@@ -1,78 +1,89 @@
-const STORAGE_KEY = "eloTerrorists";
+// Injected into every faceit.com page.
+// Asks the background service worker to look up player names, then highlights
+// flagged ones red. Never calls the API directly.
 
-let terrorists = {};
+// nickname (lowercase) → API result object | null ("confirmed clean")
+// undefined = not yet looked up
+const lookup = {};
 let debounceTimer = null;
 
 function norm(name) {
   return name.trim().toLowerCase();
 }
 
-function highlight() {
-  // FACEIT renders player names as links to /players/{nickname}
-  const links = document.querySelectorAll("a[href*='/players/']");
+function playerLinksOnPage() {
+  const names = new Set();
+  document.querySelectorAll("a[href*='/players/']").forEach((a) => {
+    const m = (a.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
+    if (m) names.add(norm(decodeURIComponent(m[1])));
+  });
+  return [...names];
+}
 
-  for (const link of links) {
-    const href = link.getAttribute("href") || "";
-    const match = href.match(/\/players\/([^/?#\s]+)/i);
-    if (!match) continue;
+function applyHighlights() {
+  document.querySelectorAll("a[href*='/players/']").forEach((link) => {
+    const m = (link.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
+    if (!m) return;
 
-    const playerName = norm(decodeURIComponent(match[1]));
-    const entry = terrorists[playerName];
+    const name = norm(decodeURIComponent(m[1]));
+    const entry = lookup[name];
+    if (!entry) return; // null = clean; undefined = pending
 
-    if (!entry) continue;
-
-    // Already tagged — update tooltip in case comment changed but skip restyle
     if (link.dataset.etTagged) {
+      // Refresh tooltip in case flag count changed
       const badge = link.querySelector(".et-badge");
-      if (badge) badge.title = `ELO TERRORIST: ${entry.comment}`;
-      continue;
+      if (badge) badge.title = tooltip(entry);
+      return;
     }
 
     link.dataset.etTagged = "1";
     link.style.cssText +=
-      ";color:#ff3333!important;text-shadow:0 0 6px rgba(255,51,51,.9),0 0 14px rgba(255,51,51,.5)!important;font-weight:700!important";
+      ";color:#ff3333!important" +
+      ";text-shadow:0 0 6px rgba(255,51,51,.9),0 0 14px rgba(255,51,51,.5)!important" +
+      ";font-weight:700!important";
 
     const badge = document.createElement("span");
     badge.className = "et-badge";
     badge.textContent = " ☠";
-    badge.title = `ELO TERRORIST: ${entry.comment}`;
-    badge.style.cssText =
-      "cursor:help;font-style:normal;text-shadow:0 0 4px #ff3333";
+    badge.title = tooltip(entry);
+    badge.style.cssText = "cursor:help;font-style:normal;text-shadow:0 0 4px #ff3333";
     link.appendChild(badge);
-  }
-}
-
-function scheduleHighlight() {
-  clearTimeout(debounceTimer);
-  // Debounce so rapid DOM mutations don't hammer the loop
-  debounceTimer = setTimeout(highlight, 120);
-}
-
-function clearTags() {
-  document.querySelectorAll("[data-et-tagged]").forEach((el) => {
-    delete el.dataset.etTagged;
-    el.querySelector(".et-badge")?.remove();
-    el.style.color = "";
-    el.style.textShadow = "";
-    el.style.fontWeight = "";
   });
+}
+
+function tooltip(entry) {
+  const plural = entry.flag_count !== 1 ? "s" : "";
+  return `☠ ELO TERRORIST — ${entry.flag_count} report${plural}\n${entry.latest_comment}`;
+}
+
+function refresh() {
+  const allNames = playerLinksOnPage();
+  const unknown = allNames.filter((n) => !(n in lookup));
+
+  if (unknown.length === 0) {
+    applyHighlights();
+    return;
+  }
+
+  chrome.runtime.sendMessage({ type: "LOOKUP", names: unknown }, (result) => {
+    if (!result) return;
+    for (const [name, data] of Object.entries(result)) {
+      lookup[name] = data; // data is the API object or null
+    }
+    applyHighlights();
+  });
+}
+
+function scheduleRefresh() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(refresh, 150);
 }
 
 function init() {
-  chrome.storage.sync.get(STORAGE_KEY, (data) => {
-    terrorists = data[STORAGE_KEY] || {};
-    highlight();
-
-    const observer = new MutationObserver(scheduleHighlight);
-    observer.observe(document.body, { childList: true, subtree: true });
-  });
-
-  // Live-sync: if user flags someone in the popup while on FACEIT, highlight immediately
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync" || !changes[STORAGE_KEY]) return;
-    terrorists = changes[STORAGE_KEY].newValue || {};
-    clearTags();
-    highlight();
+  refresh();
+  new MutationObserver(scheduleRefresh).observe(document.body, {
+    childList: true,
+    subtree: true,
   });
 }
 

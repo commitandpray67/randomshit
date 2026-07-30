@@ -10,32 +10,57 @@
       <header>
         <span class="pulse"></span>
         <h1>ELO TERRORISTS</h1>
+        <span id="db-badge" class="db-badge" title="Community database">COMMUNITY DB</span>
       </header>
 
-      <form id="add-form">
-        <input
-          type="text"
-          id="player-name"
-          placeholder="FACEIT nickname"
-          autocomplete="off"
-          spellcheck="false"
-          required
-        />
-        <input
-          type="text"
-          id="comment"
-          placeholder="Reason (e.g. selling games, throwing)"
-          required
-        />
-        <button type="submit">FLAG TERRORIST</button>
-      </form>
+      <!-- Search a player in the community DB -->
+      <section class="search-section">
+        <div class="search-row">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Look up any FACEIT nickname…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="search-btn">GO</button>
+        </div>
+        <div id="search-result" class="search-result hidden"></div>
+      </section>
 
-      <div class="list-header">
-        <input type="text" id="search" placeholder="Search flagged..." />
-        <span id="count">0 flagged</span>
-      </div>
+      <div class="divider"></div>
 
-      <ul id="terrorist-list"></ul>
+      <!-- Flag a player -->
+      <section>
+        <form id="add-form">
+          <input
+            type="text"
+            id="player-name"
+            placeholder="FACEIT nickname to flag"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <input
+            type="text"
+            id="comment"
+            placeholder="Reason (e.g. selling games, AFK, throwing)"
+            required
+          />
+          <button type="submit">FLAG TERRORIST</button>
+        </form>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- My flags -->
+      <section>
+        <div class="section-header">
+          <span class="section-title">MY FLAGS</span>
+          <span id="my-count" class="my-count">0</span>
+        </div>
+        <ul id="my-list"></ul>
+      </section>
     </div>
 
     <script src="popup.js"></script>
