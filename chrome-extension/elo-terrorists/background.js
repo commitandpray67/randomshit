@@ -1,10 +1,14 @@
-// Service worker — owns all API calls and two-level cache.
+// Service worker — owns all API calls, two-level cache, and FACEIT OAuth.
 //
 // Cache is persisted to chrome.storage.session so it survives SW sleep/wake
 // within a browser session (clears on browser restart, which is fine).
 //
-// LOOKUP_NAMES response shape changed to { nickname: { data, steamId } }
-// so content.js can offer the inline flag panel without a second round-trip.
+// Flags require a valid FACEIT access token; the server verifies identity
+// via the FACEIT userinfo endpoint and (when matchId is supplied) checks
+// match participation via the FACEIT Data API.
+//
+// IMPORTANT: set FACEIT_CLIENT_ID to your app's client_id from
+// https://developers.faceit.com before publishing.
 
 const API = "https://steamfriends.xyz/api/et";
 const RESOLVE_TTL = 24 * 60 * 60 * 1000; // 24 h
@@ -12,6 +16,163 @@ const LOOKUP_TTL  = 15 * 60 * 1000;       // 15 min
 
 const nameCache = new Map(); // nickname → { steamId, cachedAt }
 const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
+
+// ── FACEIT OAuth ─────────────────────────────────────────────────────────────
+
+// Register your app at https://developers.faceit.com and set the redirect URI
+// to the value of chrome.identity.getRedirectURL() (logged to console on install).
+const FACEIT_CLIENT_ID = "YOUR_FACEIT_CLIENT_ID";
+const FACEIT_AUTH_URL  = "https://accounts.faceit.com/oauth/authorize";
+const FACEIT_TOKEN_URL = "https://api.faceit.com/auth/v1/oauth/token";
+const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
+
+function genVerifier() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function genChallenge(verifier) {
+  const buf = await crypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(verifier)
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+async function faceitLogin() {
+  const verifier    = genVerifier();
+  const challenge   = await genChallenge(verifier);
+  const state       = crypto.randomUUID();
+  const redirectUri = chrome.identity.getRedirectURL();
+
+  const params = new URLSearchParams({
+    response_type:         "code",
+    client_id:             FACEIT_CLIENT_ID,
+    redirect_uri:          redirectUri,
+    scope:                 "openid profile",
+    state,
+    code_challenge:        challenge,
+    code_challenge_method: "S256",
+  });
+
+  let responseUrl;
+  try {
+    responseUrl = await new Promise((resolve, reject) => {
+      chrome.identity.launchWebAuthFlow(
+        { url: `${FACEIT_AUTH_URL}?${params}`, interactive: true },
+        (url) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else if (!url) reject(new Error("No redirect URL returned"));
+          else resolve(url);
+        }
+      );
+    });
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+
+  const parsed = new URL(responseUrl);
+  const code   = parsed.searchParams.get("code");
+  if (!code || parsed.searchParams.get("state") !== state) {
+    return { ok: false, error: "Invalid OAuth response" };
+  }
+
+  try {
+    const tokenRes = await fetch(FACEIT_TOKEN_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type:    "authorization_code",
+        code,
+        redirect_uri:  redirectUri,
+        client_id:     FACEIT_CLIENT_ID,
+        code_verifier: verifier,
+      }),
+    });
+    if (!tokenRes.ok) throw new Error(`Token exchange failed: ${tokenRes.status}`);
+    const tokens = await tokenRes.json();
+
+    await chrome.storage.local.set({
+      faceit_access_token:  tokens.access_token,
+      faceit_refresh_token: tokens.refresh_token ?? null,
+      faceit_expires_at:    Date.now() + (tokens.expires_in ?? 3600) * 1000,
+    });
+
+    const user = await fetchFaceitUser(tokens.access_token);
+    if (user) await chrome.storage.local.set({ faceit_user: user });
+
+    return { ok: true, user };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function faceitLogout() {
+  await chrome.storage.local.remove([
+    "faceit_access_token", "faceit_refresh_token",
+    "faceit_expires_at",   "faceit_user",
+  ]);
+  return { ok: true };
+}
+
+async function getAuthStatus() {
+  const { faceit_user, faceit_access_token, faceit_expires_at } =
+    await chrome.storage.local.get(["faceit_user", "faceit_access_token", "faceit_expires_at"]);
+  if (!faceit_access_token) return { authenticated: false, user: null };
+  const expired = faceit_expires_at && Date.now() > faceit_expires_at - 60_000;
+  if (expired && !(await refreshAccessToken())) return { authenticated: false, user: null };
+  return { authenticated: true, user: faceit_user ?? null };
+}
+
+async function getValidToken() {
+  const { faceit_access_token, faceit_expires_at } =
+    await chrome.storage.local.get(["faceit_access_token", "faceit_expires_at"]);
+  if (!faceit_access_token) return null;
+  if (!faceit_expires_at || Date.now() < faceit_expires_at - 60_000) return faceit_access_token;
+  return (await refreshAccessToken()) ? (await chrome.storage.local.get("faceit_access_token")).faceit_access_token : null;
+}
+
+async function refreshAccessToken() {
+  const { faceit_refresh_token } = await chrome.storage.local.get("faceit_refresh_token");
+  if (!faceit_refresh_token) return false;
+  try {
+    const res = await fetch(FACEIT_TOKEN_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type:    "refresh_token",
+        refresh_token: faceit_refresh_token,
+        client_id:     FACEIT_CLIENT_ID,
+      }),
+    });
+    if (!res.ok) return false;
+    const tokens = await res.json();
+    await chrome.storage.local.set({
+      faceit_access_token:  tokens.access_token,
+      faceit_refresh_token: tokens.refresh_token ?? faceit_refresh_token,
+      faceit_expires_at:    Date.now() + (tokens.expires_in ?? 3600) * 1000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchFaceitUser(accessToken) {
+  try {
+    const res = await fetch(FACEIT_USER_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // FACEIT OIDC returns { sub, nickname, ... }
+    return { guid: data.sub ?? data.guid, nickname: data.nickname };
+  } catch {
+    return null;
+  }
+}
 
 // ── Session-persistent cache ─────────────────────────────────────────────────
 
@@ -33,17 +194,16 @@ async function saveFlagCache() {
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(setup);
-chrome.runtime.onStartup.addListener(setup);
-
-async function setup() {
+chrome.runtime.onInstalled.addListener(async () => {
   await loadCaches();
-  const { reporterId } = await chrome.storage.local.get("reporterId");
-  if (!reporterId) {
-    await chrome.storage.local.set({ reporterId: crypto.randomUUID() });
-  }
+  console.log("[ELO TERRORISTS] FACEIT redirect URI:", chrome.identity.getRedirectURL());
   drawIcon();
-}
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  await loadCaches();
+  drawIcon();
+});
 
 // ── Message router ───────────────────────────────────────────────────────────
 
@@ -67,6 +227,15 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     case "COMMUNITY_SEARCH":
       communitySearch(msg.nickname).then(reply);
       return true;
+    case "FACEIT_LOGIN":
+      faceitLogin().then(reply);
+      return true;
+    case "FACEIT_LOGOUT":
+      faceitLogout().then(reply);
+      return true;
+    case "GET_AUTH_STATUS":
+      getAuthStatus().then(reply);
+      return true;
     case "SET_BADGE": {
       const tabId = sender.tab?.id;
       if (tabId != null) {
@@ -86,7 +255,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 // Returns { nickname: { data: flagObj|null, steamId: string|null } }
 async function lookupNames(nicknames) {
   const now = Date.now();
-  const resolved = {}; // nickname → steamId
+  const resolved = {};
   const toResolve = [];
 
   for (const name of nicknames) {
@@ -183,13 +352,19 @@ async function resolveOne(nickname) {
   return null;
 }
 
-async function flagPlayer({ steamId, displayName, rank, comment }) {
-  const { reporterId } = await chrome.storage.local.get("reporterId");
+async function flagPlayer({ steamId, displayName, rank, comment, matchId }) {
+  const token = await getValidToken();
+  if (!token) return { ok: false, error: "Not connected to FACEIT" };
+
   try {
     const res = await fetch(`${API}/flag`, {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ steamId, displayName, rank, comment, reporterId }),
+      body: JSON.stringify({
+        steamId, displayName, rank, comment,
+        faceitAccessToken: token,
+        matchId: matchId ?? null,
+      }),
     });
     if (res.ok) {
       const { myFlags = {} } = await chrome.storage.local.get("myFlags");
@@ -199,19 +374,22 @@ async function flagPlayer({ steamId, displayName, rank, comment }) {
       await saveFlagCache();
       return { ok: true };
     }
-    return { ok: false };
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || String(res.status) };
   } catch {
     return { ok: false, error: "Network error" };
   }
 }
 
 async function unflagPlayer(steamId) {
-  const { reporterId } = await chrome.storage.local.get("reporterId");
+  const token = await getValidToken();
+  if (!token) return { ok: false, error: "Not connected to FACEIT" };
+
   try {
     const res = await fetch(`${API}/flag`, {
-      method: "DELETE",
+      method:  "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ steamId, reporterId }),
+      body: JSON.stringify({ steamId, faceitAccessToken: token }),
     });
     if (res.ok) {
       const { myFlags = {} } = await chrome.storage.local.get("myFlags");
@@ -232,7 +410,6 @@ async function getMyFlags() {
   return myFlags;
 }
 
-// communitySearch returns just the flag data object (or null), not the wrapped form.
 async function communitySearch(nickname) {
   const name = nickname.trim().toLowerCase();
   const result = await lookupNames([name]);

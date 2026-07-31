@@ -17,36 +17,29 @@ const RANK = {
 const known = {};
 let timer = null;
 
+// FACEIT auth status — refreshed on init and periodically.
+let _isAuthed = false;
+
 function norm(s) { return s.trim().toLowerCase(); }
 
 function send(msg) {
   return new Promise((r) => chrome.runtime.sendMessage(msg, r));
 }
 
-// ── Matchroom participation check ─────────────────────────────────────────────
+// ── Auth + matchroom helpers ──────────────────────────────────────────────────
 
-// Returns the logged-in FACEIT nickname by finding their profile link in the
-// persistent header/nav. Returns null if not signed in or nav not yet loaded.
-function detectLoggedInNick() {
-  for (const sel of ["header a[href*='/players/']", "nav a[href*='/players/']"]) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const m = (el.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (m) return norm(decodeURIComponent(m[1]));
+async function refreshAuth() {
+  try {
+    const status = await send({ type: "GET_AUTH_STATUS" });
+    _isAuthed = !!status?.authenticated;
+  } catch {
+    _isAuthed = false;
   }
-  return null;
 }
 
-function isMatchroomPage() {
-  return /\/room\/[^/?#]+/.test(window.location.pathname);
-}
-
-// True only when the logged-in user is one of the players in the current room.
-// Called on every applyHighlights pass so it re-checks after the nav loads.
-function viewerIsParticipant() {
-  const me = detectLoggedInNick();
-  if (!me) return false;
-  return pageNicknames().includes(me);
+function getMatchId() {
+  const m = window.location.pathname.match(/\/room\/([^/?#]+)/);
+  return m ? m[1] : null;
 }
 
 function pageNicknames() {
@@ -71,15 +64,12 @@ function applyHighlights() {
 
     const { data, steamId } = entry;
 
-    // Inject flag button only when the viewer is a confirmed matchroom participant
-    // and hasn't already flagged this link. We skip setting etFlagBtn when the
-    // nav hasn't loaded yet so a later applyHighlights pass can retry.
-    if (steamId && !link.dataset.etFlagBtn) {
-      const me = detectLoggedInNick();
-      if (isMatchroomPage() && me && viewerIsParticipant() && name !== me) {
-        injectFlagButton(link, name, steamId);
-        link.dataset.etFlagBtn = "1";
-      }
+    // Inject flag button when the user is authenticated with FACEIT.
+    // The server validates identity (and match participation when matchId is
+    // present), so we don't need client-side DOM tricks here.
+    if (steamId && !link.dataset.etFlagBtn && _isAuthed) {
+      injectFlagButton(link, name, steamId);
+      link.dataset.etFlagBtn = "1";
     }
 
     if (!data) return; // null = clean player
@@ -287,6 +277,7 @@ function buildPanel() {
       displayName: panelNickname,
       rank:        panelRank,
       comment,
+      matchId:     getMatchId(),
     });
 
     if (result?.ok) {
@@ -385,7 +376,9 @@ function injectFlagButton(link, nickname, steamId) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
-  refresh();
+  refreshAuth().then(refresh);
+  // Re-check auth every 4 minutes in case token refreshed or user logged in/out.
+  setInterval(refreshAuth, 4 * 60 * 1000);
   new MutationObserver(schedule).observe(document.body, {
     childList: true,
     subtree:   true,

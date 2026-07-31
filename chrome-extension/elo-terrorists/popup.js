@@ -121,10 +121,53 @@ function checkSubmitReady() {
     !(resolvedSteamId && selectedRank && document.getElementById("comment").value.trim());
 }
 
+// ── Auth UI ───────────────────────────────────────────────────────────────────
+
+async function refreshAuthUI() {
+  const status      = await send({ type: "GET_AUTH_STATUS" });
+  const authed      = !!status?.authenticated;
+  const connected   = document.getElementById("auth-connected");
+  const disconnected = document.getElementById("auth-disconnected");
+  const nickEl      = document.getElementById("auth-nick");
+  const flagSection = document.querySelector("#add-form").closest("section");
+
+  connected.classList.toggle("hidden", !authed);
+  disconnected.classList.toggle("hidden", authed);
+
+  if (authed && status.user?.nickname) {
+    nickEl.textContent = `✓ ${status.user.nickname}`;
+  }
+
+  // Disable the flag form when not authenticated.
+  flagSection.querySelectorAll("input, button, textarea").forEach((el) => {
+    el.disabled = !authed;
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await refreshAuthUI();
   refreshMyFlags();
+
+  // Auth buttons
+  document.getElementById("auth-login-btn").addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    e.target.textContent = "Connecting…";
+    const result = await send({ type: "FACEIT_LOGIN" });
+    if (result?.ok) {
+      await refreshAuthUI();
+    } else {
+      e.target.disabled = false;
+      e.target.textContent = "Connect with FACEIT";
+    }
+  });
+
+  document.getElementById("auth-logout-btn").addEventListener("click", async () => {
+    await send({ type: "FACEIT_LOGOUT" });
+    await refreshAuthUI();
+    refreshMyFlags();
+  });
 
   // Search
   const searchInput = document.getElementById("search-input");

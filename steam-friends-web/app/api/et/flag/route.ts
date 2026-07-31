@@ -10,16 +10,67 @@ const CORS = {
 
 const VALID_RANKS = new Set(["S", "A", "B", "C", "D", "F"]);
 
+const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
+const FACEIT_MATCH_URL = "https://open.faceit.com/data/v4/matches";
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
+// Resolves a FACEIT access token to { guid, nickname } or null.
+async function getFaceitIdentity(accessToken: string): Promise<{ guid: string; nickname: string } | null> {
+  try {
+    const res = await fetch(FACEIT_USER_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const guid = data.sub ?? data.guid;
+    if (!guid) return null;
+    return { guid, nickname: data.nickname ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+// Returns true if `playerGuid` appears in either team of the given match.
+// Returns true (bypass) if FACEIT_DATA_API_KEY is not configured.
+async function verifyMatchParticipation(matchId: string, playerGuid: string): Promise<boolean> {
+  const apiKey = process.env.FACEIT_DATA_API_KEY;
+  if (!apiKey) return true; // can't verify — allow through without match check
+
+  try {
+    const res = await fetch(`${FACEIT_MATCH_URL}/${encodeURIComponent(matchId)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return false;
+    const match = await res.json();
+    const roster: { player_id: string }[] = [
+      ...(match.teams?.faction1?.roster ?? []),
+      ...(match.teams?.faction2?.roster ?? []),
+    ];
+    return roster.some((p) => p.player_id === playerGuid);
+  } catch {
+    return false;
+  }
+}
+
+async function hashGuid(guid: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(guid));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`et-flag:${clientIp(req)}`, 20, 60);
-  if (!rl.ok) {
+  // Per-IP flood guard
+  const ipRl = rateLimit(`et-flag-ip:${clientIp(req)}`, 30, 60);
+  if (!ipRl.ok) {
     return new NextResponse("Rate limited", {
       status: 429,
-      headers: { ...CORS, "Retry-After": String(rl.retryAfter) },
+      headers: { ...CORS, "Retry-After": String(ipRl.retryAfter) },
     });
   }
 
@@ -28,7 +79,8 @@ export async function POST(req: NextRequest) {
     displayName?: unknown;
     rank?: unknown;
     comment?: unknown;
-    reporterId?: unknown;
+    faceitAccessToken?: unknown;
+    matchId?: unknown;
   };
   try {
     body = await req.json();
@@ -36,28 +88,46 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Bad JSON", { status: 400, headers: CORS });
   }
 
-  const steamId = String(body.steamId ?? "").trim();
-  const displayName = String(body.displayName ?? "").trim();
-  const rank = String(body.rank ?? "").trim().toUpperCase();
-  const comment = String(body.comment ?? "").trim();
-  const reporterId = String(body.reporterId ?? "").trim();
+  const steamId          = String(body.steamId ?? "").trim();
+  const displayName      = String(body.displayName ?? "").trim();
+  const rank             = String(body.rank ?? "").trim().toUpperCase();
+  const comment          = String(body.comment ?? "").trim();
+  const faceitAccessToken = String(body.faceitAccessToken ?? "").trim();
+  const matchId          = body.matchId ? String(body.matchId).trim() : null;
 
-  if (!steamId || !rank || !comment || !reporterId) {
+  if (!steamId || !rank || !comment || !faceitAccessToken) {
     return new NextResponse("Missing fields", { status: 400, headers: CORS });
   }
   if (!VALID_RANKS.has(rank)) {
-    return new NextResponse("Invalid rank — must be S, A, B, C, D, or F", {
-      status: 400,
-      headers: CORS,
-    });
+    return new NextResponse("Invalid rank", { status: 400, headers: CORS });
   }
-  if (
-    steamId.length > 32 ||
-    displayName.length > 64 ||
-    comment.length > 500 ||
-    reporterId.length > 64
-  ) {
+  if (steamId.length > 32 || displayName.length > 64 || comment.length > 500) {
     return new NextResponse("Field too long", { status: 400, headers: CORS });
+  }
+
+  // Verify FACEIT identity
+  const identity = await getFaceitIdentity(faceitAccessToken);
+  if (!identity) {
+    return new NextResponse("Invalid FACEIT token", { status: 401, headers: CORS });
+  }
+
+  // If the extension sent a matchId, verify the reporter was actually in that match
+  if (matchId) {
+    const inMatch = await verifyMatchParticipation(matchId, identity.guid);
+    if (!inMatch) {
+      return new NextResponse("Not a participant in this match", { status: 403, headers: CORS });
+    }
+  }
+
+  const reporterId = await hashGuid(identity.guid);
+
+  // Per-identity rate limit: max 15 flags per day per FACEIT account
+  const idRl = rateLimit(`et-flag-id:${reporterId}`, 15, 86400);
+  if (!idRl.ok) {
+    return new NextResponse("Too many flags from this account today", {
+      status: 429,
+      headers: { ...CORS, "Retry-After": String(idRl.retryAfter) },
+    });
   }
 
   await sql`
@@ -73,24 +143,31 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const rl = rateLimit(`et-unflag:${clientIp(req)}`, 20, 60);
-  if (!rl.ok) {
+  const ipRl = rateLimit(`et-unflag-ip:${clientIp(req)}`, 20, 60);
+  if (!ipRl.ok) {
     return new NextResponse("Rate limited", { status: 429, headers: CORS });
   }
 
-  let body: { steamId?: unknown; reporterId?: unknown };
+  let body: { steamId?: unknown; faceitAccessToken?: unknown };
   try {
     body = await req.json();
   } catch {
     return new NextResponse("Bad JSON", { status: 400, headers: CORS });
   }
 
-  const steamId = String(body.steamId ?? "").trim();
-  const reporterId = String(body.reporterId ?? "").trim();
+  const steamId           = String(body.steamId ?? "").trim();
+  const faceitAccessToken = String(body.faceitAccessToken ?? "").trim();
 
-  if (!steamId || !reporterId) {
+  if (!steamId || !faceitAccessToken) {
     return new NextResponse("Missing fields", { status: 400, headers: CORS });
   }
+
+  const identity = await getFaceitIdentity(faceitAccessToken);
+  if (!identity) {
+    return new NextResponse("Invalid FACEIT token", { status: 401, headers: CORS });
+  }
+
+  const reporterId = await hashGuid(identity.guid);
 
   await sql`
     DELETE FROM et_flags

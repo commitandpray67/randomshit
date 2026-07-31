@@ -3,10 +3,13 @@
   "name": "ELO TERRORISTS",
   "version": "2.0.0",
   "description": "Community FACEIT griefer database. Flag ELO terrorists — see them glow red before you accept the match.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "identity"],
   "host_permissions": [
     "https://www.faceit.com/*",
-    "https://steamfriends.xyz/api/et/*"
+    "https://steamfriends.xyz/api/et/*",
+    "https://api.faceit.com/*",
+    "https://accounts.faceit.com/*",
+    "https://open.faceit.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
