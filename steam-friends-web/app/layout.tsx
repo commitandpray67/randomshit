@@ -83,6 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <footer className="site-footer">
           <a href="/">{T.footHome}</a> · <a href="/privacy">{T.footPrivacy}</a> ·{" "}
+          <a href="/extension">ELO TERRORISTS</a> ·{" "}
           <a href="mailto:help@steamfriends.xyz">{T.footContact}</a> ·{" "}
           <span>{T.footDisclaimer}</span>
           <span className="lang-switcher-wrap">
