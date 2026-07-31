@@ -23,6 +23,32 @@ function send(msg) {
   return new Promise((r) => chrome.runtime.sendMessage(msg, r));
 }
 
+// ── Matchroom participation check ─────────────────────────────────────────────
+
+// Returns the logged-in FACEIT nickname by finding their profile link in the
+// persistent header/nav. Returns null if not signed in or nav not yet loaded.
+function detectLoggedInNick() {
+  for (const sel of ["header a[href*='/players/']", "nav a[href*='/players/']"]) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const m = (el.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
+    if (m) return norm(decodeURIComponent(m[1]));
+  }
+  return null;
+}
+
+function isMatchroomPage() {
+  return /\/room\/[^/?#]+/.test(window.location.pathname);
+}
+
+// True only when the logged-in user is one of the players in the current room.
+// Called on every applyHighlights pass so it re-checks after the nav loads.
+function viewerIsParticipant() {
+  const me = detectLoggedInNick();
+  if (!me) return false;
+  return pageNicknames().includes(me);
+}
+
 function pageNicknames() {
   const set = new Set();
   document.querySelectorAll("a[href*='/players/']").forEach((a) => {
@@ -45,10 +71,15 @@ function applyHighlights() {
 
     const { data, steamId } = entry;
 
-    // Inject flag button once per resolved link.
+    // Inject flag button only when the viewer is a confirmed matchroom participant
+    // and hasn't already flagged this link. We skip setting etFlagBtn when the
+    // nav hasn't loaded yet so a later applyHighlights pass can retry.
     if (steamId && !link.dataset.etFlagBtn) {
-      injectFlagButton(link, name, steamId);
-      link.dataset.etFlagBtn = "1";
+      const me = detectLoggedInNick();
+      if (isMatchroomPage() && me && viewerIsParticipant() && name !== me) {
+        injectFlagButton(link, name, steamId);
+        link.dataset.etFlagBtn = "1";
+      }
     }
 
     if (!data) return; // null = clean player
