@@ -19,95 +19,99 @@ export default function ExtensionPrivacy() {
         collects, how it is stored, and how it is used.
       </p>
 
-      <h2>How trust works — no account required</h2>
+      <h2>How trust works — FACEIT OAuth</h2>
       <p>
-        Flagging a player does not require you to create an account or log in to
-        any service we operate. Instead, the extension verifies that you were
-        actually present in the match by reading your logged-in FACEIT session
-        from the page. Specifically, it checks the profile link FACEIT renders
-        in its own navigation header when you are signed in, extracts your
-        FACEIT nickname, and confirms that nickname appears in the current
-        matchroom&apos;s player list. Only if you are one of the ten players in
-        the room do the flag buttons appear.
+        To submit a flag you must connect your FACEIT account via the
+        extension&apos;s built-in OAuth flow. This proves you own a real FACEIT
+        account without requiring you to create a separate account on our service.
+        When you click &ldquo;Connect with FACEIT&rdquo;, you are redirected to
+        FACEIT&apos;s own login page; we never see your FACEIT password.
       </p>
       <p>
-        This check runs entirely inside your browser. Your FACEIT username is
-        never transmitted to our servers — we have no record of which FACEIT
-        account submitted any given flag.
+        When you flag a player from inside a matchroom, the extension sends the
+        current match ID to our server. Our server independently calls the FACEIT
+        Data API to confirm that your FACEIT account appears in that match&apos;s
+        player roster before accepting the flag. This check happens entirely
+        server-side — we do not rely on anything the extension claims about who
+        you are.
       </p>
 
       <h2>Data collected by the extension</h2>
 
-      <h3>Anonymous reporter ID</h3>
+      <h3>FACEIT access token</h3>
       <p>
-        When you first install the extension, a random UUID is generated and
-        stored locally in <code>chrome.storage.local</code>. This ID is not
-        linked to your FACEIT account, Steam account, Google account, or any
-        other identity. It is used solely to associate your submitted flags with
-        your reports on the server, so you can view and delete the flags you
-        have personally submitted.
+        After you connect your FACEIT account, an OAuth access token and refresh
+        token are stored in <code>chrome.storage.local</code> on your device.
+        These tokens allow the extension to authenticate your flagging requests.
+        They are never sent to any server other than FACEIT (for token refresh)
+        and our own API (attached to flag submissions so we can verify your
+        identity).
+      </p>
+
+      <h3>Reporter identifier</h3>
+      <p>
+        We never store your FACEIT username or GUID in plain text. When a flag is
+        accepted, our server computes a one-way SHA-256 hash of your FACEIT GUID
+        and stores that hash as your stable reporter identifier. This hash cannot
+        be reversed to recover your FACEIT identity, but it is consistent across
+        all flags you submit, allowing you to view and delete your own reports.
       </p>
 
       <h3>Flags you submit</h3>
       <p>
-        When you flag a player, the following information is sent to our server
-        and stored in the community database:
+        When you flag a player, the following is sent to our server and stored in
+        the community database:
       </p>
       <ul>
         <li>The flagged player&apos;s Steam ID (a public numeric identifier)</li>
         <li>Their FACEIT display name at the time of flagging</li>
         <li>The rank you assigned (S / A / B / C / D / F)</li>
         <li>The comment you wrote explaining the reason</li>
-        <li>Your anonymous reporter UUID</li>
+        <li>Your hashed reporter identifier</li>
         <li>The timestamp of submission</li>
       </ul>
       <p>
-        We do not collect your name, email, IP address, FACEIT username, or any
-        personally identifiable information.
+        We do not store your FACEIT username, email, IP address, or any other
+        personally identifiable information in the community database.
       </p>
 
       <h3>FACEIT page data read locally</h3>
       <p>
         On every FACEIT page you visit, the extension reads player nicknames
-        visible in the page to resolve them against the community database and
-        apply highlights. In matchrooms specifically, it also reads the profile
-        link in FACEIT&apos;s navigation header to determine your logged-in
-        nickname for the participation check described above.
-      </p>
-      <p>
-        Neither your logged-in nickname nor the raw list of player nicknames is
-        logged or stored on our server. Nickname-to-Steam-ID mappings resolved
-        via our API are cached for up to 24 hours to reduce API load, then
-        discarded.
+        visible in the page to look them up in the community database and apply
+        highlights. This reading happens entirely inside your browser and the raw
+        list of nicknames is never logged or transmitted to our server.
+        Nickname-to-Steam-ID mappings resolved via our API are cached in{" "}
+        <code>chrome.storage.session</code> (cleared on browser close) to reduce
+        network requests.
       </p>
 
       <h2>Data shared with third parties</h2>
       <p>
         To resolve FACEIT nicknames to Steam IDs, our server queries the FACEIT
-        Open Data API on your behalf. Your anonymous reporter UUID and the
-        nicknames on the page are never sent directly to FACEIT — only our
-        server makes that request. We do not sell or share any data with
-        advertisers or analytics providers.
+        Open Data API. To verify match participation, our server calls the FACEIT
+        Data API using a server-side API key — your FACEIT access token is used
+        only to verify your identity via the FACEIT userinfo endpoint and is
+        never forwarded to any third-party service. We do not sell or share any
+        data with advertisers or analytics providers.
       </p>
 
-      <h2>Data stored locally</h2>
+      <h2>Data stored on your device</h2>
       <p>
-        The extension stores the following in <code>chrome.storage.local</code>{" "}
-        on your device:
+        The extension stores the following in <code>chrome.storage.local</code>:
       </p>
       <ul>
-        <li>Your anonymous reporter UUID</li>
+        <li>Your FACEIT OAuth access and refresh tokens</li>
+        <li>Your FACEIT display name (shown in the popup)</li>
         <li>
           A local copy of the flags you have personally submitted (for display
           in the popup and to allow removal)
         </li>
       </ul>
       <p>
-        It also stores a short-lived nickname-to-Steam-ID cache in{" "}
-        <code>chrome.storage.session</code> (cleared when the browser closes)
-        to avoid redundant network requests within a session. This data never
-        leaves your device. Nothing is synced across devices via{" "}
-        <code>chrome.storage.sync</code>.
+        Nothing is synced across devices via <code>chrome.storage.sync</code>.
+        Disconnecting your FACEIT account from the popup removes all stored
+        tokens from your device immediately.
       </p>
 
       <h2>Community database</h2>
@@ -123,7 +127,8 @@ export default function ExtensionPrivacy() {
         You can remove any flag you have submitted at any time from within the
         extension popup. Removing a flag deletes it from the community database
         permanently. To request deletion of all flags associated with your
-        reporter ID, email{" "}
+        reporter identifier, or to request that your hashed GUID be removed,
+        email{" "}
         <a href="mailto:help@steamfriends.xyz">help@steamfriends.xyz</a>.
       </p>
 
@@ -141,6 +146,8 @@ export default function ExtensionPrivacy() {
 
       <p style={{ marginTop: "2rem" }}>
         <a href="/extension">← Back to ELO TERRORISTS</a>
+        {" · "}
+        <a href="/tos/extension">Terms of Service</a>
         {" · "}
         <a href="/">Back to home</a>
       </p>

@@ -164,6 +164,8 @@ export default function ExtensionPageContent({ s }: { s: ExtensionStrings }) {
         <p style={{ margin: 0, fontSize: "0.92rem" }}>
           {s.privacyBody}{" "}
           <a href={s.privacyHref}>{s.privacyLink}</a>
+          {" · "}
+          <a href="/tos/extension">Terms of Service</a>
         </p>
       </section>
 

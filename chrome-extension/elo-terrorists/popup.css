@@ -284,6 +284,21 @@ input[type="text"]::placeholder { color: #444; }
 
 .empty-my { color: #3a3a3a; font-size: 12px; font-style: italic; text-align: center; padding: 16px 0; }
 
+/* ── Popup footer ───────────────────────────── */
+
+.popup-footer {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid #1e1e1e;
+  text-align: center; font-size: 10px; color: #3a3a3a;
+}
+
+.popup-footer a {
+  color: #444; text-decoration: none;
+  transition: color .15s;
+}
+
+.popup-footer a:hover { color: #888; }
+
 /* ── Rank colour vars used in JS ────────────── */
 .rank-color-S { color: #cc0000; }
 .rank-color-A { color: #ff3333; }
