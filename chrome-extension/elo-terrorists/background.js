@@ -1,22 +1,35 @@
 // Service worker — owns all API calls and two-level cache.
 //
-// Flow per page load:
-//   content.js  →  LOOKUP_NAMES(nicknames)
-//   background  →  /api/et/resolve → { nickname: steamId }  (24h cache)
-//   background  →  /api/et/lookup  → flag data per steamId  (15min cache)
-//   background  →  reply to content.js with { nickname: flagData | null }
+// Cache is persisted to chrome.storage.session so it survives SW sleep/wake
+// within a browser session (clears on browser restart, which is fine).
 //
-// Popup flag flow:
-//   popup.js  →  RESOLVE_ONE(nickname)  → { steamId, displayName } | null
-//   popup.js  →  FLAG({ steamId, displayName, rank, comment })
+// LOOKUP_NAMES response shape changed to { nickname: { data, steamId } }
+// so content.js can offer the inline flag panel without a second round-trip.
 
 const API = "https://steamfriends.xyz/api/et";
-const RESOLVE_TTL = 24 * 60 * 60 * 1000; // 24 h — matches server cache
-const LOOKUP_TTL  = 15 * 60 * 1000;      // 15 min
+const RESOLVE_TTL = 24 * 60 * 60 * 1000; // 24 h
+const LOOKUP_TTL  = 15 * 60 * 1000;       // 15 min
 
-// In-memory caches (survive until the SW sleeps).
-const nameCache  = new Map(); // nickname → { steamId, cachedAt }
-const flagCache  = new Map(); // steamId  → { data: obj|null, cachedAt }
+const nameCache = new Map(); // nickname → { steamId, cachedAt }
+const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
+
+// ── Session-persistent cache ─────────────────────────────────────────────────
+
+async function loadCaches() {
+  try {
+    const { _nc, _fc } = await chrome.storage.session.get(["_nc", "_fc"]);
+    if (_nc) for (const [k, v] of Object.entries(_nc)) nameCache.set(k, v);
+    if (_fc) for (const [k, v] of Object.entries(_fc)) flagCache.set(k, v);
+  } catch { /* storage.session unavailable in older Chrome */ }
+}
+
+async function saveNameCache() {
+  try { await chrome.storage.session.set({ _nc: Object.fromEntries(nameCache) }); } catch {}
+}
+
+async function saveFlagCache() {
+  try { await chrome.storage.session.set({ _fc: Object.fromEntries(flagCache) }); } catch {}
+}
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -24,6 +37,7 @@ chrome.runtime.onInstalled.addListener(setup);
 chrome.runtime.onStartup.addListener(setup);
 
 async function setup() {
+  await loadCaches();
   const { reporterId } = await chrome.storage.local.get("reporterId");
   if (!reporterId) {
     await chrome.storage.local.set({ reporterId: crypto.randomUUID() });
@@ -33,7 +47,7 @@ async function setup() {
 
 // ── Message router ───────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   switch (msg.type) {
     case "LOOKUP_NAMES":
       lookupNames(msg.names).then(reply);
@@ -53,14 +67,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     case "COMMUNITY_SEARCH":
       communitySearch(msg.nickname).then(reply);
       return true;
+    case "SET_BADGE": {
+      const tabId = sender.tab?.id;
+      if (tabId != null) {
+        chrome.action.setBadgeBackgroundColor({ color: "#cc0000", tabId });
+        chrome.action.setBadgeText({
+          text: msg.count > 0 ? String(msg.count) : "",
+          tabId,
+        });
+      }
+      return false;
+    }
   }
 });
 
 // ── Core pipeline ────────────────────────────────────────────────────────────
 
+// Returns { nickname: { data: flagObj|null, steamId: string|null } }
 async function lookupNames(nicknames) {
   const now = Date.now();
-  const resolved = {};   // nickname → steamId
+  const resolved = {}; // nickname → steamId
   const toResolve = [];
 
   for (const name of nicknames) {
@@ -82,19 +108,18 @@ async function lookupNames(nicknames) {
           nameCache.set(name, { steamId, cachedAt: Date.now() });
           resolved[name] = steamId;
         }
+        await saveNameCache();
       }
-    } catch { /* network error — use whatever we resolved so far */ }
+    } catch { /* network error */ }
   }
 
-  // Deduplicate steam IDs, then look up flags in one batch.
   const steamIds = [...new Set(Object.values(resolved).filter(Boolean))];
   const flagData = await lookupSteamIds(steamIds);
 
-  // Map back to nickname → flag data (or null if clean / unresolved).
   const result = {};
   for (const name of nicknames) {
-    const steamId = resolved[name];
-    result[name] = steamId ? (flagData[steamId] ?? null) : null;
+    const steamId = resolved[name] ?? null;
+    result[name] = { data: steamId ? (flagData[steamId] ?? null) : null, steamId };
   }
   return result;
 }
@@ -127,6 +152,7 @@ async function lookupSteamIds(steamIds) {
           flagCache.set(id, { data, cachedAt: Date.now() });
           result[id] = data;
         }
+        await saveFlagCache();
       }
     } catch { /* leave uncached */ }
   }
@@ -149,11 +175,12 @@ async function resolveOne(nickname) {
       const steamId = resolved[name];
       if (steamId) {
         nameCache.set(name, { steamId, cachedAt: Date.now() });
+        await saveNameCache();
         return { steamId, displayName: nickname };
       }
     }
   } catch { /* fall through */ }
-  return null; // FACEIT account not found or not linked to Steam
+  return null;
 }
 
 async function flagPlayer({ steamId, displayName, rank, comment }) {
@@ -169,6 +196,7 @@ async function flagPlayer({ steamId, displayName, rank, comment }) {
       myFlags[steamId] = { displayName, rank, comment, addedAt: new Date().toISOString() };
       await chrome.storage.local.set({ myFlags });
       flagCache.delete(steamId);
+      await saveFlagCache();
       return { ok: true };
     }
     return { ok: false };
@@ -190,6 +218,7 @@ async function unflagPlayer(steamId) {
       delete myFlags[steamId];
       await chrome.storage.local.set({ myFlags });
       flagCache.delete(steamId);
+      await saveFlagCache();
       return { ok: true };
     }
     return { ok: false };
@@ -203,9 +232,11 @@ async function getMyFlags() {
   return myFlags;
 }
 
+// communitySearch returns just the flag data object (or null), not the wrapped form.
 async function communitySearch(nickname) {
-  const result = await lookupNames([nickname.trim().toLowerCase()]);
-  return result[nickname.trim().toLowerCase()] ?? null;
+  const name = nickname.trim().toLowerCase();
+  const result = await lookupNames([name]);
+  return result[name]?.data ?? null;
 }
 
 // ── Icon ─────────────────────────────────────────────────────────────────────

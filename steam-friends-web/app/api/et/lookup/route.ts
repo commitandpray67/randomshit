@@ -6,11 +6,24 @@ const CORS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
-// Numeric weight so we can pick the worst rank with ORDER BY.
-const RANK_ORDER = `CASE rank
+// Time-weighted scoring: 90-day half-life (ln2/90 ≈ 0.00770/day).
+// weight = exp(-0.00770 * age_days)  →  fresh report: 1.0, 90d ago: 0.5, 180d ago: 0.25
+// weighted_score = Σ(rank_score × weight) / Σ(weight)
+// Score thresholds map back to rank letter.
+const SCORE_RANKS: [number, string][] = [
+  [5.5, "S"], [4.5, "A"], [3.5, "B"], [2.5, "C"], [1.5, "D"],
+];
+
+function scoreToRank(score: number): string {
+  for (const [thresh, rank] of SCORE_RANKS) {
+    if (score >= thresh) return rank;
+  }
+  return "F";
+}
+
+const RANK_SCORE_CASE = `CASE rank
   WHEN 'S' THEN 6 WHEN 'A' THEN 5 WHEN 'B' THEN 4
-  WHEN 'C' THEN 3 WHEN 'D' THEN 2 WHEN 'F' THEN 1
-END`;
+  WHEN 'C' THEN 3 WHEN 'D' THEN 2 ELSE 1 END`;
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
@@ -18,40 +31,63 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("steam_ids") ?? "";
-  const steamIds = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 50);
+  const steamIds = raw.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 50);
 
   if (steamIds.length === 0) {
     return NextResponse.json({ terrorists: [] }, { headers: CORS });
   }
 
-  // For each flagged Steam ID return:
-  //   worst_rank  — most severe rank any reporter assigned
-  //   top_comment — the comment attached to that worst-rank report
-  //   flag_count  — total number of reporters
-  //   display_name — most recently seen FACEIT nickname
+  // CTE: score each individual report, aggregate per steam_id, pick top comment
+  // by highest recency-weighted score. JOIN et_player_cache for current nickname.
   const rows = (await sql`
+    WITH scored AS (
+      SELECT
+        steam_id,
+        display_name,
+        comment,
+        ${sql.unsafe(RANK_SCORE_CASE)}                                                    AS rs,
+        EXP(-0.00770 * GREATEST(0, EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)) AS w
+      FROM et_flags
+      WHERE steam_id = ANY(${steamIds})
+    ),
+    agg AS (
+      SELECT
+        steam_id,
+        COUNT(*)::int                             AS flag_count,
+        (SUM(rs * w) / NULLIF(SUM(w), 0))::float AS weighted_score,
+        MAX(display_name)                         AS raw_display
+      FROM scored
+      GROUP BY steam_id
+    ),
+    top_c AS (
+      SELECT DISTINCT ON (steam_id) steam_id, comment
+      FROM scored
+      ORDER BY steam_id, rs * w DESC
+    )
     SELECT
-      steam_id,
-      (SELECT display_name FROM et_flags f2
-       WHERE f2.steam_id = f.steam_id
-       ORDER BY created_at DESC LIMIT 1)                         AS display_name,
-      COUNT(*)::int                                              AS flag_count,
-      (ARRAY_AGG(rank    ORDER BY ${sql.unsafe(RANK_ORDER)} DESC))[1] AS worst_rank,
-      (ARRAY_AGG(comment ORDER BY ${sql.unsafe(RANK_ORDER)} DESC))[1] AS top_comment
-    FROM et_flags f
-    WHERE steam_id = ANY(${steamIds})
-    GROUP BY steam_id
+      a.steam_id,
+      COALESCE(c.nickname, a.raw_display)  AS display_name,
+      a.flag_count,
+      a.weighted_score,
+      tc.comment                           AS top_comment
+    FROM agg a
+    JOIN top_c tc ON tc.steam_id = a.steam_id
+    LEFT JOIN et_player_cache c ON c.steam_id = a.steam_id
   `) as {
     steam_id: string;
     display_name: string | null;
     flag_count: number;
-    worst_rank: string;
+    weighted_score: number;
     top_comment: string;
   }[];
 
-  return NextResponse.json({ terrorists: rows }, { headers: CORS });
+  return NextResponse.json({
+    terrorists: rows.map((r) => ({
+      steam_id:     r.steam_id,
+      display_name: r.display_name,
+      flag_count:   r.flag_count,
+      worst_rank:   scoreToRank(r.weighted_score),
+      top_comment:  r.top_comment,
+    })),
+  }, { headers: CORS });
 }
