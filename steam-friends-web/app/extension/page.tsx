@@ -98,28 +98,33 @@ export default function ExtensionPage() {
           <li>
             <span className="step-n">1</span>
             <span>
-              <strong>Flag a player.</strong>{" "}
-              Type their FACEIT nickname into the popup. The extension looks up their
-              linked Steam ID — the one permanent identifier that survives nickname changes —
-              and stores the flag in a shared community database.
+              <strong>Play a match — no sign-up required.</strong>{" "}
+              When you open a matchroom on FACEIT, the extension checks whether your
+              logged-in FACEIT account is one of the 10 players in the room. If it is,
+              a small{" "}
+              <span style={{ fontWeight: 900, color: "#888" }}>⚑</span>
+              {" "}flag button appears next to each other player&apos;s name. No account,
+              email, or separate login needed — your presence in the match is the proof.
             </span>
           </li>
           <li>
             <span className="step-n">2</span>
             <span>
-              <strong>Assign a rank and leave a comment.</strong>{" "}
-              Choose a rank from S (confirmed account seller) down to F (minor one-time incident)
-              and write a short reason. The comment helps others understand the context.
+              <strong>Click ⚑, pick a rank, leave a comment.</strong>{" "}
+              An inline panel opens next to the player&apos;s name. Choose a severity
+              from S (confirmed account seller) down to F (minor one-time incident)
+              and write a short reason. The flag is submitted to the community database
+              under your anonymous reporter ID — your FACEIT identity is never stored or sent.
             </span>
           </li>
           <li>
             <span className="step-n">3</span>
             <span>
-              <strong>Highlights appear automatically.</strong>{" "}
-              On any FACEIT page — match room, scoreboard, player profile — flagged players&apos;
-              names glow in rank-colored text with a badge like{" "}
+              <strong>Highlights appear everywhere on FACEIT.</strong>{" "}
+              Flagged players&apos; names glow in rank-colored text with a badge like{" "}
               <code style={{ color: "#cc0000", fontWeight: 700, background: "#1a0000", padding: "1px 5px", borderRadius: 3 }}>[S]</code>
-              {" "}and a tooltip showing the community reports.
+              {" "}on any FACEIT page — match rooms, scoreboards, player profiles — with a
+              tooltip showing the community reports.
             </span>
           </li>
           <li>
@@ -175,11 +180,13 @@ export default function ExtensionPage() {
         className="card"
         style={{ background: "rgba(102,192,244,0.05)", borderColor: "rgba(102,192,244,0.15)", marginBottom: "2rem" }}
       >
-        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Anonymous by design</h2>
+        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>No account. No login. Verified by the match.</h2>
         <p style={{ margin: 0, fontSize: "0.92rem" }}>
-          The extension generates a random ID on install — no account, email, or login required.
-          Your identity is never stored or shared. Flags you submit are tied only to that random ID,
-          and you can remove them at any time from the popup.{" "}
+          Instead of creating an account, the extension verifies you were actually in the match —
+          it reads your logged-in FACEIT session directly from the page and checks your nickname
+          against the room&apos;s player list. This happens entirely in your browser; your FACEIT
+          username is never sent to our servers. Flags are attributed only to a random anonymous ID
+          generated on install, and you can remove them at any time from the popup.{" "}
           <a href="/privacy/extension">Read the full privacy policy →</a>
         </p>
       </section>
