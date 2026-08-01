@@ -37,7 +37,9 @@ async function getFaceitIdentity(accessToken: string): Promise<{ guid: string; n
 // Returns true if `playerGuid` appears in either team of the given match.
 // Returns true (bypass) if FACEIT_DATA_API_KEY is not configured.
 async function verifyMatchParticipation(matchId: string, playerGuid: string): Promise<boolean> {
-  const apiKey = process.env.FACEIT_DATA_API_KEY;
+  // Same Data API key the resolve route uses; FACEIT_DATA_API_KEY allows
+  // pointing match verification at a separate key if you ever split them.
+  const apiKey = process.env.FACEIT_DATA_API_KEY || process.env.FACEIT_API_KEY;
   if (!apiKey) return true; // can't verify — allow through without match check
 
   try {
