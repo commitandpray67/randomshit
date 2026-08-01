@@ -6,9 +6,6 @@
 // Flags require a valid FACEIT access token; the server verifies identity
 // via the FACEIT userinfo endpoint and (when matchId is supplied) checks
 // match participation via the FACEIT Data API.
-//
-// IMPORTANT: set FACEIT_CLIENT_ID to your app's client_id from
-// https://developers.faceit.com before publishing.
 
 const API = "https://steamfriends.xyz/api/et";
 const RESOLVE_TTL = 24 * 60 * 60 * 1000; // 24 h
@@ -19,9 +16,10 @@ const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
 
 // ── FACEIT OAuth ─────────────────────────────────────────────────────────────
 
-// Register your app at https://developers.faceit.com and set the redirect URI
-// to the value of chrome.identity.getRedirectURL() (logged to console on install).
-const FACEIT_CLIENT_ID = "YOUR_FACEIT_CLIENT_ID";
+// Public OAuth client id — safe to ship, it travels in the authorize URL.
+// Registered at https://developers.faceit.com against the redirect URI from
+// chrome.identity.getRedirectURL() (logged to the SW console on install).
+const FACEIT_CLIENT_ID = "08a37817-cfc0-4937-bce6-6981b7881b13";
 const FACEIT_AUTH_URL  = "https://accounts.faceit.com/oauth/authorize";
 const FACEIT_TOKEN_URL = "https://api.faceit.com/auth/v1/oauth/token";
 const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
