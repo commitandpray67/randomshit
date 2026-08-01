@@ -21,8 +21,12 @@ const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
 // chrome.identity.getRedirectURL() (logged to the SW console on install).
 const FACEIT_CLIENT_ID = "08a37817-cfc0-4937-bce6-6981b7881b13";
 const FACEIT_AUTH_URL  = "https://accounts.faceit.com/oauth/authorize";
-const FACEIT_TOKEN_URL = "https://api.faceit.com/auth/v1/oauth/token";
 const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
+
+// FACEIT's token endpoint authenticates with HTTP Basic client_id:client_secret
+// and has no public-client mode. The secret cannot live in an extension, so the
+// code exchange and refresh are proxied through our own server.
+const TOKEN_PROXY_URL = `${API}/oauth/token`;
 
 function genVerifier() {
   const arr = new Uint8Array(32);
@@ -53,6 +57,10 @@ async function faceitLogin() {
     state,
     code_challenge:        challenge,
     code_challenge_method: "S256",
+    // Without this FACEIT redirects the *parent* page and parks the popup on
+    // /post-redirect ("you can close this window"), so launchWebAuthFlow —
+    // which has no parent — never sees the redirect and the flow hangs.
+    redirect_popup:        "true",
   });
 
   let responseUrl;
@@ -78,18 +86,20 @@ async function faceitLogin() {
   }
 
   try {
-    const tokenRes = await fetch(FACEIT_TOKEN_URL, {
+    const tokenRes = await fetch(TOKEN_PROXY_URL, {
       method:  "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type:    "authorization_code",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grantType:    "authorization_code",
         code,
-        redirect_uri:  redirectUri,
-        client_id:     FACEIT_CLIENT_ID,
-        code_verifier: verifier,
+        redirectUri,
+        codeVerifier: verifier,
       }),
     });
-    if (!tokenRes.ok) throw new Error(`Token exchange failed: ${tokenRes.status}`);
+    if (!tokenRes.ok) {
+      const detail = await tokenRes.text().catch(() => "");
+      throw new Error(`Token exchange failed: ${tokenRes.status} ${detail}`.trim());
+    }
     const tokens = await tokenRes.json();
 
     await chrome.storage.local.set({
@@ -136,13 +146,12 @@ async function refreshAccessToken() {
   const { faceit_refresh_token } = await chrome.storage.local.get("faceit_refresh_token");
   if (!faceit_refresh_token) return false;
   try {
-    const res = await fetch(FACEIT_TOKEN_URL, {
+    const res = await fetch(TOKEN_PROXY_URL, {
       method:  "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type:    "refresh_token",
-        refresh_token: faceit_refresh_token,
-        client_id:     FACEIT_CLIENT_ID,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grantType:    "refresh_token",
+        refreshToken: faceit_refresh_token,
       }),
     });
     if (!res.ok) return false;

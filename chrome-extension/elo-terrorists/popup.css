@@ -10,6 +10,9 @@ body {
 
 .container { padding: 12px; }
 
+/* Generic utility — scoped .hidden rules below predate this and still work. */
+.hidden { display: none !important; }
+
 /* ── Header ─────────────────────────────────── */
 
 header {
@@ -98,6 +101,12 @@ input[type="text"]::placeholder { color: #444; }
 }
 
 .auth-login:hover { background: #204800; }
+
+.auth-error {
+  background: #1a0000; border: 1px solid #440000; border-radius: 4px;
+  color: #ff6666; font-size: 11px; padding: 6px 9px;
+  word-break: break-word; line-height: 1.4;
+}
 .auth-login:disabled { background: #181818; color: #444; border-color: #2a2a2a; cursor: not-allowed; }
 
 /* ── Search ─────────────────────────────────── */

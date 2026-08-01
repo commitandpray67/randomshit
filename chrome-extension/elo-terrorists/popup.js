@@ -152,14 +152,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Auth buttons
   document.getElementById("auth-login-btn").addEventListener("click", async (e) => {
+    const errEl = document.getElementById("auth-error");
     e.target.disabled = true;
     e.target.textContent = "Connecting…";
+    errEl.classList.add("hidden");
+
     const result = await send({ type: "FACEIT_LOGIN" });
+
     if (result?.ok) {
       await refreshAuthUI();
     } else {
       e.target.disabled = false;
       e.target.textContent = "Connect with FACEIT";
+      errEl.textContent = result?.error || "Login failed — try again.";
+      errEl.classList.remove("hidden");
     }
   });
 
