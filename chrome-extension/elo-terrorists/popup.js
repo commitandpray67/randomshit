@@ -75,9 +75,14 @@ async function doSearch(nickname) {
   box.className = "search-result";
   box.innerHTML = `<span class="result-loading">Looking up ${escHtml(name)}…</span>`;
 
-  const data = await send({ type: "COMMUNITY_SEARCH", nickname: name });
+  const res  = await send({ type: "COMMUNITY_SEARCH", nickname: name });
+  const data = res?.data ?? null;
 
-  if (!data) {
+  if (!res?.resolved) {
+    box.className = "search-result unknown";
+    box.innerHTML =
+      `<strong>${escHtml(name)}</strong> — not found on FACEIT, or account not linked to Steam.`;
+  } else if (!data) {
     box.className = "search-result clean";
     box.innerHTML = `<strong>${escHtml(name)}</strong> — no community reports.`;
   } else {

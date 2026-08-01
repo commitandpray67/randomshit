@@ -136,6 +136,11 @@ input[type="text"]::placeholder { color: #444; }
   background: #0d1a0d; border: 1px solid #1a3a1a; color: #66cc66;
 }
 
+/* Nickname could not be resolved at all — distinct from "clean". */
+.search-result.unknown {
+  background: #1a1a1a; border: 1px solid #2f2f2f; color: #999;
+}
+
 .search-result.flagged {
   background: #1a0000; border: 1px solid #440000;
   border-left: 3px solid #ff3333;

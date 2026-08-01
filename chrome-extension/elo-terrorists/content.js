@@ -42,13 +42,19 @@ function getMatchId() {
   return m ? m[1] : null;
 }
 
+// Returns nicknames with their original casing, deduped case-insensitively.
+// FACEIT's player lookup is an exact match, so the casing in the profile URL
+// must survive all the way to the API — `known` is still keyed by lowercase.
 function pageNicknames() {
-  const set = new Set();
+  const byKey = new Map();
   document.querySelectorAll("a[href*='/players/']").forEach((a) => {
     const m = (a.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (m) set.add(norm(decodeURIComponent(m[1])));
+    if (!m) return;
+    const original = decodeURIComponent(m[1]).trim();
+    const key = original.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, original);
   });
-  return [...set];
+  return [...byKey.values()];
 }
 
 // ── Highlights ───────────────────────────────────────────────────────────────
@@ -58,8 +64,9 @@ function applyHighlights() {
     const m = (link.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
     if (!m) return;
 
-    const name  = norm(decodeURIComponent(m[1]));
-    const entry = known[name];
+    const display = decodeURIComponent(m[1]).trim(); // original casing
+    const name    = norm(display);                   // lookup key
+    const entry   = known[name];
     if (entry === undefined) return; // not yet looked up
 
     const { data, steamId } = entry;
@@ -68,7 +75,7 @@ function applyHighlights() {
     // The server validates identity (and match participation when matchId is
     // present), so we don't need client-side DOM tricks here.
     if (steamId && !link.dataset.etFlagBtn && _isAuthed) {
-      injectFlagButton(link, name, steamId);
+      injectFlagButton(link, display, steamId);
       link.dataset.etFlagBtn = "1";
     }
 
@@ -125,8 +132,8 @@ function updateBadge() {
 // ── Refresh pipeline ─────────────────────────────────────────────────────────
 
 function refresh() {
-  const all     = pageNicknames();
-  const unknown = all.filter((n) => !(n in known));
+  const all     = pageNicknames();          // original casing
+  const unknown = all.filter((n) => !(norm(n) in known));
 
   if (unknown.length === 0) {
     applyHighlights();

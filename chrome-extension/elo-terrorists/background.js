@@ -259,18 +259,20 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 
 // ── Core pipeline ────────────────────────────────────────────────────────────
 
-// Returns { nickname: { data: flagObj|null, steamId: string|null } }
+// Accepts nicknames in their original casing (FACEIT's lookup is exact-match).
+// Returns { lowercaseNickname: { data: flagObj|null, steamId: string|null } }.
 async function lookupNames(nicknames) {
   const now = Date.now();
-  const resolved = {};
-  const toResolve = [];
+  const resolved = {};   // lowercase key → steamId
+  const toResolve = [];  // original casing, sent to the API
 
-  for (const name of nicknames) {
-    const hit = nameCache.get(name);
+  for (const original of nicknames) {
+    const key = original.trim().toLowerCase();
+    const hit = nameCache.get(key);
     if (hit && now - hit.cachedAt < RESOLVE_TTL) {
-      resolved[name] = hit.steamId;
+      resolved[key] = hit.steamId;
     } else {
-      toResolve.push(name);
+      toResolve.push(original);
     }
   }
 
@@ -293,9 +295,10 @@ async function lookupNames(nicknames) {
   const flagData = await lookupSteamIds(steamIds);
 
   const result = {};
-  for (const name of nicknames) {
-    const steamId = resolved[name] ?? null;
-    result[name] = { data: steamId ? (flagData[steamId] ?? null) : null, steamId };
+  for (const original of nicknames) {
+    const key = original.trim().toLowerCase();
+    const steamId = resolved[key] ?? null;
+    result[key] = { data: steamId ? (flagData[steamId] ?? null) : null, steamId };
   }
   return result;
 }
@@ -339,20 +342,22 @@ async function lookupSteamIds(steamIds) {
 // ── Popup helpers ─────────────────────────────────────────────────────────────
 
 async function resolveOne(nickname) {
-  const name = nickname.trim().toLowerCase();
-  const hit = nameCache.get(name);
+  const original = nickname.trim();
+  const key = original.toLowerCase();
+  const hit = nameCache.get(key);
   if (hit && Date.now() - hit.cachedAt < RESOLVE_TTL) {
-    return { steamId: hit.steamId, displayName: nickname };
+    return { steamId: hit.steamId, displayName: original };
   }
   try {
-    const res = await fetch(`${API}/resolve?names=${encodeURIComponent(name)}`);
+    // Send original casing — the server keys the response by lowercase.
+    const res = await fetch(`${API}/resolve?names=${encodeURIComponent(original)}`);
     if (res.ok) {
       const { resolved } = await res.json();
-      const steamId = resolved[name];
+      const steamId = resolved[key];
       if (steamId) {
-        nameCache.set(name, { steamId, cachedAt: Date.now() });
+        nameCache.set(key, { steamId, cachedAt: Date.now() });
         await saveNameCache();
-        return { steamId, displayName: nickname };
+        return { steamId, displayName: original };
       }
     }
   } catch { /* fall through */ }
@@ -417,10 +422,15 @@ async function getMyFlags() {
   return myFlags;
 }
 
+// Returns { resolved, data }. `resolved` distinguishes "this nickname does not
+// exist on FACEIT / has no linked Steam account" from "this player is clean" —
+// collapsing both to null previously made unknown players look reported-free.
 async function communitySearch(nickname) {
-  const name = nickname.trim().toLowerCase();
-  const result = await lookupNames([name]);
-  return result[name]?.data ?? null;
+  const original = nickname.trim();
+  const key = original.toLowerCase();
+  const result = await lookupNames([original]);
+  const entry = result[key];
+  return { resolved: !!entry?.steamId, data: entry?.data ?? null };
 }
 
 // ── Icon ─────────────────────────────────────────────────────────────────────

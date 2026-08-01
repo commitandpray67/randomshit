@@ -25,12 +25,17 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // FACEIT's /players?nickname lookup is an exact match, so the nickname must
+  // reach it with its original casing. Lowercase is used only as the cache key
+  // and the response key, which is what callers index by.
   const raw = req.nextUrl.searchParams.get("names") ?? "";
-  const names = raw
-    .split(",")
-    .map((n) => n.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 20);
+  const byKey = new Map<string, string>(); // lowercase key → original casing
+  for (const n of raw.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const key = n.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, n);
+    if (byKey.size >= 20) break;
+  }
+  const names = [...byKey.keys()];
 
   if (names.length === 0) {
     return NextResponse.json({ resolved: {} }, { headers: CORS });
@@ -61,7 +66,8 @@ export async function GET(req: NextRequest) {
 
   // Resolve uncached nicknames in parallel via FACEIT API.
   await Promise.allSettled(
-    toFetch.map(async (nickname) => {
+    toFetch.map(async (key) => {
+      const nickname = byKey.get(key) ?? key; // original casing for the query
       const res = await fetch(
         `${FACEIT_API}/players?nickname=${encodeURIComponent(nickname)}`,
         { headers: { Authorization: `Bearer ${apiKey}` } },
@@ -73,11 +79,11 @@ export async function GET(req: NextRequest) {
       const playerId: string | undefined = data.player_id;
       if (!steamId || !playerId) return; // account not linked to Steam
 
-      resolved[nickname] = steamId;
+      resolved[key] = steamId;
 
       await sql`
         INSERT INTO et_player_cache (nickname, faceit_player_id, steam_id)
-        VALUES (${nickname}, ${playerId}, ${steamId})
+        VALUES (${key}, ${playerId}, ${steamId})
         ON CONFLICT (nickname) DO UPDATE SET
           faceit_player_id = EXCLUDED.faceit_player_id,
           steam_id         = EXCLUDED.steam_id,
