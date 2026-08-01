@@ -49,11 +49,20 @@ async function verifyMatchParticipation(matchId: string, playerGuid: string): Pr
     });
     if (!res.ok) return false;
     const match = await res.json();
-    const roster: { player_id: string }[] = [
-      ...(match.teams?.faction1?.roster ?? []),
-      ...(match.teams?.faction2?.roster ?? []),
-    ];
-    return roster.some((p) => p.player_id === playerGuid);
+
+    // `teams` is a map keyed by faction name. Matchmaking uses faction1/faction2
+    // but tournaments and hubs use other keys, so iterate the map rather than
+    // reading two hardcoded properties. Substitutes count as participants —
+    // someone subbed into a match saw it just as much as the starting roster.
+    type Member = { player_id?: string };
+    type Faction = { roster?: Member[]; substitutes?: Member[] };
+
+    const ids = new Set<string>();
+    for (const faction of Object.values((match.teams ?? {}) as Record<string, Faction>)) {
+      for (const m of faction?.roster ?? []) if (m?.player_id) ids.add(m.player_id);
+      for (const m of faction?.substitutes ?? []) if (m?.player_id) ids.add(m.player_id);
+    }
+    return ids.has(playerGuid);
   } catch {
     return false;
   }

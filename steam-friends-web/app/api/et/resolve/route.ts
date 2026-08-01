@@ -16,6 +16,59 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
+type FaceitPlayer = {
+  player_id?: string;
+  nickname?: string;
+  steam_id_64?: string;
+  games?: Record<string, { game_player_id?: string }>;
+};
+
+/**
+ * A Player's Steam ID64 is normally `steam_id_64`, but on some accounts that
+ * field is empty while the per-game `game_player_id` still holds it — for CS2
+ * and CS:GO that id *is* the Steam ID64. Checking both avoids reporting a
+ * linked account as unlinked.
+ */
+function extractSteamId(player: FaceitPlayer): string | null {
+  if (player.steam_id_64) return player.steam_id_64;
+  const games = player.games ?? {};
+  return games.cs2?.game_player_id || games.csgo?.game_player_id || null;
+}
+
+/**
+ * `/players?nickname=` is an exact lookup and 404s on any mismatch. When it
+ * misses, fall back to `/search/players`, which is fuzzy, and accept only an
+ * entry whose nickname matches case-insensitively — then re-fetch by id, since
+ * search results carry no Steam ID.
+ */
+async function fetchPlayer(nickname: string, apiKey: string): Promise<FaceitPlayer | null> {
+  const auth = { headers: { Authorization: `Bearer ${apiKey}` } };
+
+  const direct = await fetch(
+    `${FACEIT_API}/players?nickname=${encodeURIComponent(nickname)}`,
+    auth,
+  );
+  if (direct.ok) return (await direct.json()) as FaceitPlayer;
+  if (direct.status !== 404) return null; // 401/429/503 — don't burn a second call
+
+  const search = await fetch(
+    `${FACEIT_API}/search/players?nickname=${encodeURIComponent(nickname)}&limit=20`,
+    auth,
+  );
+  if (!search.ok) return null;
+
+  const { items = [] } = (await search.json()) as { items?: { player_id?: string; nickname?: string }[] };
+  const key = nickname.toLowerCase();
+  const hit = items.find((i) => (i.nickname ?? "").toLowerCase() === key);
+  if (!hit?.player_id) return null;
+
+  const byId = await fetch(
+    `${FACEIT_API}/players/${encodeURIComponent(hit.player_id)}`,
+    auth,
+  );
+  return byId.ok ? ((await byId.json()) as FaceitPlayer) : null;
+}
+
 export async function GET(req: NextRequest) {
   const rl = rateLimit(`et-resolve:${clientIp(req)}`, 60, 60);
   if (!rl.ok) {
@@ -68,15 +121,11 @@ export async function GET(req: NextRequest) {
   await Promise.allSettled(
     toFetch.map(async (key) => {
       const nickname = byKey.get(key) ?? key; // original casing for the query
-      const res = await fetch(
-        `${FACEIT_API}/players?nickname=${encodeURIComponent(nickname)}`,
-        { headers: { Authorization: `Bearer ${apiKey}` } },
-      );
-      if (!res.ok) return;
+      const player = await fetchPlayer(nickname, apiKey);
+      if (!player) return;
 
-      const data = await res.json();
-      const steamId: string | undefined = data.steam_id_64;
-      const playerId: string | undefined = data.player_id;
+      const steamId = extractSteamId(player);
+      const playerId: string | undefined = player.player_id;
       if (!steamId || !playerId) return; // account not linked to Steam
 
       resolved[key] = steamId;
