@@ -42,63 +42,87 @@ function getMatchId() {
   return m ? m[1] : null;
 }
 
-// Returns nicknames with their original casing, deduped case-insensitively.
-// FACEIT's player lookup is an exact match, so the casing in the profile URL
-// must survive all the way to the API — `known` is still keyed by lowercase.
-function pageNicknames() {
-  const byKey = new Map();
+// Every element on the page that names a player, as { el, display }.
+//
+// Two sources, because FACEIT renders players differently per surface:
+//  - Profile links (`/players/<nick>`) on scoreboards, profiles, popovers.
+//  - Matchroom rosters, which have NO link at all — the row is a click-trigger
+//    popover and the name is a bare div. Without this the extension is blind
+//    to the one page that matters most.
+//
+// The styled-components class hash changes between FACEIT builds, but the
+// `Nickname__Name` display-name prefix is stable, so match on a substring.
+function playerTargets() {
+  const out = [];
+
   document.querySelectorAll("a[href*='/players/']").forEach((a) => {
     const m = (a.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (!m) return;
-    const original = decodeURIComponent(m[1]).trim();
-    const key = original.toLowerCase();
-    if (!byKey.has(key)) byKey.set(key, original);
+    if (m) out.push({ el: a, display: decodeURIComponent(m[1]).trim() });
   });
+
+  document.querySelectorAll("[class*='Nickname__Name']").forEach((el) => {
+    const display = (el.textContent || "").trim();
+    if (display) out.push({ el, display });
+  });
+
+  return out;
+}
+
+// Nicknames with original casing, deduped case-insensitively. FACEIT's player
+// lookup is an exact match, so the casing must survive all the way to the API —
+// `known` is still keyed by lowercase.
+function pageNicknames() {
+  const byKey = new Map();
+  for (const { display } of playerTargets()) {
+    const key = display.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, display);
+  }
   return [...byKey.values()];
+}
+
+// One flag button per player, document-wide. A player's profile popover repeats
+// their profile link several times, which previously produced a button per link.
+function hasFlagButton(key) {
+  return !!document.querySelector(`.et-flag-btn[data-et-nick="${CSS.escape(key)}"]`);
 }
 
 // ── Highlights ───────────────────────────────────────────────────────────────
 
 function applyHighlights() {
-  document.querySelectorAll("a[href*='/players/']").forEach((link) => {
-    const m = (link.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (!m) return;
-
-    const display = decodeURIComponent(m[1]).trim(); // original casing
-    const name    = norm(display);                   // lookup key
-    const entry   = known[name];
-    if (entry === undefined) return; // not yet looked up
+  for (const { el, display } of playerTargets()) {
+    const name  = norm(display);
+    const entry = known[name];
+    if (entry === undefined) continue; // not yet looked up
 
     const { data, steamId } = entry;
 
-    // Inject flag button when the user is authenticated with FACEIT.
-    // The server validates identity (and match participation when matchId is
-    // present), so we don't need client-side DOM tricks here.
-    if (steamId && !link.dataset.etFlagBtn && _isAuthed) {
-      injectFlagButton(link, display, steamId);
-      link.dataset.etFlagBtn = "1";
+    // Inject the flag button when authenticated. The server validates identity
+    // (and match participation when matchId is present), so no client-side
+    // gating is needed here beyond "is the user connected".
+    if (steamId && _isAuthed && !hasFlagButton(name)) {
+      injectFlagButton(el, display, steamId, name);
     }
 
-    if (!data) return; // null = clean player
+    if (!data) continue; // null = clean player
 
     const rank = data.worst_rank;
 
     // Already tagged at this rank — just refresh tooltip.
-    if (link.dataset.etRank === rank) {
-      const badge = link.querySelector(".et-badge");
+    if (el.dataset.etRank === rank) {
+      const badge = el.querySelector(".et-badge");
       if (badge) badge.title = makeTooltip(data);
-      return;
+      continue;
     }
 
-    link.querySelector(".et-badge")?.remove();
+    el.querySelector(".et-badge")?.remove();
 
     const { color, glow } = RANK[rank] || RANK.F;
-    link.dataset.etRank = rank;
+    el.dataset.etRank = rank;
 
     // setProperty("...", "important") avoids the cssText += accumulation bug.
-    link.style.setProperty("color",       color,              "important");
-    link.style.setProperty("text-shadow", `0 0 6px ${glow}`, "important");
-    link.style.setProperty("font-weight", "700",              "important");
+    el.style.setProperty("color",       color,             "important");
+    el.style.setProperty("text-shadow", `0 0 6px ${glow}`, "important");
+    el.style.setProperty("font-weight", "700",             "important");
 
     const badge = document.createElement("span");
     badge.className   = "et-badge";
@@ -107,8 +131,8 @@ function applyHighlights() {
     badge.style.cssText =
       `cursor:help;font-style:normal;font-size:.82em;font-weight:900;` +
       `color:${color};text-shadow:none;letter-spacing:.04em`;
-    link.appendChild(badge);
-  });
+    el.appendChild(badge);
+  }
 
   updateBadge();
 }
@@ -120,13 +144,12 @@ function makeTooltip(entry) {
 }
 
 function updateBadge() {
-  let count = 0;
-  document.querySelectorAll("a[href*='/players/']").forEach((link) => {
-    const m = (link.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (!m) return;
-    if (known[norm(decodeURIComponent(m[1]))]?.data) count++;
-  });
-  chrome.runtime.sendMessage({ type: "SET_BADGE", count });
+  const flagged = new Set();
+  for (const { display } of playerTargets()) {
+    const key = norm(display);
+    if (known[key]?.data) flagged.add(key);
+  }
+  chrome.runtime.sendMessage({ type: "SET_BADGE", count: flagged.size });
 }
 
 // ── Refresh pipeline ─────────────────────────────────────────────────────────
@@ -167,12 +190,21 @@ function ensurePanelStyles() {
   s.id = "et-styles";
   s.textContent = `
     .et-flag-btn {
-      display: inline-block; margin-left: 5px;
-      font-size: .78em; color: #3a3a3a; cursor: pointer;
-      transition: color .12s; user-select: none;
-      vertical-align: middle; line-height: 1; font-weight: 900;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; margin-left: 6px;
+      font-size: 13px; line-height: 1; font-weight: 900;
+      color: #ff4444;
+      background: rgba(255,68,68,.12);
+      border: 1px solid rgba(255,68,68,.4);
+      border-radius: 4px;
+      cursor: pointer; user-select: none;
+      vertical-align: middle; flex-shrink: 0;
+      transition: background .12s, color .12s, border-color .12s;
     }
-    .et-flag-btn:hover { color: #ff3333; }
+    .et-flag-btn:hover {
+      background: #ff3333; color: #fff; border-color: #ff3333;
+      box-shadow: 0 0 8px rgba(255,51,51,.5);
+    }
     #et-panel {
       position: fixed; z-index: 2147483647;
       background: #0d0d0d; border: 1px solid #440000;
@@ -366,18 +398,23 @@ function checkPanelReady() {
   panel.querySelector("#et-panel-submit").disabled = !(panelRank && comment);
 }
 
-function injectFlagButton(link, nickname, steamId) {
+function injectFlagButton(anchorEl, nickname, steamId, key) {
   ensurePanelStyles();
   const btn = document.createElement("span");
-  btn.className   = "et-flag-btn";
-  btn.textContent = "⚑";
-  btn.title       = `Flag ${nickname} as ELO terrorist`;
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    showPanel(btn, nickname, steamId);
+  btn.className     = "et-flag-btn";
+  btn.textContent   = "⚑";
+  btn.title         = `Flag ${nickname} as ELO terrorist`;
+  btn.dataset.etNick = key;
+  // Matchroom rows are click-triggers that open FACEIT's own popover; stop the
+  // event before it reaches them or our panel opens behind theirs.
+  ["click", "mousedown", "pointerdown"].forEach((type) => {
+    btn.addEventListener(type, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (type === "click") showPanel(btn, nickname, steamId);
+    });
   });
-  link.parentNode?.insertBefore(btn, link.nextSibling);
+  anchorEl.parentNode?.insertBefore(btn, anchorEl.nextSibling);
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
