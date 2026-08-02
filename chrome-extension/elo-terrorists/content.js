@@ -22,8 +22,56 @@ let _isAuthed = false;
 
 function norm(s) { return s.trim().toLowerCase(); }
 
+// ── Orphaned-script shutdown ─────────────────────────────────────────────────
+//
+// Reloading or updating the extension kills the context of content scripts
+// already injected into open tabs. The script keeps running but every chrome.*
+// call throws "Extension context invalidated", once per DOM mutation. Detect
+// it, tear our own hooks down, and go quiet — the page keeps FACEIT's own
+// markup and the user gets working highlights again on reload.
+
+let _observer = null;
+let _authTimer = null;
+let _dead = false;
+
+function contextAlive() {
+  try {
+    return !!chrome.runtime?.id;
+  } catch {
+    return false;
+  }
+}
+
+function shutdown() {
+  if (_dead) return;
+  _dead = true;
+  _observer?.disconnect();
+  clearInterval(_authTimer);
+  clearTimeout(timer);
+}
+
+// Always settles the callback — send() wraps this in a promise, and skipping
+// the callback on a dead context would leave every awaiting caller hanging.
+function sendSafe(msg, cb) {
+  if (_dead || !contextAlive()) {
+    shutdown();
+    cb?.(undefined);
+    return;
+  }
+  try {
+    chrome.runtime.sendMessage(msg, (res) => {
+      // Reading lastError suppresses Chrome's "unchecked runtime.lastError".
+      void chrome.runtime.lastError;
+      cb?.(res);
+    });
+  } catch {
+    shutdown();
+    cb?.(undefined);
+  }
+}
+
 function send(msg) {
-  return new Promise((r) => chrome.runtime.sendMessage(msg, r));
+  return new Promise((resolve) => sendSafe(msg, resolve));
 }
 
 // ── Auth + matchroom helpers ──────────────────────────────────────────────────
@@ -149,12 +197,13 @@ function updateBadge() {
     const key = norm(display);
     if (known[key]?.data) flagged.add(key);
   }
-  chrome.runtime.sendMessage({ type: "SET_BADGE", count: flagged.size });
+  sendSafe({ type: "SET_BADGE", count: flagged.size });
 }
 
 // ── Refresh pipeline ─────────────────────────────────────────────────────────
 
 function refresh() {
+  if (_dead) return;
   const all     = pageNicknames();          // original casing
   const unknown = all.filter((n) => !(norm(n) in known));
 
@@ -163,7 +212,7 @@ function refresh() {
     return;
   }
 
-  chrome.runtime.sendMessage({ type: "LOOKUP_NAMES", names: unknown }, (result) => {
+  sendSafe({ type: "LOOKUP_NAMES", names: unknown }, (result) => {
     if (!result) return;
     for (const [name, entry] of Object.entries(result)) {
       known[name] = entry; // { data, steamId }
@@ -173,6 +222,7 @@ function refresh() {
 }
 
 function schedule() {
+  if (_dead) return;
   clearTimeout(timer);
   timer = setTimeout(refresh, 150);
 }
@@ -422,8 +472,9 @@ function injectFlagButton(anchorEl, nickname, steamId, key) {
 function init() {
   refreshAuth().then(refresh);
   // Re-check auth every 4 minutes in case token refreshed or user logged in/out.
-  setInterval(refreshAuth, 4 * 60 * 1000);
-  new MutationObserver(schedule).observe(document.body, {
+  _authTimer = setInterval(refreshAuth, 4 * 60 * 1000);
+  _observer = new MutationObserver(schedule);
+  _observer.observe(document.body, {
     childList: true,
     subtree:   true,
   });
