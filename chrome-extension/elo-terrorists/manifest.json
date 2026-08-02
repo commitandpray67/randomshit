@@ -2,6 +2,8 @@
   "manifest_version": 3,
   "name": "ELO TERRORISTS",
   "version": "2.0.0",
+  "_comment_key": "Public key pinning the extension ID to fammlfkggfbbfjbklabaceiojabannnc. Without it Chrome derives the ID from each machine's install path, so every unpacked install gets a different chrome.identity.getRedirectURL() and FACEIT rejects the authorize request. Safe to commit — it is the public half. Remove before uploading to the Chrome Web Store, which assigns its own ID.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuHBrGZa3bUs8v1VauZpPaj6lhXjRynaB2+WRe/54Ho+GWUsncMzkWcXXJr/iRfVS4R4SdM9NErxRdguPvIcBNkgdWmb679bdwzYolbJXcMuvihab4eNLCmGanIs5Z0/NWwN5PyVzjyhK3u/+m3we/dunYPWug/Enn+II5X7H9AL2kzqI5C0YKffubHvZ7WPy1FGrucWVakoXF/0xqomjGemPd9JXQ30dZ9OG1/N67a5fAAG09zUzBHb/XoyQ3bj9NQDVYnZX2mxn46Bgj/K9otp/OmJivRR4MSHRtWfWSAZ2XQdZgPJuspuVtZO6u9bGu50UdA9rrSd2v+J4/kGX+QIDAQAB",
   "description": "Community FACEIT griefer database. Flag ELO terrorists — see them glow red before you accept the match.",
   "permissions": ["storage", "identity"],
   "host_permissions": [
