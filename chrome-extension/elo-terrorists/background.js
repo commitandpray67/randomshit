@@ -19,7 +19,10 @@ const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
 // Public OAuth client id — safe to ship, it travels in the authorize URL.
 // Registered at https://developers.faceit.com against the redirect URI from
 // chrome.identity.getRedirectURL() (logged to the SW console on install).
-const FACEIT_CLIENT_ID = "08a37817-cfc0-4937-bce6-6981b7881b13";
+// Must match FACEIT_CLIENT_ID in the server env — /api/et/oauth/token exchanges
+// the code with the matching secret, and FACEIT ties the registered redirect URI
+// to this specific client.
+const FACEIT_CLIENT_ID = "c0cc2ccd-d687-4226-aa8f-9787b13abec3";
 const FACEIT_AUTH_URL  = "https://accounts.faceit.com/oauth/authorize";
 const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
 
