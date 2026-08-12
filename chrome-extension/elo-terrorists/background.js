@@ -22,7 +22,7 @@ const flagCache = new Map(); // steamId  → { data: obj|null, cachedAt }
 // Must match FACEIT_CLIENT_ID in the server env — /api/et/oauth/token exchanges
 // the code with the matching secret, and FACEIT ties the registered redirect URI
 // to this specific client.
-const FACEIT_CLIENT_ID = "c0cc2ccd-d687-4226-aa8f-9787b13abec3";
+const FACEIT_CLIENT_ID = "5d6de15a-475d-4597-a6fc-c94a71266452";
 const FACEIT_AUTH_URL  = "https://accounts.faceit.com/oauth/authorize";
 const FACEIT_USER_URL  = "https://api.faceit.com/auth/v1/resources/userinfo";
 
