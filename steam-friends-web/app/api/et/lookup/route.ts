@@ -72,7 +72,17 @@ export async function GET(req: NextRequest) {
       tc.comment                           AS top_comment
     FROM agg a
     JOIN top_c tc ON tc.steam_id = a.steam_id
-    LEFT JOIN et_player_cache c ON c.steam_id = a.steam_id
+    -- et_player_cache is keyed by nickname, so one Steam ID keeps a row per
+    -- name it has ever been cached under. A plain join on steam_id would
+    -- multiply the aggregate row per alias and show an arbitrary old nickname;
+    -- take only the most recently cached one.
+    LEFT JOIN LATERAL (
+      SELECT p.nickname
+      FROM et_player_cache p
+      WHERE p.steam_id = a.steam_id
+      ORDER BY p.cached_at DESC
+      LIMIT 1
+    ) c ON true
   `) as {
     steam_id: string;
     display_name: string | null;
