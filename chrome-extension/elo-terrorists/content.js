@@ -105,7 +105,21 @@ function playerTargets() {
 
   document.querySelectorAll("a[href*='/players/']").forEach((a) => {
     const m = (a.getAttribute("href") || "").match(/\/players\/([^/?#\s]+)/i);
-    if (m) out.push({ el: a, display: decodeURIComponent(m[1]).trim() });
+    if (!m) return;
+    const display = decodeURIComponent(m[1]).trim();
+
+    // A nested name element is the more precise target, and the query below
+    // already picks it up — taking the wrapper too would badge the same player
+    // twice.
+    if (a.querySelector("[class*='Nickname__Name']")) return;
+
+    // A profile page wraps its own nav tabs in the owner's profile URL, so
+    // "Games", "Friends" and "Clubs" are all `<a href="/players/<nick>/…">`.
+    // Those are navigation, not a person's name — require the link to actually
+    // render the nickname before treating it as one.
+    if (!norm(a.textContent || "").includes(norm(display))) return;
+
+    out.push({ el: a, display });
   });
 
   document.querySelectorAll("[class*='Nickname__Name']").forEach((el) => {
@@ -137,6 +151,22 @@ function hasFlagButton(key) {
 // ── Highlights ───────────────────────────────────────────────────────────────
 
 function applyHighlights() {
+  // Flagging belongs to the matchroom and nowhere else: a flag is a report about
+  // a game you were both in, and the server checks the reporter against that
+  // match's roster. Off a matchroom there is no match to cite, so the button has
+  // no business being there. Re-read the URL each pass — FACEIT is an SPA and
+  // routes without reloading the content script.
+  const canFlag = _isAuthed && !!getMatchId();
+
+  // Navigating out of a room keeps whatever survived the DOM swap, so sweep.
+  if (!canFlag) {
+    const stale = document.querySelectorAll(".et-flag-btn");
+    if (stale.length) {
+      stale.forEach((b) => b.remove());
+      hidePanel();
+    }
+  }
+
   for (const { el, display } of playerTargets()) {
     const name  = norm(display);
     const entry = known[name];
@@ -144,10 +174,9 @@ function applyHighlights() {
 
     const { data, steamId } = entry;
 
-    // Inject the flag button when authenticated. The server validates identity
-    // (and match participation when matchId is present), so no client-side
-    // gating is needed here beyond "is the user connected".
-    if (steamId && _isAuthed && !hasFlagButton(name)) {
+    // The server still validates identity and match participation on submit —
+    // this is only about where the button is offered.
+    if (steamId && canFlag && !hasFlagButton(name)) {
       injectFlagButton(el, display, steamId, name);
     }
 
