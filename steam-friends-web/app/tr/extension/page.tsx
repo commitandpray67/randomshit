@@ -29,14 +29,14 @@ const s: ExtensionStrings = {
   mockupCaption1:
     "İşaretlenen oyuncular otomatik olarak vurgulanır. Topluluk raporlarını görmek için rozete fareyi getir.",
   howTitle: "Nasıl çalışır",
-  step1Title: "Maç oyna — kayıt gerekmez.",
+  step1Title: "FACEIT ile giriş yap.",
   step1BodyA:
-    "FACEIT'te bir maç odası açtığında, uzantı giriş yaptığın FACEIT hesabının odadaki 10 oyuncudan biri olup olmadığını kontrol eder. Eğer öyleyse, diğer her oyuncunun adının yanında",
+    "FACEIT hesabını bir kez bağla — giriş FACEIT'in kendi sayfasında yapılır, uzantı şifreni asla görmez. Oynadığın bir maçın odasını aç ve diğer her oyuncunun adının yanında bir",
   step1BodyB:
-    "işaretleme butonu belirir. Hesap, e-posta veya ayrı bir giriş gerekmez — maçta olman tek doğrulama yöntemidir.",
+    "butonu belirsin. Sunucumuz, bir şikayeti kabul etmeden önce o maçın kadrosunda gerçekten yer aldığını doğrular.",
   step2Title: "⚑'e tıkla, rütbe seç, yorum bırak.",
   step2Body:
-    "Oyuncunun adının yanında bir panel açılır. S (onaylanmış hesap satıcısı) ile F (küçük tek seferlik olay) arasında bir ağırlık seç ve kısa bir gerekçe yaz. Şikayet, anonim raporlayıcı kimliğinle topluluk veritabanına gönderilir — FACEIT kimliğin asla kaydedilmez veya iletilmez.",
+    "Oyuncunun adının yanında bir panel açılır. S (doğrulanmış hesap satıcısı) ile F (küçük, tek seferlik olay) arasında bir ciddiyet seç ve kısa bir gerekçe yaz. FACEIT hesabın yalnızca geri döndürülemez bir hash olarak saklanır, bu yüzden şikayet sana kadar izlenemez — ama kendi şikayetlerini açılır pencereden görüp silebilirsin.",
   step3Title: "Vurgular FACEIT'in her yerinde görünür.",
   step3BodyA:
     "İşaretlenen oyuncuların isimleri rütkeye göre renklendirilmiş metin olarak parlar ve",
@@ -57,9 +57,9 @@ const s: ExtensionStrings = {
     { label: "Düşük",     desc: "Muhtemel troll, tekrarlayan küçük sorunlar" },
     { label: "Minimal",   desc: "Tek seferlik olay veya belirsiz durum" },
   ],
-  privacyTitle: "Hesap yok. Giriş yok. Maçla doğrulanır.",
+  privacyTitle: "Doğrulanmış şikayetçiler. Anonim şikayetler.",
   privacyBody:
-    "Hesap oluşturmak yerine uzantı, gerçekten maçta olduğunu doğrular — FACEIT oturumunu doğrudan sayfadan okur ve takma adını oda oyuncu listesiyle karşılaştırır. Bu işlem tamamen tarayıcında gerçekleşir; FACEIT kullanıcı adın sunucularımıza asla iletilmez. Şikayetler yalnızca kurulumda oluşturulan rastgele anonim bir kimlikle ilişkilendirilir ve istediğin zaman açılır pencereden silebilirsin.",
+    "Şikayet göndermek için FACEIT ile giriş gerekir ve sunucumuz herhangi bir şeyi kabul etmeden önce maç kadrosunda olduğunu doğrular — veritabanının anonim intikam şikayetleriyle dolmasını engelleyen şey budur. FACEIT hesap kimliğin hiçbir zaman okunabilir biçimde saklanmaz; yalnızca geri döndürülemez bir hash tutulur ve bu da sadece kendi şikayetlerini silebilmene yeter. Sayfada görünen oyuncu takma adları, Steam kimliklerini ve topluluk rütbelerini almak için API'mize gönderilir.",
   privacyLink: "Tam gizlilik politikasını oku →",
   ctaBack: "Steam takipçisine dön",
   backHref: "/tr",

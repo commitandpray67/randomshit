@@ -15,5 +15,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/tr/extension`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE}/es/extension`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+    // Linked from the Chrome Web Store listing, so they need to be reachable
+    // and indexable rather than hidden behind noindex.
+    { url: `${SITE}/privacy/extension`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE}/tos/extension`,     changeFrequency: "yearly", priority: 0.3 },
   ];
 }

@@ -1,7 +1,11 @@
 // Shared layout for all language versions of the /extension page.
 // Visual mockup components are English-only illustrations — only prose is translated.
 
-const CHROME_STORE_URL = "https://chromewebstore.google.com"; // placeholder until published
+// Store item id is assigned at first upload and is permanent, so this link is
+// already correct — it 404s only until the listing goes public. Drop the
+// `ctaComingSoon` caption from each locale once it does.
+const CHROME_STORE_URL =
+  "https://chromewebstore.google.com/detail/cgakllicmpghpoljccploiaepmpoakkn";
 
 const RANK_META = [
   { rank: "S", color: "#cc0000", border: "#440000" },

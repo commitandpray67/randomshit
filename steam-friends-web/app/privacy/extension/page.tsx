@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 
+// Indexable: the Chrome Web Store listing points here, and a policy the store
+// requires you to publish should not be telling crawlers to ignore it.
 export const metadata: Metadata = {
   title: "ELO TERRORISTS — Privacy Policy",
-  robots: { index: false, follow: false },
+  alternates: { canonical: "https://steamfriends.xyz/privacy/extension" },
 };
 
 export default function ExtensionPrivacy() {
   return (
     <main>
       <h1>ELO TERRORISTS — Privacy Policy</h1>
-      <p className="muted">Last updated: July 2026 · Chrome Extension</p>
+      <p className="muted">Last updated: August 2026 · Chrome Extension</p>
 
       <h2>Overview</h2>
       <p>
@@ -17,6 +19,33 @@ export default function ExtensionPrivacy() {
         flag and track suspected match-fixers and game-throwers in a shared
         community database. This policy explains what data the extension
         collects, how it is stored, and how it is used.
+      </p>
+
+      <h2>Summary</h2>
+      <p>
+        The extension handles three categories of data, matching the disclosures
+        on its Chrome Web Store listing:
+      </p>
+      <ul>
+        <li>
+          <strong>Authentication information</strong> — FACEIT OAuth tokens,
+          stored on your device and sent to our API so it can verify your
+          identity with FACEIT.
+        </li>
+        <li>
+          <strong>Personally identifiable information</strong> — FACEIT nicknames
+          and account IDs, and the public Steam IDs they map to.
+        </li>
+        <li>
+          <strong>Website content</strong> — player nicknames read from the
+          FACEIT page you are viewing, sent to our API to be looked up.
+        </li>
+      </ul>
+      <p>
+        We do not collect health, financial, or location data, personal
+        communications, browsing history, or any record of your activity on
+        pages. We do not sell or transfer data to third parties, and we do not
+        use it for anything outside the purpose described here.
       </p>
 
       <h2>How trust works — FACEIT OAuth</h2>
@@ -28,8 +57,9 @@ export default function ExtensionPrivacy() {
         FACEIT&apos;s own login page; we never see your FACEIT password.
       </p>
       <p>
-        When you flag a player from inside a matchroom, the extension sends the
-        current match ID to our server. Our server independently calls the FACEIT
+        The flag button is only offered inside a matchroom, never on profiles or
+        elsewhere on FACEIT. When you use it, the extension sends the current
+        match ID to our server. Our server independently calls the FACEIT
         Data API to confirm that your FACEIT account appears in that match&apos;s
         player roster before accepting the flag. This check happens entirely
         server-side — we do not rely on anything the extension claims about who
@@ -43,15 +73,20 @@ export default function ExtensionPrivacy() {
         After you connect your FACEIT account, an OAuth access token and refresh
         token are stored in <code>chrome.storage.local</code> on your device.
         These tokens allow the extension to authenticate your flagging requests.
-        They are never sent to any server other than FACEIT (for token refresh)
-        and our own API (attached to flag submissions so we can verify your
-        identity).
+        The access token is sent to our API when you submit or delete a flag, so
+        the server can confirm who you are with FACEIT before accepting it.
+        Refresh and token exchange also pass through our server, which forwards
+        them to FACEIT — this is necessary because FACEIT&apos;s token endpoint
+        requires a client secret that cannot safely be shipped inside a browser
+        extension. The tokens are not sent anywhere else, and we do not retain
+        them after the request they were used for.
       </p>
 
       <h3>Reporter identifier</h3>
       <p>
-        We never store your FACEIT username or GUID in plain text. When a flag is
-        accepted, our server computes a one-way SHA-256 hash of your FACEIT GUID
+        We never store your FACEIT username or GUID in plain text on our servers.
+        When a flag is accepted, our server computes a one-way SHA-256 hash of
+        your FACEIT GUID
         and stores that hash as your stable reporter identifier. This hash cannot
         be reversed to recover your FACEIT identity, but it is consistent across
         all flags you submit, allowing you to view and delete your own reports.
@@ -71,19 +106,41 @@ export default function ExtensionPrivacy() {
         <li>The timestamp of submission</li>
       </ul>
       <p>
-        We do not store your FACEIT username, email, IP address, or any other
+        We do not store your FACEIT username, email address, or any other
         personally identifiable information in the community database.
       </p>
 
-      <h3>FACEIT page data read locally</h3>
+      <h3>Network information</h3>
       <p>
-        On every FACEIT page you visit, the extension reads player nicknames
-        visible in the page to look them up in the community database and apply
-        highlights. This reading happens entirely inside your browser and the raw
-        list of nicknames is never logged or transmitted to our server.
-        Nickname-to-Steam-ID mappings resolved via our API are cached in{" "}
-        <code>chrome.storage.session</code> (cleared on browser close) to reduce
-        network requests.
+        Like any web service, our API receives the IP address your requests come
+        from. It is used only as a short-lived, in-memory key for rate limiting,
+        to stop one person flooding the database. It is never written to our
+        database, never attached to a report, and is discarded when the rate-limit
+        window expires. We do not use analytics, advertising, or tracking
+        services of any kind.
+      </p>
+
+      <h3>Player nicknames read from FACEIT pages</h3>
+      <p>
+        On FACEIT pages you visit, the extension reads the player nicknames
+        visible in the page — match rosters, scoreboards and profile links. Those
+        nicknames are sent to our API, which resolves them to Steam IDs and
+        returns the community flag status used to highlight them. This is the
+        core lookup the extension performs and it cannot work offline.
+      </p>
+      <p>
+        To avoid repeating identical lookups, our server keeps a cache mapping a
+        nickname to its public FACEIT player ID and Steam ID, refreshed at least
+        every 24 hours. The extension caches the same results in{" "}
+        <code>chrome.storage.session</code>, which is cleared when you close the
+        browser.
+      </p>
+      <p>
+        These lookups are not tied to you. We do not record which page you were
+        on, when you visited it, or which account requested a nickname — the
+        cache stores only the public nickname-to-Steam-ID mapping itself, with no
+        reference to the user who triggered it. Lookups do not require you to be
+        signed in.
       </p>
 
       <h2>Data shared with third parties</h2>
@@ -101,8 +158,12 @@ export default function ExtensionPrivacy() {
         The extension stores the following in <code>chrome.storage.local</code>:
       </p>
       <ul>
-        <li>Your FACEIT OAuth access and refresh tokens</li>
-        <li>Your FACEIT display name (shown in the popup)</li>
+        <li>Your FACEIT OAuth access and refresh tokens, and their expiry time</li>
+        <li>
+          Your FACEIT nickname and account ID, shown in the popup so you can see
+          which account is connected. These stay on your device — only the hashed
+          form of the account ID ever reaches our servers.
+        </li>
         <li>
           A local copy of the flags you have personally submitted (for display
           in the popup and to allow removal)

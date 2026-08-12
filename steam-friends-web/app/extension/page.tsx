@@ -36,14 +36,14 @@ const s: ExtensionStrings = {
   mockupCaption1:
     "Flagged players are highlighted automatically. Hover a badge to see the community reports.",
   howTitle: "How it works",
-  step1Title: "Play a match — no sign-up required.",
+  step1Title: "Sign in with FACEIT.",
   step1BodyA:
-    "When you open a matchroom on FACEIT, the extension checks whether your logged-in FACEIT account is one of the 10 players in the room. If it is, a small",
+    "Connect your FACEIT account once, through FACEIT's own login page — the extension never sees your password. Open the matchroom of a game you played and a",
   step1BodyB:
-    "flag button appears next to each other player's name. No account, email, or separate login needed — your presence in the match is the proof.",
+    "button appears next to every other player's name. Our server checks that you were really on that match's roster before it accepts a report.",
   step2Title: "Click ⚑, pick a rank, leave a comment.",
   step2Body:
-    "An inline panel opens next to the player's name. Choose a severity from S (confirmed account seller) down to F (minor one-time incident) and write a short reason. The flag is submitted to the community database under your anonymous reporter ID — your FACEIT identity is never stored or sent.",
+    "An inline panel opens next to the player's name. Choose a severity from S (confirmed account seller) down to F (minor one-time incident) and write a short reason. Your FACEIT account is stored only as a one-way hash, so a report cannot be traced back to you — but the popup still lets you review and delete your own.",
   step3Title: "Highlights appear everywhere on FACEIT.",
   step3BodyA:
     "Flagged players' names glow in rank-colored text with a badge like",
@@ -64,9 +64,9 @@ const s: ExtensionStrings = {
     { label: "Low",      desc: "Possible troll, minor recurring issues" },
     { label: "Minimal",  desc: "One-time incident or uncertain" },
   ],
-  privacyTitle: "No account. No login. Verified by the match.",
+  privacyTitle: "Verified reporters. Anonymous reports.",
   privacyBody:
-    "Instead of creating an account, the extension verifies you were actually in the match — it reads your logged-in FACEIT session directly from the page and checks your nickname against the room's player list. This happens entirely in your browser; your FACEIT username is never sent to our servers. Flags are attributed only to a random anonymous ID generated on install, and you can remove them at any time from the popup.",
+    "Reporting requires signing in with FACEIT, and our server confirms you were on the match roster before accepting anything — that is what keeps the database from filling up with anonymous revenge reports. Your FACEIT account ID is never stored in readable form; only a one-way hash is kept, which is enough to let you delete your own reports and nothing more. Player nicknames visible on the page are sent to our API to look up their Steam IDs and community rank.",
   privacyLink: "Read the full privacy policy →",
   ctaBack: "Back to Steam tracker",
   backHref: "/",

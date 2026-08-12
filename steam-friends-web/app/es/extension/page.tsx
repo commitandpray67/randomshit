@@ -29,14 +29,14 @@ const s: ExtensionStrings = {
   mockupCaption1:
     "Los jugadores marcados se resaltan automáticamente. Pasa el ratón sobre la insignia para ver los informes de la comunidad.",
   howTitle: "Cómo funciona",
-  step1Title: "Juega una partida — sin registro.",
+  step1Title: "Inicia sesión con FACEIT.",
   step1BodyA:
-    "Cuando abres una sala de partida en FACEIT, la extensión comprueba si tu cuenta de FACEIT está entre los 10 jugadores de la sala. Si es así, aparece un botón",
+    "Conecta tu cuenta de FACEIT una sola vez, desde la página de inicio de sesión del propio FACEIT — la extensión nunca ve tu contraseña. Abre la sala de una partida que hayas jugado y aparecerá un botón",
   step1BodyB:
-    "junto al nombre de cada otro jugador. No se necesita cuenta, correo ni inicio de sesión separado — tu presencia en la partida es la prueba.",
+    "junto al nombre de cada jugador. Nuestro servidor comprueba que realmente estabas en la alineación de esa partida antes de aceptar una denuncia.",
   step2Title: "Haz clic en ⚑, elige un rango, deja un comentario.",
   step2Body:
-    "Se abre un panel junto al nombre del jugador. Elige una gravedad de S (vendedor de cuenta confirmado) a F (incidente menor aislado) y escribe un motivo breve. La denuncia se envía a la base de datos comunitaria con tu ID anónimo — tu identidad de FACEIT nunca se almacena ni se envía.",
+    "Se abre un panel junto al nombre del jugador. Elige una gravedad de S (vendedor de cuenta confirmado) a F (incidente menor aislado) y escribe un motivo breve. Tu cuenta de FACEIT se guarda solo como un hash irreversible, así que una denuncia no puede rastrearse hasta ti — pero la ventana emergente te sigue permitiendo ver y eliminar las tuyas.",
   step3Title: "Los resaltados aparecen en todo FACEIT.",
   step3BodyA:
     "Los nombres de los jugadores marcados brillan en texto de color según su rango con una insignia como",
@@ -57,9 +57,9 @@ const s: ExtensionStrings = {
     { label: "Bajo",      desc: "Posible troll, problemas menores recurrentes" },
     { label: "Mínimo",    desc: "Incidente aislado o situación incierta" },
   ],
-  privacyTitle: "Sin cuenta. Sin inicio de sesión. Verificado por la partida.",
+  privacyTitle: "Autores verificados. Denuncias anónimas.",
   privacyBody:
-    "En lugar de crear una cuenta, la extensión verifica que realmente estuviste en la partida — lee tu sesión de FACEIT directamente desde la página y comprueba tu apodo contra la lista de jugadores de la sala. Todo ocurre en tu navegador; tu nombre de usuario de FACEIT nunca se envía a nuestros servidores. Las denuncias se atribuyen solo a un ID anónimo generado en la instalación, y puedes eliminarlas en cualquier momento desde la ventana emergente.",
+    "Para denunciar hay que iniciar sesión con FACEIT, y nuestro servidor confirma que estabas en la alineación de la partida antes de aceptar nada — eso es lo que evita que la base de datos se llene de venganzas anónimas. El ID de tu cuenta de FACEIT nunca se almacena de forma legible: solo se guarda un hash irreversible, suficiente para que puedas eliminar tus propias denuncias y nada más. Los apodos visibles en la página se envían a nuestra API para obtener sus Steam ID y su rango comunitario.",
   privacyLink: "Leer la política de privacidad completa →",
   ctaBack: "Volver al rastreador de Steam",
   backHref: "/es",

@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 
+// Indexable — the store listing and the privacy policy both link here.
 export const metadata: Metadata = {
   title: "ELO TERRORISTS — Terms of Service",
-  robots: { index: false, follow: false },
+  alternates: { canonical: "https://steamfriends.xyz/tos/extension" },
 };
 
 export default function ExtensionToS() {
   return (
     <main>
       <h1>ELO TERRORISTS — Terms of Service</h1>
-      <p className="muted">Last updated: July 2026 · Chrome Extension</p>
+      <p className="muted">Last updated: August 2026 · Chrome Extension</p>
 
       <h2>1. What this service is</h2>
       <p>
