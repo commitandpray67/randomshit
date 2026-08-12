@@ -67,9 +67,6 @@ async function faceitLogin() {
   });
 
   const authUrl = `${FACEIT_AUTH_URL}?${params}`;
-  console.log("[ET] 1/4 authorize →", authUrl);
-  console.log("[ET]     redirect_uri:", redirectUri);
-  console.log("[ET]     client_id:   ", FACEIT_CLIENT_ID);
 
   let responseUrl;
   try {
@@ -84,11 +81,11 @@ async function faceitLogin() {
       );
     });
   } catch (e) {
-    console.error("[ET] 1/4 authorize FAILED:", e.message);
+    console.error("[ET] authorize failed:", e.message);
     return { ok: false, error: `Authorize: ${e.message}` };
   }
-  console.log("[ET] 2/4 redirected back →", responseUrl);
 
+  // Never log responseUrl — it carries the single-use authorization code.
   const parsed = new URL(responseUrl);
 
   // FACEIT reports refusals as ?error=...&error_description=... on the redirect.
@@ -97,22 +94,19 @@ async function faceitLogin() {
   const oauthError = parsed.searchParams.get("error");
   if (oauthError) {
     const desc = parsed.searchParams.get("error_description") || "";
-    console.error("[ET] 2/4 FACEIT refused:", oauthError, desc);
+    console.error("[ET] FACEIT refused:", oauthError, desc);
     return { ok: false, error: `FACEIT: ${oauthError}${desc ? ` — ${desc}` : ""}` };
   }
 
   const code = parsed.searchParams.get("code");
   if (!code) {
-    console.error("[ET] 2/4 no code in redirect");
     return { ok: false, error: "No authorization code in FACEIT's response" };
   }
   if (parsed.searchParams.get("state") !== state) {
-    console.error("[ET] 2/4 state mismatch");
     return { ok: false, error: "State mismatch — possible interference, try again" };
   }
 
   try {
-    console.log("[ET] 3/4 exchanging code at", TOKEN_PROXY_URL);
     const tokenRes = await fetch(TOKEN_PROXY_URL, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -135,7 +129,6 @@ async function faceitLogin() {
       faceit_refresh_token: tokens.refresh_token ?? null,
       faceit_expires_at:    Date.now() + (tokens.expires_in ?? 3600) * 1000,
     });
-    console.log("[ET] 4/4 token stored, fetching userinfo");
 
     // A token we can't identify is useless downstream — the server rejects
     // flags whose userinfo lookup fails, so fail here rather than showing a
@@ -144,10 +137,9 @@ async function faceitLogin() {
     if (!user?.guid) throw new Error("Signed in, but FACEIT userinfo lookup failed");
     await chrome.storage.local.set({ faceit_user: user });
 
-    console.log("[ET] connected as", user.nickname);
     return { ok: true, user };
   } catch (e) {
-    console.error("[ET] 3/4 token exchange FAILED:", e.message);
+    console.error("[ET] token exchange failed:", e.message);
     return { ok: false, error: e.message };
   }
 }

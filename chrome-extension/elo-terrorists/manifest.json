@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "ELO TERRORISTS",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Community FACEIT griefer database. Flag ELO terrorists — see them glow red before you accept the match.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": ["storage", "identity"],
   "host_permissions": [
     "https://www.faceit.com/*",
@@ -13,7 +19,13 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ELO TERRORISTS"
+    "default_title": "ELO TERRORISTS",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
