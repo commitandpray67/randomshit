@@ -25,9 +25,18 @@ the extension ID is effectively part of the OAuth config.
 ## Getting the extension ID
 
 **Published (Chrome Web Store).** The store assigns a permanent ID at *first
-upload*, not at publish — upload the zip as a draft and the ID is in the
-dashboard (and in the item URL). Register its `chromiumapp.org` redirect URI
-with FACEIT before going live, or the first install cannot log in.
+upload*, not at publish, and every later version goes to the same item under
+the same ID. Ours:
+
+```
+id:           cgakllicmpghpoljccploiaepmpoakkn
+redirect URI: https://cgakllicmpghpoljccploiaepmpoakkn.chromiumapp.org/
+```
+
+That URI has to be registered on the FACEIT client named in `background.js`, or
+store installs cannot log in. Nothing in the package encodes the ID —
+`chrome.identity.getRedirectURL()` derives it at runtime — so registering a new
+URI never requires a re-upload.
 
 **Unpacked (development).** Chrome derives the ID from the install path, so it
 differs per machine and every clone gets a redirect URI FACEIT does not know.
