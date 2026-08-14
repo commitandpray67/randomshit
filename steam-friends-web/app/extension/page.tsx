@@ -31,7 +31,6 @@ const s: ExtensionStrings = {
   heroSub:
     "A community database for flagging FACEIT match-fixers and game-throwers. Flagged players glow red on any FACEIT page — so you know who's in your lobby before the match starts.",
   ctaLabel: "Add to Chrome — Free",
-  ctaComingSoon: "Coming soon to Chrome Web Store",
   mockupLabel1: "Preview — Match room on faceit.com",
   mockupCaption1:
     "Flagged players are highlighted automatically. Hover a badge to see the community reports.",

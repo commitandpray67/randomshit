@@ -24,7 +24,6 @@ const s: ExtensionStrings = {
   heroSub:
     "Una base de datos comunitaria para marcar a tramposos y saboteadores de partidas en FACEIT. Los jugadores marcados brillan en rojo en cualquier página de FACEIT — sabe con quién juegas antes de que empiece la partida.",
   ctaLabel: "Añadir a Chrome — Gratis",
-  ctaComingSoon: "Próximamente en Chrome Web Store",
   mockupLabel1: "Vista previa — Sala de partida en faceit.com",
   mockupCaption1:
     "Los jugadores marcados se resaltan automáticamente. Pasa el ratón sobre la insignia para ver los informes de la comunidad.",

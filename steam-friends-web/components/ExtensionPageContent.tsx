@@ -1,11 +1,8 @@
 // Shared layout for all language versions of the /extension page.
 // Visual mockup components are English-only illustrations — only prose is translated.
 
-// Store item id is assigned at first upload and is permanent, so this link is
-// already correct — it 404s only until the listing goes public. Drop the
-// `ctaComingSoon` caption from each locale once it does.
 const CHROME_STORE_URL =
-  "https://chromewebstore.google.com/detail/cgakllicmpghpoljccploiaepmpoakkn";
+  "https://chromewebstore.google.com/detail/elo-terrorists/cgakllicmpghpoljccploiaepmpoakkn";
 
 const RANK_META = [
   { rank: "S", color: "#cc0000", border: "#440000" },
@@ -22,7 +19,6 @@ export type ExtensionStrings = {
   heroEyebrow: string;
   heroSub: string;
   ctaLabel: string;
-  ctaComingSoon: string;
   mockupLabel1: string;
   mockupCaption1: string;
   howTitle: string;
@@ -75,7 +71,6 @@ export default function ExtensionPageContent({ s }: { s: ExtensionStrings }) {
             <ChromeIcon />
             {s.ctaLabel}
           </a>
-          <span className="muted" style={{ fontSize: "0.8rem" }}>{s.ctaComingSoon}</span>
         </div>
       </div>
 

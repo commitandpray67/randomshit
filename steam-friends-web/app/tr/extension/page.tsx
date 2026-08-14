@@ -24,7 +24,6 @@ const s: ExtensionStrings = {
   heroSub:
     "FACEIT üzerinde maç sahtecilerini ve oyun bozanları işaretlemek için topluluk destekli bir veritabanı. İşaretlenen oyuncular herhangi bir FACEIT sayfasında kırmızı parlar — maç başlamadan kimin oynayacağını öğren.",
   ctaLabel: "Chrome'a Ekle — Ücretsiz",
-  ctaComingSoon: "Yakında Chrome Web Mağazası'nda",
   mockupLabel1: "Önizleme — faceit.com maç odası",
   mockupCaption1:
     "İşaretlenen oyuncular otomatik olarak vurgulanır. Topluluk raporlarını görmek için rozete fareyi getir.",

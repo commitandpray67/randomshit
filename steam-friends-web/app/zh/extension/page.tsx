@@ -24,7 +24,6 @@ const s: ExtensionStrings = {
   heroSub:
     "一个用于标记 FACEIT 对局操纵者和游戏破坏者的社区数据库。被标记玩家会在任何 FACEIT 页面上亮红——在比赛开始前了解你将与谁对决。",
   ctaLabel: "免费添加至 Chrome",
-  ctaComingSoon: "即将上线 Chrome 网上应用店",
   mockupLabel1: "预览 — faceit.com 比赛房间",
   mockupCaption1:
     "被标记的玩家会自动高亮显示。悬停在徽章上可查看社区举报详情。",
