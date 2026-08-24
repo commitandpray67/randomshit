@@ -10,6 +10,7 @@
  */
 import crypto from "node:crypto";
 import { sql } from "./db";
+import { studioOwner } from "./overlay";
 
 export type ElementKind = "text" | "image" | "video" | "widget";
 
@@ -94,6 +95,21 @@ export async function ensureScene(steamId: string): Promise<Scene> {
   return toScene(rows[0]);
 }
 
+/**
+ * The scene an editor should be working on: the shared one, or their own if
+ * the owner has never signed in and so has no row to hang a scene off.
+ */
+export async function studioScene(steamId: string): Promise<Scene> {
+  const owner = studioOwner(steamId);
+  if (owner && owner !== steamId) {
+    const known = await sql`SELECT 1 FROM users WHERE steam_id = ${owner}`;
+    if (known.length) return ensureScene(owner);
+    // Falling back rather than throwing: an allowlist naming somebody who
+    // hasn't logged in yet shouldn't lock the others out of the studio.
+  }
+  return ensureScene(steamId);
+}
+
 export async function getSceneByKey(key: string): Promise<Scene | null> {
   if (!key || key.length > 64) return null;
   const rows = await sql`SELECT * FROM scenes WHERE scene_key = ${key}`;
@@ -150,15 +166,16 @@ export function isChannelSafeKey(key: string): boolean {
  * A payload of just the version means "re-read the scene" — `applyTransform`
  * below sends the movement inline instead, so a drag needs no read at all.
  */
-async function bump(sceneId: number): Promise<void> {
-  await sql`
+async function bump(sceneId: number): Promise<number | null> {
+  const rows = await sql`
     WITH b AS (
       UPDATE scenes SET version = version + 1, updated_at = now()
       WHERE id = ${sceneId}
       RETURNING scene_key, version
     )
-    SELECT pg_notify('scene_' || scene_key, json_build_object('v', version)::text) FROM b
+    SELECT version, pg_notify('scene_' || scene_key, json_build_object('v', version)::text) FROM b
   `;
+  return rows[0] ? Number(rows[0].version) : null;
 }
 
 function num(v: unknown, min: number, max: number, fallback: number): number {
@@ -246,15 +263,21 @@ export type ElementPatch = {
  * Update one element. Only the provided fields change; props are merged so the
  * editor can send a single changed key without resending the whole payload.
  */
+/**
+ * Update one element, returning the scene version the change landed at.
+ *
+ * The version is what lets an editor tell its own writes apart from a snapshot
+ * that predates them — see mergeRemote in the studio.
+ */
 export async function updateElement(
   sceneId: number,
   elementId: number,
   patch: ElementPatch,
-): Promise<void> {
+): Promise<number | null> {
   const cur = (
     await sql`SELECT * FROM scene_elements WHERE id = ${elementId} AND scene_id = ${sceneId}`
   )[0];
-  if (!cur) return;
+  if (!cur) return null;
 
   const props =
     patch.props && typeof patch.props === "object"
@@ -277,7 +300,7 @@ export async function updateElement(
       updated_at = now()
     WHERE id = ${elementId} AND scene_id = ${sceneId}
   `;
-  await bump(sceneId);
+  return bump(sceneId);
 }
 
 export type Transform = { x: number; y: number; w: number; h: number; rotation: number };
@@ -307,6 +330,12 @@ export async function applyTransform(
   t: Partial<Transform>,
   sentAt?: unknown,
 ): Promise<number | null> {
+  // Resolving the shared owner would cost a lookup, and the whole point of
+  // this path is that it is one statement. Both candidates go into the join
+  // instead — the caller's own scene and the shared one — and since element
+  // ids are unique the join simply confirms the element belongs to a scene
+  // this editor is entitled to touch. Both are on the allowlist either way.
+  const owner = studioOwner(steamId);
   const x = num(t.x, -20000, 20000, 0);
   const y = num(t.y, -20000, 20000, 0);
   const w = num(t.w, 1, 20000, 1);
@@ -323,7 +352,7 @@ export async function applyTransform(
       SELECT e.id AS eid, s.id AS sid
       FROM scene_elements e
       JOIN scenes s ON s.id = e.scene_id
-      WHERE e.id = ${elementId} AND s.steam_id = ${steamId}
+      WHERE e.id = ${elementId} AND s.steam_id IN ${sql([steamId, owner])}
     ),
     mv AS (
       UPDATE scene_elements SET

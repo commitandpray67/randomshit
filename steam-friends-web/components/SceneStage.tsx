@@ -284,6 +284,13 @@ export default function SceneStage({
           position: "relative",
           width: canvas.w,
           height: canvas.h,
+          // Clip to the frame. The studio lets elements be parked in the space
+          // around the canvas, and an absolutely positioned child outside its
+          // parent still paints — so without this, something dropped just off
+          // the edge would go out on stream anyway. Clipping happens in the
+          // element's own coordinates, before the scale, so it lands exactly on
+          // the canvas bounds whatever the browser source is sized to.
+          overflow: "hidden",
           transform: `scale(${scale})`,
           transformOrigin: "center center",
           flex: "none",

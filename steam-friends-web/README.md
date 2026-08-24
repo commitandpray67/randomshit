@@ -126,6 +126,7 @@ polling. Pogly is Apache-2.0, and none of its code is used here.
 POGLY_ALLOWED_STEAM_IDS=76561198XXXXXXXXX     # comma-separated SteamID64s
 OVERLAY_SYNC_THROTTLE_SEC=60                  # optional, default 60
 SEVENTV_DEFAULT_CHANNEL=juntella              # optional, the studio picker's default
+STUDIO_PREVIEW_CHANNEL=juntella               # optional, the canvas's stream preview
 ```
 
 Then create the table. In the **Neon SQL editor**, paste and run
@@ -188,6 +189,59 @@ to do with the Steam friends tracker — it just lives in the same app.
 - **Editor** — `/studio`, gated by `POGLY_ALLOWED_STEAM_IDS` (same allowlist as
   the alert overlay; anyone else gets a 404).
 - **Browser source** — `/scene/<key>`, reachable only via its unguessable key.
+
+### One canvas, several editors
+
+Everyone on the allowlist edits the same scene and shares one browser-source
+URL. The first SteamID in `POGLY_ALLOWED_STEAM_IDS` owns it, so the order of
+that list is meaningful — put the owner first. (If that account has never
+signed in there is no row to hang a scene off, and each editor falls back to
+their own rather than the studio 500ing.)
+
+The editor holds the same SSE stream the browser source does, so an add, a
+drag or a keystroke shows up in everybody's canvas as it happens. Adopting
+those updates blindly would be worse than not having them — it would yank an
+element out from under someone's pointer, or reset a text box to the version
+that was on the server two keystrokes ago. Two rules decide who wins:
+
+- Whoever is actively changing something keeps it: an element under the
+  pointer, with a write in flight, or with an edit still queued is left alone.
+- Otherwise the newer write wins, decided by scene version. Every write returns
+  the version it landed at, and a snapshot older than this editor's own last
+  write for that element is history rather than news. Without this second rule
+  a letter goes missing every so often — there is a gap between one write
+  completing and the next keystroke queueing, and a snapshot built before that
+  write lands inside it.
+
+Two people dragging the *same* element still fight over it, last write wins.
+There are no cursors or presence indicators.
+
+### The canvas and the space around it
+
+The frame is drawn at a zoom that leaves parking space around it, and elements
+can be dragged off the frame into that space — somewhere to leave an emote or
+a label that isn't in the shot without deleting it. Anything wholly outside is
+marked `off-frame` in the layer list and outlined in amber on the canvas.
+
+The browser source clips to the frame, which is what makes the parking area
+safe. An absolutely positioned child outside its parent still paints, so
+without that clip an element dropped just off the edge would go out on stream
+anyway.
+
+Zoom is bottom-left of the canvas; **Fit** returns to tracking the window.
+
+### Stream preview
+
+The canvas can show the live Twitch stream behind the elements, so you place
+things against what viewers will actually see rather than against an empty
+rectangle. Editor only — OBS is already capturing the stream this previews, so
+it is never part of the browser source.
+
+The channel defaults to `STUDIO_PREVIEW_CHANNEL`, then `SEVENTV_DEFAULT_CHANNEL`,
+then `juntella`, and is remembered per browser rather than shared: it's a
+working aid, not part of the scene. Twitch only embeds when `parent` matches
+the page's own hostname, which is read from the browser so it works on
+localhost and on the deployed domain without configuring either.
 
 Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 `db/migrations/004_scenes.sql` (psql).

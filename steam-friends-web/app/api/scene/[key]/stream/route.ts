@@ -24,6 +24,10 @@ import {
  * forwarded without touching the database at all. Any other change sends just
  * a version, and the scene is re-read and sent whole.
  *
+ * Hidden elements are sent too. The renderer drops them (see ElementBox), and
+ * the studio is on the other end of this same stream — filtering them out here
+ * would make hiding something delete it from every editor's layer list.
+ *
  * LISTEN needs a connection that stays on one backend, which a transaction-mode
  * pooler will not give it — and the failure is silent, not an error. So a slow
  * safety poll runs regardless, and if it ever finds a change that no
@@ -115,7 +119,7 @@ export async function GET(
         send("scene", {
           version: fresh.version,
           canvas: { w: fresh.canvasW, h: fresh.canvasH },
-          elements: elements.filter((e) => !e.hidden),
+          elements,
         });
       };
 

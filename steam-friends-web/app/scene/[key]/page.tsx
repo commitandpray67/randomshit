@@ -36,7 +36,7 @@ export default async function ScenePage({ params }: { params: Promise<{ key: str
         sceneKey={scene.sceneKey}
         initialVersion={scene.version}
         initialCanvas={{ w: scene.canvasW, h: scene.canvasH }}
-        initialElements={elements.filter((e) => !e.hidden) as any}
+        initialElements={elements as any}
       />
     </>
   );

@@ -5,7 +5,7 @@ import { rateLimit } from "@/lib/ratelimit";
 import {
   KINDS,
   type ElementKind,
-  ensureScene,
+  studioScene,
   addElement,
   updateElement,
   deleteElement,
@@ -78,7 +78,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, version }, { headers: NO_STORE });
   }
 
-  const scene = await ensureScene(steamId);
+  // Everyone on the allowlist edits the same canvas; see studioOwner.
+  const scene = await studioScene(steamId);
+  const owner = scene.steamId;
 
   switch (action) {
     case "add": {
@@ -101,8 +103,13 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(id)) {
         return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
       }
-      await updateElement(scene.id, id, body.patch ?? {});
-      break;
+      // Returns early like `transform` does, for the same reason: the editor
+      // applied this optimistically and has no use for the element list, so
+      // re-reading the whole scene to echo it back is pure cost on a path that
+      // runs once per keystroke. The version does matter — it is how the
+      // editor recognises a snapshot older than its own last write.
+      const version = await updateElement(scene.id, id, body.patch ?? {});
+      return NextResponse.json({ ok: true, version }, { headers: NO_STORE });
     }
 
     case "delete": {
@@ -129,11 +136,11 @@ export async function POST(req: NextRequest) {
     }
 
     case "canvas":
-      await setCanvasSize(steamId, body.w, body.h);
+      await setCanvasSize(owner, body.w, body.h);
       break;
 
     case "rotate_key":
-      await rotateSceneKey(steamId);
+      await rotateSceneKey(owner);
       break;
 
     default:
@@ -144,7 +151,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Echo the resulting state so the editor stays in step without a second call.
-  const fresh = await ensureScene(steamId);
+  const fresh = await studioScene(steamId);
   return NextResponse.json(
     {
       ok: true,

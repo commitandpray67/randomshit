@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ElementView, type RElement } from "./SceneRenderer";
 import EmotePicker from "./EmotePicker";
 import { isEmbeddable, videoPaused } from "@/lib/embed";
+import StreamBackdrop from "./StreamBackdrop";
 
 type Canvas = { w: number; h: number };
 
@@ -36,16 +37,32 @@ function rot(x: number, y: number, deg: number): { x: number; y: number } {
   return { x: x * c - y * s, y: x * s + y * c };
 }
 
+/**
+ * Screen pixels of parking space kept around the frame at the default zoom.
+ *
+ * The canvas used to be fitted to fill the viewport, which left nowhere to put
+ * an element you aren't using — dragging it off the frame meant dragging it
+ * somewhere you couldn't see or reach. Zooming out a little turns the space
+ * around the frame into a shelf.
+ */
+const PARK = 170;
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 2;
+
 export default function StudioEditor({
   initialSceneKey,
   initialCanvas,
   initialElements,
+  initialVersion,
   siteUrl,
+  previewChannel,
 }: {
   initialSceneKey: string;
   initialCanvas: Canvas;
   initialElements: RElement[];
+  initialVersion: number;
   siteUrl: string;
+  previewChannel: string;
 }) {
   const [sceneKey, setSceneKey] = useState(initialSceneKey);
   const [canvas, setCanvas] = useState<Canvas>(initialCanvas);
@@ -56,6 +73,10 @@ export default function StudioEditor({
   const [error, setError] = useState<string | null>(null);
   const [showEmotes, setShowEmotes] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Keep tracking the viewport until someone picks a zoom of their own.
+  const [autoFit, setAutoFit] = useState(true);
+  const [preview, setPreview] = useState<string | null>(null);
+  const version = useRef(initialVersion);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const selected = elements.find((e) => e.id === selectedId) ?? null;
@@ -65,58 +86,53 @@ export default function StudioEditor({
 
   const sceneUrl = `${siteUrl}/scene/${sceneKey}`;
 
-  /**
-   * Call the mutation API and adopt the returned state.
-   *
-   * For structural changes only — adding, deleting, reordering, resizing the
-   * canvas — where the server decides something the editor can't know, like a
-   * new element's id or the z-order after a shuffle. Edits to an element that
-   * already exists go through `queueUpdate` instead and deliberately ignore
-   * what comes back; see the note there.
-   */
-  const call = useCallback(async (payload: any) => {
-    // Any queued edits have to land first, or the element list echoed back
-    // here would be from before them and would undo them on arrival.
-    await drainUpdates();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/studio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setError(data?.error ?? `request failed (${res.status})`);
-        return null;
-      }
-      if (data.elements) setElements(data.elements);
-      if (data.canvas) setCanvas(data.canvas);
-      if (data.sceneKey) setSceneKey(data.sceneKey);
-      return data;
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
 
-  // Fit the canvas into the viewport whenever either changes.
-  useEffect(() => {
-    const fit = () => {
-      const box = viewportRef.current;
-      if (!box) return;
-      const pad = 32;
-      const sx = (box.clientWidth - pad) / canvas.w;
-      const sy = (box.clientHeight - pad) / canvas.h;
-      setScale(Math.max(0.05, Math.min(sx, sy)));
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+  /** Zoom at which the frame sits in the middle with parking space round it. */
+  const fitScale = useCallback(() => {
+    const box = viewportRef.current;
+    if (!box) return 0.4;
+    const sx = (box.clientWidth - PARK * 2) / canvas.w;
+    const sy = (box.clientHeight - PARK * 2) / canvas.h;
+    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(sx, sy)));
   }, [canvas.w, canvas.h]);
+
+  useEffect(() => {
+    const apply = () => {
+      if (autoFit) setScale(fitScale());
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, [autoFit, fitScale]);
+
+  const zoomBy = (factor: number) => {
+    setAutoFit(false);
+    setScale((s) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, s * factor)));
+  };
+  const zoomToFit = () => {
+    setAutoFit(true);
+    setScale(fitScale());
+  };
+
+  // The stream channel is a personal working aid, not part of the scene, so it
+  // is remembered per browser rather than pushed at the other editors.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("studio:preview");
+      setPreview(saved === null ? previewChannel : saved);
+    } catch {
+      setPreview(previewChannel);
+    }
+  }, [previewChannel]);
+
+  const setPreviewChannel = (name: string) => {
+    setPreview(name);
+    try {
+      localStorage.setItem("studio:preview", name);
+    } catch {
+      /* private mode; the preview just won't be remembered */
+    }
+  };
 
   // --- local (optimistic) edits, flushed to the server on release ---------
   const patchLocal = useCallback((id: number, patch: Partial<RElement>) => {
@@ -142,6 +158,20 @@ export default function StudioEditor({
    */
   const queued = useRef(new Map<number, any>());
   const sending = useRef(false);
+  /** The element with an update in flight, and the one under the pointer. */
+  const sendingId = useRef<number | null>(null);
+  const activeId = useRef<number | null>(null);
+  /**
+   * The scene version each element was last written at *by this editor*.
+   *
+   * Being busy with an element isn't enough on its own. Between one write
+   * completing and the next keystroke queueing there is a gap, and a snapshot
+   * built before that write can land inside it — putting the text back as it
+   * was two characters ago, so the next keystrokes carry on from there. That
+   * is a dropped letter, and with two people editing it happens constantly.
+   * Comparing against the version the write landed at is what closes the gap.
+   */
+  const wroteAt = useRef(new Map<number, number>());
   const drained = useRef<(() => void)[]>([]);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -169,6 +199,7 @@ export default function StudioEditor({
     const [id, patch] = first.value as [number, any];
     queued.current.delete(id);
     sending.current = true;
+    sendingId.current = id;
     setSaving(true);
     setJustSaved(false);
 
@@ -177,13 +208,25 @@ export default function StudioEditor({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update", id, patch }),
     })
-      .then((res) => {
-        if (!res.ok) setError(`save failed (${res.status})`);
-        else setError(null);
+      .then(async (res) => {
+        if (!res.ok) {
+          setError(`save failed (${res.status})`);
+          return;
+        }
+        setError(null);
+        try {
+          const d = await res.json();
+          if (typeof d?.version === "number") {
+            wroteAt.current.set(id, Math.max(wroteAt.current.get(id) ?? 0, d.version));
+          }
+        } catch {
+          /* the write landed; only the bookkeeping is missing */
+        }
       })
       .catch((e) => setError(String(e?.message ?? e)))
       .finally(() => {
         sending.current = false;
+        sendingId.current = null;
         pumpEdits();
       });
   }, []);
@@ -197,6 +240,39 @@ export default function StudioEditor({
     [pumpEdits],
   );
 
+  /**
+   * Whether this editor is mid-change on an element, and so should keep its own
+   * copy rather than take one from the stream.
+   *
+   * Three people share one canvas, so everything anyone does arrives here as an
+   * update — including the echo of this editor's own writes. Adopting those
+   * blindly would yank an element out from under the pointer mid-drag, or
+   * reset a text box to the version that was on the server two keystrokes ago.
+   * The rule is the same one the save queue uses: whoever is actively changing
+   * something is the authority on it until they stop.
+   */
+  const busyWith = useCallback(
+    (id: number) => activeId.current === id || sendingId.current === id || queued.current.has(id),
+    [],
+  );
+
+  /** Adopt someone else's version of the scene, keeping whatever is in hand. */
+  const mergeRemote = useCallback(
+    (incoming: RElement[], version = Number.MAX_SAFE_INTEGER) => {
+      setElements((prev) => {
+        const local = new Map(prev.map((e) => [e.id, e]));
+        // The incoming list decides which elements exist — that is how another
+        // editor's add or delete arrives — while each element's contents come
+        // from whoever changed it most recently.
+        return incoming.map((r) => {
+          const stale = (wroteAt.current.get(r.id) ?? 0) > version;
+          return busyWith(r.id) || stale ? (local.get(r.id) ?? r) : r;
+        });
+      });
+    },
+    [busyWith],
+  );
+
   /** Resolves once everything queued has been written. */
   const drainUpdates = useCallback(
     () =>
@@ -206,6 +282,44 @@ export default function StudioEditor({
       }),
     [],
   );
+
+  /**
+   * Call the mutation API and adopt the returned state.
+   *
+   * For structural changes only — adding, deleting, reordering, resizing the
+   * canvas — where the server decides something the editor can't know, like a
+   * new element's id or the z-order after a shuffle. Edits to an element that
+   * already exists go through `queueUpdate` instead and deliberately ignore
+   * what comes back; see the note there.
+   */
+  const call = useCallback(async (payload: any) => {
+    // Any queued edits have to land first, or the element list echoed back
+    // here would be from before them and would undo them on arrival.
+    await drainUpdates();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data?.error ?? `request failed (${res.status})`);
+        return null;
+      }
+      if (data.elements) mergeRemote(data.elements);
+      if (data.canvas) setCanvas(data.canvas);
+      if (data.sceneKey) setSceneKey(data.sceneKey);
+      return data;
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [mergeRemote, drainUpdates]);
 
   // Closing the tab mid-word would otherwise drop whatever hadn't been sent
   // yet. A beacon outlives the page; a fetch at this point does not.
@@ -289,6 +403,19 @@ export default function StudioEditor({
       // speeding up and slowing down.
       body: JSON.stringify({ action: "transform", id, t, ts: Math.round(performance.now()) }),
     })
+      .then(async (res) => {
+        // Noted for the same reason a text edit is: it marks everything
+        // published before this point as older than what this editor already
+        // has, so a snapshot from mid-drag can't pull the element backwards.
+        try {
+          const d = await res.json();
+          if (typeof d?.version === "number") {
+            wroteAt.current.set(id, Math.max(wroteAt.current.get(id) ?? 0, d.version));
+          }
+        } catch {
+          /* the move landed; only the bookkeeping is missing */
+        }
+      })
       .catch(() => {})
       .finally(() => {
         inFlight.current = false;
@@ -310,6 +437,91 @@ export default function StudioEditor({
     [pump],
   );
 
+  // --- what the other editors are doing -----------------------------------
+  //
+  // The same stream the browser source listens to. Without it, three people on
+  // one canvas would each be editing a snapshot from whenever they opened the
+  // page, and the last to touch anything would silently undo the rest.
+  useEffect(() => {
+    let stopped = false;
+    let es: EventSource | null = null;
+    let reopen: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
+
+    const open = () => {
+      if (stopped) return;
+      try {
+        es = new EventSource(`/api/scene/${sceneKey}/stream?v=${version.current}`);
+      } catch {
+        return;
+      }
+
+      es.addEventListener("scene", (ev) => {
+        try {
+          const d = JSON.parse((ev as MessageEvent).data);
+          if (typeof d.version === "number") version.current = d.version;
+          if (d.canvas) setCanvas((c) => (c.w === d.canvas.w && c.h === d.canvas.h ? c : d.canvas));
+          if (Array.isArray(d.elements)) mergeRemote(d.elements, d.version);
+        } catch {
+          /* ignore a malformed frame */
+        }
+        failures = 0;
+      });
+
+      es.addEventListener("motion", (ev) => {
+        try {
+          const d = JSON.parse((ev as MessageEvent).data);
+          if (typeof d.v === "number") version.current = d.v;
+          if (!Array.isArray(d.m)) return;
+          const [id, x, y, w, h, rotation] = d.m as number[];
+          // No easing here, unlike the browser source: an editor wants to see
+          // exactly where the other person has put it, not a smoothed version
+          // trailing behind them.
+          if (busyWith(id)) return;
+          // Same test as mergeRemote: a movement published before this editor
+          // last moved the element is history, not news.
+          if ((wroteAt.current.get(id) ?? 0) > d.v) return;
+          patchLocal(id, { x, y, w, h, rotation });
+        } catch {
+          /* ignore a malformed frame */
+        }
+        failures = 0;
+      });
+
+      es.addEventListener("bye", () => {
+        es?.close();
+        es = null;
+        if (!stopped) reopen = setTimeout(open, 50);
+      });
+
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (stopped) return;
+        failures++;
+        reopen = setTimeout(open, Math.min(failures, 5) * 500);
+      };
+    };
+
+    open();
+    return () => {
+      stopped = true;
+      es?.close();
+      clearTimeout(reopen);
+    };
+  }, [sceneKey, mergeRemote, busyWith, patchLocal]);
+
+  /**
+   * Wholly outside the frame — parked on the shelf around the canvas, and so
+   * not on stream. Worth saying out loud, because an element sitting in the
+   * margin looks exactly like one that is simply near the edge.
+   */
+  const offFrame = useCallback(
+    (el: RElement) =>
+      el.x + el.w <= 0 || el.y + el.h <= 0 || el.x >= canvas.w || el.y >= canvas.h,
+    [canvas.w, canvas.h],
+  );
+
   /** Pointer position in canvas coordinates. */
   const toCanvas = useCallback(
     (e: PointerEvent | React.PointerEvent) => {
@@ -327,6 +539,9 @@ export default function StudioEditor({
       e.preventDefault();
       e.stopPropagation();
       setSelectedId(el.id);
+      // Claim it, so an update from another editor doesn't move it out from
+      // under the pointer half way through the gesture.
+      activeId.current = el.id;
 
       const start = toCanvas(e);
       const x0 = el.x;
@@ -347,6 +562,7 @@ export default function StudioEditor({
         const nx = Math.round(x0 + (p.x - start.x));
         const ny = Math.round(y0 + (p.y - start.y));
         flush(el.id, { ...fixed, x: nx, y: ny });
+        activeId.current = null;
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -360,6 +576,7 @@ export default function StudioEditor({
     (e: React.PointerEvent, el: RElement, sx: -1 | 0 | 1, sy: -1 | 0 | 1) => {
       e.preventDefault();
       e.stopPropagation();
+      activeId.current = el.id;
 
       const start = toCanvas(e);
       const { x: x0, y: y0, w: w0, h: h0, rotation } = el;
@@ -398,6 +615,7 @@ export default function StudioEditor({
       };
       const up = (ev: PointerEvent) => {
         flush(el.id, compute(ev));
+        activeId.current = null;
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -411,6 +629,7 @@ export default function StudioEditor({
     (e: React.PointerEvent, el: RElement) => {
       e.preventDefault();
       e.stopPropagation();
+      activeId.current = el.id;
       const cx = el.x + el.w / 2;
       const cy = el.y + el.h / 2;
 
@@ -437,6 +656,7 @@ export default function StudioEditor({
         if (ev.shiftKey) next = Math.round(next / 15) * 15;
         next = ((next % 360) + 360) % 360;
         flush(el.id, { ...fixed, rotation: next });
+        activeId.current = null;
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -576,23 +796,40 @@ export default function StudioEditor({
       <div className="st-body">
         {/* ----------------------------- canvas */}
         <div className="st-viewport" ref={viewportRef} onPointerDown={() => setSelectedId(null)}>
+          {/* A box big enough for the frame plus a margin of parking space, so
+              the viewport has something to scroll and elements dragged off the
+              frame land somewhere reachable rather than off into nothing. */}
           <div
-            className="st-canvas"
+            className="st-world"
             style={{
-              width: canvas.w,
-              height: canvas.h,
-              transform: `scale(${scale})`,
-              // Must be center, not top-left: the viewport centres this box at
-              // its *unscaled* size, so scaling from the top-left corner drags
-              // the whole canvas off to negative coordinates. Scaling about the
-              // centre keeps it where flex put it. toCanvas() reads the
-              // post-transform bounding rect, so it stays correct either way.
-              transformOrigin: "center center",
-              flex: "none",
+              width: canvas.w * scale + PARK * 2,
+              height: canvas.h * scale + PARK * 2,
             }}
-            onPointerDown={(e) => e.stopPropagation()}
           >
-            {elements.map((el) => (
+            <div className="st-frame-label" style={{ top: PARK - 22, left: PARK }}>
+              {canvas.w} × {canvas.h} — only what&apos;s inside goes on stream
+            </div>
+            <div
+              className="st-canvas"
+              style={{
+                position: "absolute",
+                left: PARK,
+                top: PARK,
+                width: canvas.w,
+                height: canvas.h,
+                transform: `scale(${scale})`,
+                // Top-left, because the box is placed by the world above rather
+                // than centred by flex — so the scaled result occupies exactly
+                // the rectangle starting at the parking margin. toCanvas()
+                // reads the post-transform rect, so it stays correct either way.
+                transformOrigin: "top left",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {preview && (
+                <StreamBackdrop channel={preview} width={canvas.w} height={canvas.h} />
+              )}
+              {elements.map((el) => (
               <div
                 key={el.id}
                 onPointerDown={(e) => startDrag(e, el)}
@@ -611,7 +848,12 @@ export default function StudioEditor({
                   zIndex: el.zIndex,
                   opacity: el.hidden ? 0.25 : el.opacity,
                   clipPath: el.clip || undefined,
-                  outline: el.id === selectedId ? "2px solid #66c0f4" : "1px dashed rgba(255,255,255,0.18)",
+                  outline:
+                    el.id === selectedId
+                      ? "2px solid #66c0f4"
+                      : offFrame(el)
+                        ? "1px dashed rgba(226,160,60,0.7)"
+                        : "1px dashed rgba(255,255,255,0.18)",
                   outlineOffset: 1,
                   cursor: el.locked ? "not-allowed" : "move",
                 }}
@@ -659,7 +901,19 @@ export default function StudioEditor({
                   </>
                 )}
               </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          {/* Floating rather than in the toolbar: it belongs to the canvas, and
+              the toolbar is already carrying the add buttons and the size. */}
+          <div className="st-zoom" onPointerDown={(e) => e.stopPropagation()}>
+            <button className="btn btn-ghost" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}>−</button>
+            <span className="st-zoom-level">{Math.round(scale * 100)}%</span>
+            <button className="btn btn-ghost" title="Zoom in" onClick={() => zoomBy(1.25)}>+</button>
+            <button className="btn btn-ghost" onClick={zoomToFit} title="Fit the frame in the window">
+              {autoFit ? "Fit ✓" : "Fit"}
+            </button>
           </div>
         </div>
 
@@ -673,7 +927,8 @@ export default function StudioEditor({
             </div>
             <p className="st-hint">
               Size the OBS source to your canvas. Keep this URL private — rotating it
-              breaks the old one immediately.
+              breaks the old one immediately. Everyone on the allowlist edits this
+              same canvas and shares this URL.
             </p>
             <button
               className="btn btn-ghost"
@@ -688,6 +943,29 @@ export default function StudioEditor({
           </section>
 
           <section className="st-panel">
+            <h3>Stream preview</h3>
+            <div className="st-url-row">
+              <input
+                className="st-url"
+                placeholder="Twitch channel"
+                value={preview ?? ""}
+                onChange={(e) => setPreviewChannel(e.target.value)}
+              />
+              <button
+                className="btn btn-ghost"
+                onClick={() => setPreviewChannel(preview ? "" : previewChannel)}
+              >
+                {preview ? "Hide" : "Show"}
+              </button>
+            </div>
+            <p className="st-hint">
+              Shown behind the elements so you can place things against the real
+              stream. Preview only — it is never part of the browser source, and
+              it is remembered in this browser rather than shared.
+            </p>
+          </section>
+
+          <section className="st-panel">
             <h3>Layers</h3>
             {elements.length === 0 && <p className="st-hint">Nothing yet — add an element above.</p>}
             <ul className="st-layers">
@@ -698,7 +976,10 @@ export default function StudioEditor({
                   onClick={() => setSelectedId(el.id)}
                 >
                   <span className="st-kind">{el.kind}</span>
-                  <span className="st-label">{labelFor(el)}</span>
+                  <span className="st-label">
+                    {labelFor(el)}
+                    {offFrame(el) && <span className="st-parked" title="Parked outside the frame — not on stream">off-frame</span>}
+                  </span>
                   <button title={el.hidden ? "Show" : "Hide"} onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); patchLocal(el.id, { hidden: !el.hidden }); queueUpdate(el.id, { hidden: !el.hidden }); }}>
                     {el.hidden ? "🚫" : "👁"}
                   </button>

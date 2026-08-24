@@ -575,17 +575,56 @@ p  { margin: 0.75rem 0; }
 .st-body { display: flex; flex: 1; min-height: 0; }
 
 .st-viewport {
-  flex: 1; min-width: 0; position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  /* Checkerboard so transparency reads correctly while editing. */
+  flex: 1; min-width: 0; position: relative; overflow: auto;
+  /* The void around the frame: somewhere to park what isn't in the shot. Dots
+     rather than the checkerboard, so it never reads as part of the canvas. */
+  background-color: #0d1116;
+  background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.st-world { position: relative; margin: 0 auto; }
+
+.st-canvas {
+  /* Checkerboard here, not on the viewport: this is the part that is actually
+     transparent, and the difference is the whole point of the parking area. */
   background-color: #14181d;
   background-image:
     linear-gradient(45deg, #1b2027 25%, transparent 25%, transparent 75%, #1b2027 75%),
     linear-gradient(45deg, #1b2027 25%, transparent 25%, transparent 75%, #1b2027 75%);
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
+  outline: 1px solid rgba(102,192,244,0.5);
+  box-shadow: 0 0 0 9999px rgba(6,9,13,0.35);
 }
-.st-canvas { position: relative; flex: none; outline: 1px solid rgba(102,192,244,0.35); }
+.st-frame-label {
+  position: absolute;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.st-zoom {
+  position: absolute; left: 12px; bottom: 12px; z-index: 5;
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.25rem 0.35rem;
+  background: rgba(10,14,19,0.85);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.st-zoom .btn { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+.st-zoom-level {
+  min-width: 3.2rem; text-align: center;
+  font-size: 0.78rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+}
+
+.st-parked {
+  margin-left: 0.35rem; padding: 0 0.3rem;
+  border-radius: 4px;
+  background: rgba(226,160,60,0.18);
+  color: #e2a03c;
+  font-size: 0.66rem;
+}
 
 .st-rail {
   width: 340px; flex: none; overflow-y: auto;
