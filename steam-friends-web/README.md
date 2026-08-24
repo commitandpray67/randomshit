@@ -206,6 +206,20 @@ a CSS `clip-path` — the same properties Pogly's `Elements` table stores.
 emote set and drops one on the canvas as an image. The lookup is proxied through
 `/api/emotes`, so the browser never talks to 7TV directly.
 
+The lookup follows 7TV's v3 API: a numeric Twitch id hits
+`/users/twitch/{id}` directly; a login name goes through GQL `SearchUsers` →
+`/users/{id}` → `/emote-sets/{id}`. Two details that are easy to get wrong and
+are covered by `npm run test:7tv`:
+
+- A 7TV account can link Twitch, YouTube and Kick. The Twitch connection is
+  picked explicitly — taking the first connection in the array can return a
+  different platform's emote set.
+- Image URLs come from `host.files`, choosing the largest WEBP (then GIF, then
+  PNG, AVIF last — OBS 30's CEF build can't decode AVIF). Hardcoding
+  `3x.webp` breaks on emotes never encoded at that size.
+
+Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
+
 ### How the browser source stays current
 
 The editor writes to `/api/studio`; each write bumps `scenes.version`. The

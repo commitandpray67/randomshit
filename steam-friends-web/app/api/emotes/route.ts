@@ -2,68 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { isOverlayAllowed } from "@/lib/overlay";
 import { rateLimit } from "@/lib/ratelimit";
+import { emotesFromSet, findEmoteSet, pickSearchedUserId, type Emote } from "@/lib/seventv";
 
 /**
  * 7TV emote lookup for a Twitch channel.
  *
- * Proxied server-side rather than called from the browser for two reasons: it
- * avoids CORS, and it means the lookup works even where 7TV's API is awkward to
- * reach directly — Vercel does the fetching. Emote images themselves still load
- * from cdn.7tv.app in the overlay; see the note in the studio README section if
- * that CDN turns out to be unreachable for the streamer.
+ * Proxied server-side rather than called from the browser: it avoids CORS, and
+ * the lookup keeps working where 7TV's API is awkward to reach directly, since
+ * Vercel does the fetching. Emote images themselves still load from
+ * cdn.7tv.app in the overlay.
  *
- * Endpoints match the ones Pogly's SevenTVWrap uses.
+ * Endpoints per the 7TV v3 OpenAPI spec — see lib/seventv.ts for the response
+ * shapes, which differ between the two user endpoints.
  */
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
-const SEVENTV = "https://7tv.io/v3";
+// Overridable so the lookup chain can be exercised against a stub, and so a
+// future 7TV base URL doesn't need a code change.
+const SEVENTV = process.env.SEVENTV_API_BASE || "https://7tv.io/v3";
+const TIMEOUT_MS = 8000;
 
-type Emote = { id: string; name: string };
-
-function emoteUrl(id: string, size: "1x" | "2x" | "3x" | "4x" = "3x"): string {
-  return `https://cdn.7tv.app/emote/${id}/${size}.webp`;
-}
-
-/** Twitch numeric id → 7TV user, the cheapest path when we have one. */
-async function byTwitchId(id: string) {
-  const res = await fetch(`${SEVENTV}/users/twitch/${encodeURIComponent(id)}`, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-/** Username → 7TV user id, via the same GQL search Pogly uses. */
-async function searchUserId(username: string): Promise<string | null> {
-  const res = await fetch(`${SEVENTV}/gql`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({
-      operationName: "SearchUsers",
-      variables: { query: username.toLowerCase() },
-      query: "query SearchUsers($query: String!) {\n  users(query: $query) {\n    id, username}\n}",
-    }),
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  const users = json?.data?.users ?? [];
-  const exact = users.find(
-    (u: any) => String(u?.username ?? "").toLowerCase() === username.toLowerCase(),
-  );
-  return exact?.id ?? users[0]?.id ?? null;
-}
-
-async function emoteSetEmotes(emoteSetId: string): Promise<Emote[]> {
-  const res = await fetch(`${SEVENTV}/emote-sets/${encodeURIComponent(emoteSetId)}`, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return (json?.emotes ?? []).map((e: any) => ({ id: e.id, name: e.name }));
+async function getJson(url: string, init?: RequestInit): Promise<any | null> {
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers: { Accept: "application/json", ...(init?.headers ?? {}) },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -82,61 +54,54 @@ export async function GET(req: NextRequest) {
 
   const channel = (req.nextUrl.searchParams.get("channel") ?? "").trim();
   if (!channel || channel.length > 64 || !/^[\w.-]+$/.test(channel)) {
-    return NextResponse.json(
-      { ok: false, error: "bad_channel" },
-      { status: 400, headers: NO_STORE },
-    );
+    return NextResponse.json({ ok: false, error: "bad_channel" }, { status: 400, headers: NO_STORE });
   }
 
   try {
-    // A numeric input is a Twitch user id; anything else is a login name.
-    let user: any = /^\d+$/.test(channel) ? await byTwitchId(channel) : null;
+    // 1. Numeric input is a Twitch user id — the direct, cheapest path.
+    let payload = /^\d+$/.test(channel)
+      ? await getJson(`${SEVENTV}/users/twitch/${encodeURIComponent(channel)}`)
+      : null;
 
-    if (!user) {
-      const userId = await searchUserId(channel);
+    // 2. Otherwise resolve the login name through GQL, then load the user.
+    if (!payload) {
+      const gql = await getJson(`${SEVENTV}/gql`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operationName: "SearchUsers",
+          variables: { query: channel.toLowerCase() },
+          query:
+            "query SearchUsers($query: String!) {\n  users(query: $query) {\n    id, username}\n}",
+        }),
+      });
+      const userId = pickSearchedUserId(gql, channel);
       if (!userId) {
         return NextResponse.json(
           { ok: false, error: "channel_not_found" },
           { status: 404, headers: NO_STORE },
         );
       }
-      const res = await fetch(`${SEVENTV}/users/${encodeURIComponent(userId)}`, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
-      if (!res.ok) {
+      payload = await getJson(`${SEVENTV}/users/${encodeURIComponent(userId)}`);
+      if (!payload) {
         return NextResponse.json(
           { ok: false, error: "channel_not_found" },
           { status: 404, headers: NO_STORE },
         );
       }
-      user = await res.json();
     }
 
-    // The emote set hangs off either the user's active set or a platform
-    // connection, depending on which endpoint answered.
-    let emotes: Emote[] = user?.emote_set?.emotes
-      ? user.emote_set.emotes.map((e: any) => ({ id: e.id, name: e.name }))
-      : [];
+    // 3. The emote set arrives inline on some shapes and as an id on others.
+    const { set, setId } = findEmoteSet(payload);
+    let emotes: Emote[] = set ? emotesFromSet(set) : [];
 
-    if (emotes.length === 0) {
-      const setId =
-        user?.emote_set?.id ??
-        (user?.connections ?? []).map((c: any) => c?.emote_set_id).find(Boolean);
-      if (setId) emotes = await emoteSetEmotes(setId);
+    if (emotes.length === 0 && setId) {
+      const full = await getJson(`${SEVENTV}/emote-sets/${encodeURIComponent(setId)}`);
+      if (full) emotes = emotesFromSet(full);
     }
 
     return NextResponse.json(
-      {
-        ok: true,
-        channel,
-        count: emotes.length,
-        emotes: emotes.slice(0, 300).map((e) => ({
-          id: e.id,
-          name: e.name,
-          url: emoteUrl(e.id),
-        })),
-      },
+      { ok: true, channel, count: emotes.length, emotes: emotes.slice(0, 300) },
       { headers: NO_STORE },
     );
   } catch {

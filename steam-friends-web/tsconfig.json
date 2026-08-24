@@ -11,6 +11,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // scripts/ runs directly under `node --experimental-strip-types`, which
+    // resolves real paths and so needs the .ts extension on relative imports.
+    // Safe here because noEmit is on — nothing is compiled to disk.
+    "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
