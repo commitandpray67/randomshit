@@ -104,6 +104,71 @@ What this wires up:
 To place more ad units, drop `<AdSlot slot="ANOTHER_SLOT_ID" />` wherever you
 like (or reuse the default slot with just `<AdSlot />`).
 
+## Stream overlay (OBS browser source)
+
+A Pogly-style alert overlay: friend added / unfriended / re-added events pop up
+on stream as they're detected. Restricted to specific SteamIDs — it's not linked
+from anywhere on the site.
+
+### Why it isn't actually Pogly
+
+[Pogly](https://github.com/poglyapp) is a real-time collaborative overlay
+(*"Figma, but for your OBS overlay sources"*). It ships as a Docker image —
+React + a **C# module on SpacetimeDB** — so it can't be vendored into a
+serverless Next.js app; there's nowhere for SpacetimeDB to run on Vercel. This
+is the same idea rebuilt on what the app already has: the `events` table, plus
+polling. Pogly is Apache-2.0, and none of its code is used here.
+
+### Enabling it
+
+```
+POGLY_ALLOWED_STEAM_IDS=76561198XXXXXXXXX     # comma-separated SteamID64s
+OVERLAY_SYNC_THROTTLE_SEC=60                  # optional, default 60
+```
+
+Then create the table:
+
+```sh
+psql "$DATABASE_URL" -f db/migrations/003_overlay.sql
+```
+
+`POGLY_ALLOWED_STEAM_IDS` **fails closed**: blank allows nobody, not everybody.
+
+### Using it
+
+1. Sign in and go to `/overlay`.
+2. Copy the browser source URL.
+3. In OBS: **Sources → + → Browser**, paste the URL, size it to your canvas, and
+   leave *Shutdown source when not visible* unchecked.
+
+Settings (corner, accent, which event types alert, avatars, name hiding, how
+many show at once, how long they last, poll interval) are on the same page, with
+a live preview.
+
+### Two separate gates
+
+| Surface | Who gets in |
+|---|---|
+| `/overlay` (control panel) | logged-in **and** in `POGLY_ALLOWED_STEAM_IDS`; anyone else gets a 404 |
+| `/overlay/<key>` (the source) | anyone with the key |
+
+The overlay page has no login gate because **an OBS browser source can't carry a
+session cookie** — the unguessable key is its only credential. So the URL is a
+secret: don't show it on stream, and use **Rotate overlay URL** if it leaks.
+Rotating invalidates the old URL immediately.
+
+Turning on *Hide names* strips names and avatars **server-side**, so an
+anonymised overlay's feed doesn't carry them at all.
+
+### What makes it live
+
+The daily cron would surface an unfriend up to 24h late, which is useless on
+stream. Each overlay poll asks `syncUser` to refresh, so Steam is re-checked
+while the source is open. `syncUser`'s DB-backed throttle
+(`OVERLAY_SYNC_THROTTLE_SEC`) means only one poll per minute actually reaches
+Steam, however fast OBS polls — so the poll interval controls how quickly a
+*detected* change reaches the screen, not how hard the Steam API gets hit.
+
 ## What to build next
 
 - **Notifications** on an unfriend (email via Resend, or a Discord webhook).
@@ -121,11 +186,19 @@ app/
   api/auth/steam/return/...    verify OpenID, create session, upsert user
   api/auth/logout/route.ts     clear session
   api/cron/poll/route.ts       daily snapshot of every user
+  overlay/page.tsx             stream-overlay control panel (allowlisted)
+  overlay/[key]/page.tsx       the OBS browser source itself
+  api/overlay/[key]/events/    overlay event feed (polled by the source)
+components/
+  OverlayStage.tsx             renders + polls alerts (also powers the preview)
+  OverlayPanel.tsx             settings form with live preview
 lib/
   steam.ts                     OpenID + Web API calls
   session.ts                   signed-cookie sessions
   tracker.ts                   fetch + diff + persist (the core)
+  overlay.ts                   overlay config, allowlist, event queries
   db.ts                        postgres.js connection
 db/schema.sql                  tables
+db/migrations/003_overlay.sql  overlay table, for an existing database
 vercel.json                    cron schedule
 ```

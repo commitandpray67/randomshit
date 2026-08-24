@@ -48,7 +48,9 @@ export const config = {
   // Run on page routes only. Crawler-facing files (sitemap, robots, ads.txt)
   // and static assets are excluded so they are served without a Set-Cookie
   // and without any locale handling.
+  // `overlay` is excluded too: the OBS browser source has no user and no
+  // language to pick, and a Set-Cookie on it would do nothing but churn.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|api/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|api/).*)",
   ],
 };
