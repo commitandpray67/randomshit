@@ -126,13 +126,21 @@ POGLY_ALLOWED_STEAM_IDS=76561198XXXXXXXXX     # comma-separated SteamID64s
 OVERLAY_SYNC_THROTTLE_SEC=60                  # optional, default 60
 ```
 
-Then create the table:
+Then create the table. In the **Neon SQL editor**, paste and run
+[`db/neon-overlay.sql`](./db/neon-overlay.sql) — idempotent, and it prints a
+report where every row should read `OK`. With `psql` to hand:
 
 ```sh
 psql "$DATABASE_URL" -f db/migrations/003_overlay.sql
 ```
 
 `POGLY_ALLOWED_STEAM_IDS` **fails closed**: blank allows nobody, not everybody.
+
+To find a SteamID64, have the person sign in to the site once, then:
+
+```sql
+SELECT steam_id, display_name FROM users ORDER BY created_at DESC LIMIT 10;
+```
 
 ### Using it
 
@@ -200,5 +208,6 @@ lib/
   db.ts                        postgres.js connection
 db/schema.sql                  tables
 db/migrations/003_overlay.sql  overlay table, for an existing database
+db/neon-overlay.sql            paste-ready setup + check for the Neon editor
 vercel.json                    cron schedule
 ```
