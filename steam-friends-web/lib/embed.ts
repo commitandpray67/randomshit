@@ -21,6 +21,10 @@ export type Embed = { provider: EmbedProvider; src: string };
 export type EmbedOptions = {
   autoplay?: boolean;
   loop?: boolean;
+  /**
+   * The mute state to *start* in, which is not necessarily the one the user
+   * asked for — see the note on `videoEmbed`.
+   */
   muted?: boolean;
 };
 
@@ -81,10 +85,17 @@ function vimeoId(u: URL): string | null {
  * The player URL for a pasted link, or null when it looks like a direct media
  * file and should go to `<video>` instead.
  *
- * Autoplay is the whole point here — a browser source has nobody to press play
- * — and every one of these providers refuses to autoplay with sound. Asking
- * for autoplay therefore forces mute, because the alternative is a player that
- * silently never starts.
+ * This is the player's *starting* state only, read once when the frame loads.
+ * Everything after that is sent to the running player as a command, so that
+ * changing a setting doesn't restart the video — see components/VideoPlayer.
+ *
+ * Which is why autoplay starts muted even when sound was asked for. A normal
+ * browser tab refuses to autoplay audio without a user gesture, and a browser
+ * source has nobody to click, so starting unmuted means a player that never
+ * starts at all. Starting muted and unmuting once playback is under way gets
+ * sound wherever the surrounding browser allows it — which OBS does, since its
+ * CEF runs with the autoplay policy relaxed. That is the same reason alert
+ * overlays can play their sounds unprompted.
  */
 export function videoEmbed(url: string, opts: EmbedOptions = {}): Embed | null {
   let u: URL;
@@ -112,6 +123,9 @@ export function videoEmbed(url: string, opts: EmbedOptions = {}): Embed | null {
       playsinline: "1",
       disablekb: "1",
       iv_load_policy: "3",
+      // Without this the player accepts no commands, and every setting would
+      // have to be applied by rebuilding the URL and reloading the video.
+      enablejsapi: "1",
     });
     // A single video loops only when it is also named as the playlist; `loop`
     // on its own is silently ignored.
@@ -146,4 +160,26 @@ export function videoEmbed(url: string, opts: EmbedOptions = {}): Embed | null {
 /** Whether a URL will render as an embedded player rather than a media file. */
 export function isEmbeddable(url: unknown): boolean {
   return typeof url === "string" && url.trim() !== "" && videoEmbed(url) !== null;
+}
+
+/**
+ * Whether a video element should be sitting paused.
+ *
+ * `paused` is the live transport state and is stored on the element, so the
+ * editor's play button reaches the browser source. Until someone touches it,
+ * autoplay decides: an element with autoplay off starts paused, which is what
+ * "don't play this on load" has to mean. Toggling autoplay afterwards
+ * deliberately leaves playback alone — it is a load-time setting, and having
+ * it stop the video would be one more way to interrupt something mid-play.
+ */
+export function videoPaused(props: Record<string, unknown>): boolean {
+  if (typeof props.paused === "boolean") return props.paused;
+  return props.autoplay === false;
+}
+
+/** Player volume 0–100 from the element's 0–1 prop. */
+export function videoVolume(props: Record<string, unknown>): number {
+  const v = Number(props.volume);
+  if (!Number.isFinite(v)) return 100;
+  return Math.round(Math.min(1, Math.max(0, v)) * 100);
 }

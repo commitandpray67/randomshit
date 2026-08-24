@@ -198,7 +198,7 @@ Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 |---|---|
 | **Text** | content, colour, size, weight, alignment, font, drop shadow |
 | **Image** | any URL (incl. `data:`), object-fit |
-| **Video** | a media file, or a YouTube / Vimeo link; loop / autoplay / muted, object-fit |
+| **Video** | a media file, or a YouTube / Vimeo link; play/pause, loop, autoplay, mute + volume, object-fit |
 | **Widget** | custom HTML+CSS+JS, or an embedded URL |
 
 Every element carries position, size, rotation, z-order, opacity, lock, hide and
@@ -240,13 +240,44 @@ The player URL is rebuilt from a validated video id rather than passing the
 pasted string through, so nothing user-supplied reaches an iframe's `src`
 intact. `npm run test:embed` covers the link shapes and the rejections.
 
-Two quirks worth knowing, both handled:
+YouTube ignores `loop=1` for a single video unless the video is *also* named in
+`playlist=`, which is handled.
 
-- YouTube ignores `loop=1` for a single video unless the video is *also* named
-  in `playlist=`.
-- Every one of these players refuses to autoplay with sound, and a browser
-  source has nobody to click. Asking for autoplay therefore forces mute — the
-  alternative is a player that silently never starts.
+### Controlling a video
+
+The player's URL is its *starting* state, read once when the frame loads.
+Everything after that is sent to the running player over `postMessage`, because
+rebuilding the URL swaps the iframe's `src` — which tears the player down and
+starts the video again from the top. Toggling Mute used to do exactly that.
+
+That command channel is also the only way to control playback at all. A browser
+source has no cursor, and on the editor canvas the drag handler sits on top of
+the content, so there is nowhere to click a player's own controls. Play, pause
+and restart live in the properties panel instead, and because the paused state
+is stored on the element it reaches the browser source: pausing in the editor
+pauses what viewers see.
+
+*Autoplay on load* is deliberately only about what happens when the browser
+source starts. Toggling it pins whatever is playing right now, so it can't
+interrupt a video mid-play.
+
+**Sound works in OBS, but not in the editor preview.** A normal browser tab
+refuses to start audio nobody asked for, so a video that begins unmuted simply
+never begins. It therefore always starts muted and is unmuted once the player
+reports that it is genuinely playing — at which point the policy has already
+been satisfied. OBS's CEF runs with the autoplay policy relaxed (the same
+reason alert overlays can play their sounds unprompted), so there the unmute
+sticks. Tick **Control audio via OBS** on the browser source to get it into the
+mixer.
+
+**Keeping it playing.** Chrome suspends silent media in a backgrounded tab, and
+every video here starts silent, so alt-tabbing away from the editor or from OBS
+stops it and nothing restarts it on the way back. There's no way to opt out
+from the page, so the player's state is watched and playback re-issued when it
+stops without being asked — on a one-second check and on regaining visibility,
+with a cap so a video that genuinely can't play isn't nudged forever. If OBS
+has *Shutdown source when not visible* ticked it will stop the video whenever
+the scene is off screen; nothing in the page can override that.
 
 ### How the browser source stays current
 

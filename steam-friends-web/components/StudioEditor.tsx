@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ElementView, type RElement } from "./SceneRenderer";
 import EmotePicker from "./EmotePicker";
-import { isEmbeddable } from "@/lib/embed";
+import { isEmbeddable, videoPaused } from "@/lib/embed";
 
 type Canvas = { w: number; h: number };
 
@@ -361,10 +361,13 @@ export default function StudioEditor({
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, call, patchLocal, flush]);
 
-  const setProp = (key: string, value: unknown) => {
+  const setProp = (key: string, value: unknown) => setProps({ [key]: value });
+
+  /** Several props at once, so a change that implies another lands together. */
+  const setProps = (patch: Record<string, unknown>) => {
     if (!selected) return;
-    patchLocal(selected.id, { props: { ...selected.props, [key]: value } });
-    void call({ action: "update", id: selected.id, patch: { props: { [key]: value } } });
+    patchLocal(selected.id, { props: { ...selected.props, ...patch } });
+    void call({ action: "update", id: selected.id, patch: { props: patch } });
   };
 
   const setField = (key: keyof RElement, value: unknown) => {
@@ -387,6 +390,12 @@ export default function StudioEditor({
     <div className="st-root">
       {/* ------------------------------- toolbar */}
       <div className="st-toolbar">
+        {/* Centred on the toolbar itself rather than placed between the two
+            groups, so it stays in the middle whatever they happen to be wide. */}
+        <p className="st-credit">
+          made with <span className="st-heart" role="img" aria-label="love">♥</span>,
+          for Juntella, by mochi
+        </p>
         <div className="st-add">
           <button className="btn" onClick={() => call({ action: "add", kind: "text" })}>+ Text</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "image" })}>+ Image</button>
@@ -627,14 +636,70 @@ export default function StudioEditor({
 
               {selected.kind === "video" && (
                 <>
+                  {/* The canvas puts the drag handler on top of the video and a
+                      browser source has no cursor at all, so there is nowhere to
+                      click a player's own controls. These drive it instead, and
+                      because the state lives on the element they drive what's on
+                      stream, not just this preview. */}
+                  <div className="st-transport">
+                    <button
+                      className="btn"
+                      onClick={() => setProp("paused", !videoPaused(selected.props))}
+                    >
+                      {videoPaused(selected.props) ? "▶ Play" : "❚❚ Pause"}
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      title="Play again from the start"
+                      onClick={() => {
+                        setProp("restartAt", Date.now());
+                        if (videoPaused(selected.props)) setProp("paused", false);
+                      }}
+                    >
+                      ↻ Restart
+                    </button>
+                  </div>
+
                   <label className="st-check"><input type="checkbox" checked={selected.props.loop !== false} onChange={(e) => setProp("loop", e.target.checked)} /><span>Loop</span></label>
-                  <label className="st-check"><input type="checkbox" checked={selected.props.autoplay !== false} onChange={(e) => setProp("autoplay", e.target.checked)} /><span>Autoplay</span></label>
+                  <label className="st-check">
+                    <input
+                      type="checkbox"
+                      checked={selected.props.autoplay !== false}
+                      // Autoplay is what happens the *next* time the browser
+                      // source loads, so pin whatever is playing right now
+                      // alongside it — otherwise unticking this pauses a video
+                      // mid-play, since an untouched element takes its paused
+                      // state from autoplay.
+                      onChange={(e) =>
+                        setProps({ autoplay: e.target.checked, paused: videoPaused(selected.props) })
+                      }
+                    />
+                    <span>Autoplay on load</span>
+                  </label>
                   <label className="st-check"><input type="checkbox" checked={selected.props.muted !== false} onChange={(e) => setProp("muted", e.target.checked)} /><span>Muted</span></label>
+                  {selected.props.muted === false && (
+                    <label className="st-row"><span>Volume</span>
+                      <input
+                        type="range" min={0} max={1} step={0.05}
+                        value={selected.props.volume ?? 1}
+                        onChange={(e) => setProp("volume", Number(e.target.value))}
+                      />
+                    </label>
+                  )}
                   <p className="st-hint">
-                    Browsers refuse to autoplay audio with no user gesture, and a browser
-                    source has nobody to click. Unmuting usually means the video never
-                    starts — route sound through a separate OBS source instead.
-                    {embedded && " YouTube and Vimeo enforce this too, so an embed always plays muted."}
+                    Sound works <strong>in OBS</strong> but not in this preview. A normal
+                    browser tab refuses to start audio nobody asked for, so the video
+                    always begins muted and is unmuted once it&apos;s actually playing —
+                    which OBS allows and this tab doesn&apos;t. In OBS, tick{" "}
+                    <em>Control audio via OBS</em> on the browser source to get it into
+                    your mixer.
+                  </p>
+                  <p className="st-hint">
+                    <em>Autoplay on load</em> is what happens when the browser source
+                    starts; use Play/Pause above to control it now. If OBS has{" "}
+                    <em>Shutdown source when not visible</em> ticked, it will stop the
+                    video whenever the scene isn&apos;t on screen — untick it to keep
+                    playing.
                   </p>
                 </>
               )}
@@ -668,11 +733,6 @@ export default function StudioEditor({
               )}
             </section>
           )}
-
-          <p className="st-credit">
-            made with <span className="st-heart" role="img" aria-label="love">♥</span>,
-            for Juntella, by mochi
-          </p>
         </aside>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { videoEmbed } from "@/lib/embed";
+import VideoPlayer from "./VideoPlayer";
 
 export type RElement = {
   id: number;
@@ -66,48 +66,9 @@ export function ElementView({ el, editing = false }: { el: RElement; editing?: b
 
   if (el.kind === "video") {
     if (!p.url) return <Placeholder label="Video — set a URL" editing={editing} />;
-
-    // A YouTube or Vimeo link is a web page, not a media file, so `<video>`
-    // renders nothing for it. Those get the site's own player instead; see
-    // lib/embed.ts.
-    const embed = videoEmbed(p.url, {
-      autoplay: p.autoplay !== false,
-      loop: p.loop !== false,
-      // Editor previews stay silent regardless, so arranging a scene doesn't
-      // blast audio at whoever is building it.
-      muted: editing ? true : p.muted !== false,
-    });
-
-    if (embed) {
-      return (
-        <iframe
-          // Keyed on the URL so changing a setting reloads the player: these
-          // options live in the query string and are read once, at load.
-          key={embed.src}
-          src={embed.src}
-          // Remote page, so its own origin applies — allow-same-origin here
-          // does not hand it anything of ours.
-          sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          referrerPolicy="strict-origin-when-cross-origin"
-          style={{ width: "100%", height: "100%", border: 0, display: "block" }}
-        />
-      );
-    }
-
-    return (
-      <video
-        src={p.url}
-        // A browser source has no one to click play, so a video that isn't
-        // muted+autoplay simply never starts. Muted is the default for that
-        // reason, not an oversight.
-        autoPlay={p.autoplay !== false}
-        loop={p.loop !== false}
-        muted={editing ? true : p.muted !== false}
-        playsInline
-        style={{ width: "100%", height: "100%", objectFit: p.fit ?? "contain", display: "block" }}
-      />
-    );
+    // Media file or embedded player, plus the transport that lets either be
+    // paused from the editor — see components/VideoPlayer.
+    return <VideoPlayer props={p} editing={editing} />;
   }
 
   // widget
