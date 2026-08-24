@@ -11,6 +11,7 @@ import {
   deleteElement,
   deleteAllElements,
   reorderElement,
+  applyTransform,
   setCanvasSize,
   rotateSceneKey,
   getElements,
@@ -20,6 +21,10 @@ import {
  * Editor mutations. A JSON endpoint rather than server actions because
  * dragging an element fires a burst of updates, and a server action would
  * revalidate the whole page on each one.
+ *
+ * `transform` is the drag path and is deliberately unlike the rest: one query,
+ * no echo, and it publishes the movement to the browser source as it commits.
+ * Everything else takes the slow, general route.
  *
  * Gated by the same POGLY_ALLOWED_STEAM_IDS allowlist as the studio page, and
  * re-checked here — the page render is not the gate.
@@ -34,8 +39,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: NO_STORE });
   }
 
-  // Generous: a drag emits many small updates, but not unbounded.
-  const rl = rateLimit(`studio:${steamId}`, 600, 60);
+  // A drag pushes about 20 transforms a second (see DRAG_PUSH_MS in the
+  // editor), so the old 600/minute ceiling cut a sustained drag off mid-move
+  // and the overlay simply froze until the window rolled over. Sized to leave
+  // real headroom above the editor's own cadence.
+  const rl = rateLimit(`studio:${steamId}`, 2400, 60);
   if (!rl.ok) {
     return NextResponse.json(
       { ok: false, error: "rate_limited" },
@@ -50,8 +58,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_json" }, { status: 400, headers: NO_STORE });
   }
 
-  const scene = await ensureScene(steamId);
   const action = String(body?.action ?? "");
+
+  // The drag fast path returns before any of the work below. Every other
+  // action ends by re-reading the scene and echoing all of its elements, which
+  // is the right trade for an edit you make once and a disaster for one the
+  // pointer emits twenty times a second: `applyTransform` is a single query,
+  // it publishes the movement to the browser source itself, and the editor
+  // already knows where it put the element, so there is nothing to echo.
+  if (action === "transform") {
+    const id = Number(body.id);
+    if (!Number.isFinite(id)) {
+      return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
+    }
+    const version = await applyTransform(steamId, id, body.t ?? {}, body.ts);
+    if (version === null) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404, headers: NO_STORE });
+    }
+    return NextResponse.json({ ok: true, version }, { headers: NO_STORE });
+  }
+
+  const scene = await ensureScene(steamId);
 
   switch (action) {
     case "add": {

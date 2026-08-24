@@ -142,7 +142,8 @@ export function ElementBox({
   el,
   editing = false,
   selected = false,
-  smoothMs = 0,
+  managed = false,
+  nodeRef,
   onPointerDown,
   children,
 }: {
@@ -150,46 +151,44 @@ export function ElementBox({
   editing?: boolean;
   selected?: boolean;
   /**
-   * Milliseconds to ease between transforms. The overlay sets this to roughly
-   * the interval between updates, which turns a handful of positions per second
-   * into continuous 60fps motion. The editor leaves it at 0 — a dragged element
-   * must track the cursor exactly, not trail behind it.
+   * Hand transform, size and opacity over to the caller, which drives them
+   * frame by frame from the motion buffer (see sceneMotion.ts). React must not
+   * also set them: a property React never sets is one it never clears on a
+   * re-render, which is what lets the two coexist on the same node.
    */
-  smoothMs?: number;
+  managed?: boolean;
+  nodeRef?: (node: HTMLElement | null) => void;
   onPointerDown?: (e: React.PointerEvent) => void;
   children?: React.ReactNode;
 }) {
   if (el.hidden && !editing) return null;
+
+  const style: React.CSSProperties = {
+    position: "absolute",
+    // Position lives in `transform`, not left/top: the compositor can move a
+    // transformed layer without re-running layout or paint. Animating left/top
+    // instead forces a full layout pass every frame.
+    left: 0,
+    top: 0,
+    transformOrigin: "center center",
+    zIndex: el.zIndex,
+    clipPath: el.clip || undefined,
+    outline: selected ? "2px solid #66c0f4" : undefined,
+    outlineOffset: 1,
+    cursor: editing ? (el.locked ? "not-allowed" : "move") : undefined,
+    // Widgets and videos would otherwise swallow the drag gesture.
+    pointerEvents: editing ? "auto" : "none",
+  };
+
+  if (!managed) {
+    style.width = el.w;
+    style.height = el.h;
+    style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.rotation}deg)`;
+    style.opacity = el.hidden ? (editing ? 0.25 : 0) : el.opacity;
+  }
+
   return (
-    <div
-      data-element-id={el.id}
-      onPointerDown={onPointerDown}
-      style={{
-        position: "absolute",
-        // Position lives in `transform`, not left/top: the compositor can move
-        // a transformed layer without re-running layout or paint, so motion
-        // stays at display refresh rate and transitions are essentially free.
-        // Animating left/top instead forces a full layout pass every frame.
-        left: 0,
-        top: 0,
-        width: el.w,
-        height: el.h,
-        transform: `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.rotation}deg)`,
-        transformOrigin: "center center",
-        transition: smoothMs
-          ? `transform ${smoothMs}ms linear, width ${smoothMs}ms linear, height ${smoothMs}ms linear, opacity ${smoothMs}ms linear`
-          : undefined,
-        willChange: smoothMs ? "transform" : undefined,
-        zIndex: el.zIndex,
-        opacity: el.hidden ? (editing ? 0.25 : 0) : el.opacity,
-        clipPath: el.clip || undefined,
-        outline: selected ? "2px solid #66c0f4" : undefined,
-        outlineOffset: 1,
-        cursor: editing ? (el.locked ? "not-allowed" : "move") : undefined,
-        // Widgets and videos would otherwise swallow the drag gesture.
-        pointerEvents: editing ? "auto" : "none",
-      }}
-    >
+    <div ref={nodeRef} data-element-id={el.id} onPointerDown={onPointerDown} style={style}>
       <div style={{ width: "100%", height: "100%", pointerEvents: editing ? "none" : "auto" }}>
         <ElementView el={el} editing={editing} />
       </div>

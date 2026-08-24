@@ -6,6 +6,14 @@ import EmotePicker from "./EmotePicker";
 
 type Canvas = { w: number; h: number };
 
+/**
+ * What the drag fast path writes. The whole transform goes every time, not
+ * just the fields the gesture changed: the browser source is handed this
+ * payload verbatim (the server never reads the element back), so it has to be
+ * complete on its own.
+ */
+type Transform = { x: number; y: number; w: number; h: number; rotation: number };
+
 // Which edges a handle moves: -1 = min edge, +1 = max edge, 0 = fixed.
 const HANDLES: { name: string; sx: -1 | 0 | 1; sy: -1 | 0 | 1; cursor: string }[] = [
   { name: "nw", sx: -1, sy: -1, cursor: "nwse-resize" },
@@ -101,58 +109,77 @@ export default function StudioEditor({
   }, []);
 
   /**
-   * Push interval while dragging. The browser source eases between whatever it
-   * receives, so this sets how closely OBS tracks the cursor — 80ms (~12/sec)
-   * reads as continuous once interpolated, without a write per mouse event.
+   * Floor on how often a drag may push. There is no ceiling: the next push
+   * goes out when the last one comes back, which paces the drag to whatever
+   * the connection is actually doing rather than to a guess made here.
    */
-  const DRAG_PUSH_MS = 80;
+  const DRAG_MIN_MS = 33;
 
+  // One request at a time, and only the newest position per element waiting
+  // behind it.
+  //
+  // These used to be fired off as fast as the pointer produced them, and that
+  // is its own source of stutter: two overlapping requests commit in whatever
+  // order the platform gets to them, so a position from 60ms ago can land
+  // *after* the current one and the browser source jerks backwards. Nothing
+  // downstream can repair that — the database genuinely holds the older
+  // position, and it was the last thing written. Serialising is what makes the
+  // order the cursor moved in the order everything else sees.
+  const inFlight = useRef(false);
+  const pending = useRef(new Map<number, Transform>());
   const lastSent = useRef(0);
-  const pending = useRef<{ id: number; patch: any } | null>(null);
-  const trailing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const send = useCallback(
-    (id: number, patch: any) => {
-      lastSent.current = Date.now();
-      // Position updates during a drag are throwaway: the next one supersedes
-      // this one, so a failure here needs no retry and no busy state. Going
-      // through `call` would re-render the whole editor on every push.
-      void fetch("/api/studio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", id, patch }),
-      }).catch(() => {});
-    },
-    [],
-  );
+  const pump = useCallback(() => {
+    if (inFlight.current || pending.current.size === 0) return;
 
+    const wait = DRAG_MIN_MS - (Date.now() - lastSent.current);
+    if (wait > 0) {
+      if (!timer.current) {
+        timer.current = setTimeout(() => {
+          timer.current = null;
+          pump();
+        }, wait);
+      }
+      return;
+    }
+
+    const [id, t] = pending.current.entries().next().value as [number, Transform];
+    pending.current.delete(id);
+    inFlight.current = true;
+    lastSent.current = Date.now();
+
+    // Positions during a drag are throwaway: the next one supersedes this one,
+    // so a failure needs no retry and no busy state. Going through `call`
+    // would re-render the whole editor on every push.
+    void fetch("/api/studio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // `ts` rides along untouched to the browser source, which spaces its
+      // playback by it. Without it the overlay can only go on when each
+      // position *arrived*, and renders the network's jitter as the element
+      // speeding up and slowing down.
+      body: JSON.stringify({ action: "transform", id, t, ts: Math.round(performance.now()) }),
+    })
+      .catch(() => {})
+      .finally(() => {
+        inFlight.current = false;
+        pump();
+      });
+  }, []);
+
+  /**
+   * Queue the newest transform for an element.
+   *
+   * Keyed by element rather than a single slot, so releasing one element and
+   * immediately grabbing another can't drop the first one's final position.
+   */
   const flush = useCallback(
-    (id: number, patch: any, force = false) => {
-      const now = Date.now();
-      if (force) {
-        if (trailing.current) clearTimeout(trailing.current);
-        trailing.current = null;
-        pending.current = null;
-        send(id, patch);
-        return;
-      }
-      if (now - lastSent.current >= DRAG_PUSH_MS) {
-        send(id, patch);
-        return;
-      }
-      // Too soon — remember the latest and fire once the window opens, so the
-      // element never stops short of where the cursor actually is.
-      pending.current = { id, patch };
-      if (!trailing.current) {
-        trailing.current = setTimeout(() => {
-          trailing.current = null;
-          const p = pending.current;
-          pending.current = null;
-          if (p) send(p.id, p.patch);
-        }, DRAG_PUSH_MS - (now - lastSent.current));
-      }
+    (id: number, t: Transform) => {
+      pending.current.set(id, t);
+      pump();
     },
-    [send],
+    [pump],
   );
 
   /** Pointer position in canvas coordinates. */
@@ -176,19 +203,22 @@ export default function StudioEditor({
       const start = toCanvas(e);
       const x0 = el.x;
       const y0 = el.y;
+      // Size and rotation are fixed for the duration of a drag, so they can be
+      // read once and carried on every frame.
+      const fixed = { w: el.w, h: el.h, rotation: el.rotation };
 
       const move = (ev: PointerEvent) => {
         const p = toCanvas(ev);
         const nx = Math.round(x0 + (p.x - start.x));
         const ny = Math.round(y0 + (p.y - start.y));
         patchLocal(el.id, { x: nx, y: ny });
-        flush(el.id, { x: nx, y: ny });
+        flush(el.id, { ...fixed, x: nx, y: ny });
       };
       const up = (ev: PointerEvent) => {
         const p = toCanvas(ev);
         const nx = Math.round(x0 + (p.x - start.x));
         const ny = Math.round(y0 + (p.y - start.y));
-        flush(el.id, { x: nx, y: ny }, true);
+        flush(el.id, { ...fixed, x: nx, y: ny });
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -229,6 +259,7 @@ export default function StudioEditor({
           h: Math.round(nh),
           x: Math.round(cx - nw / 2),
           y: Math.round(cy - nh / 2),
+          rotation,
         };
       };
 
@@ -238,7 +269,7 @@ export default function StudioEditor({
         flush(el.id, next);
       };
       const up = (ev: PointerEvent) => {
-        flush(el.id, compute(ev), true);
+        flush(el.id, compute(ev));
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -262,19 +293,22 @@ export default function StudioEditor({
       const a0 = angleAt(e);
       const r0 = el.rotation;
 
+      // A rotation moves nothing else, so the rest of the transform is fixed.
+      const fixed = { x: el.x, y: el.y, w: el.w, h: el.h };
+
       const move = (ev: PointerEvent) => {
         let next = Math.round(r0 + (angleAt(ev) - a0));
         // Shift snaps to 15° increments.
         if (ev.shiftKey) next = Math.round(next / 15) * 15;
         next = ((next % 360) + 360) % 360;
         patchLocal(el.id, { rotation: next });
-        flush(el.id, { rotation: next });
+        flush(el.id, { ...fixed, rotation: next });
       };
       const up = (ev: PointerEvent) => {
         let next = Math.round(r0 + (angleAt(ev) - a0));
         if (ev.shiftKey) next = Math.round(next / 15) * 15;
         next = ((next % 360) + 360) % 360;
-        flush(el.id, { rotation: next }, true);
+        flush(el.id, { ...fixed, rotation: next });
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
       };
@@ -310,7 +344,13 @@ export default function StudioEditor({
         const nx = Math.round(selected.x + d[0]);
         const ny = Math.round(selected.y + d[1]);
         patchLocal(selected.id, { x: nx, y: ny });
-        flush(selected.id, { x: nx, y: ny }, true);
+        flush(selected.id, {
+          x: nx,
+          y: ny,
+          w: selected.w,
+          h: selected.h,
+          rotation: selected.rotation,
+        });
       }
     };
     window.addEventListener("keydown", onKey);

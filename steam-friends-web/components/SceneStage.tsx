@@ -1,21 +1,41 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ElementBox, type RElement } from "./SceneRenderer";
+import { MotionBuffer, applyMotion, motionOf, type Motion } from "./sceneMotion";
 
 /**
  * Live scene for the OBS browser source.
  *
- * Updates arrive over SSE, so an edit shows up in a fraction of a second
- * instead of waiting out a poll. Between updates each element eases to its new
- * transform, which is what turns a handful of positions per second into motion
- * that reads as smooth at the display's refresh rate — the compositor
- * interpolates on the GPU, so there's no cost per element.
+ * Two things happen here, and they are deliberately separate. React owns the
+ * *shape* of the scene — which elements exist, their kind, their content — and
+ * re-renders only when that actually changes. Everything that moves is driven
+ * by a requestAnimationFrame loop that writes transforms straight to the DOM
+ * out of a motion buffer, so dragging an element re-renders nothing at all.
+ *
+ * That split is the point. The scene used to re-render every element on every
+ * update and hand the result to a fixed-length CSS transition; in OBS's
+ * off-screen renderer both of those land on the main thread at exactly the
+ * moment the next frame needed to be composited. See sceneMotion.ts for why
+ * the transition could not have been made smooth at any duration.
  *
  * If SSE can't be established (a proxy that buffers streams, a corporate
  * middlebox), it falls back to the original polling loop rather than showing a
- * frozen scene.
+ * frozen scene. The buffer doesn't care which is feeding it — it adapts to
+ * whatever cadence it actually sees.
  */
+
+/**
+ * Everything about an element except where it is. Re-render on this changing,
+ * and only on this: position, size, rotation and opacity are the animated
+ * fields, and they belong to the frame loop.
+ */
+function shapeOf(els: RElement[]): string {
+  return els
+    .map((e) => `${e.id}${e.kind}${e.zIndex}${e.clip ?? ""}${JSON.stringify(e.props)}`)
+    .join("");
+}
+
 export default function SceneStage({
   sceneKey,
   initialVersion,
@@ -30,8 +50,50 @@ export default function SceneStage({
   const [canvas, setCanvas] = useState(initialCanvas);
   const [elements, setElements] = useState<RElement[]>(initialElements);
   const [scale, setScale] = useState(1);
-  const [smoothMs, setSmoothMs] = useState(0);
   const version = useRef(initialVersion);
+
+  const buffer = useMemo(() => new MotionBuffer(), []);
+  const nodes = useRef(new Map<number, HTMLElement>());
+  const written = useRef(new Map<number, Motion>());
+  const shape = useRef(shapeOf(initialElements));
+
+  // Seed the buffer during render rather than in an effect: the ref callbacks
+  // below run before the first paint and need something to write, or every
+  // element flashes at the canvas origin for a frame.
+  const seeded = useRef(false);
+  if (!seeded.current) {
+    seeded.current = true;
+    buffer.replace(initialElements.map((e) => [e.id, motionOf(e)] as [number, Motion]));
+  }
+
+  /**
+   * Place a node the moment it exists, then leave it to the frame loop.
+   *
+   * Cached per element: React detaches and reattaches a ref whose callback
+   * identity changed, so a fresh closure each render would throw away what was
+   * written and re-apply it on every re-render.
+   */
+  const refs = useRef(new Map<number, (node: HTMLElement | null) => void>());
+  const register = useCallback(
+    (id: number) => {
+      let cb = refs.current.get(id);
+      if (!cb) {
+        cb = (node: HTMLElement | null) => {
+          if (!node) {
+            nodes.current.delete(id);
+            written.current.delete(id);
+            return;
+          }
+          nodes.current.set(id, node);
+          const m = buffer.latestOf(id);
+          if (m) applyMotion(node, id, m, written.current);
+        };
+        refs.current.set(id, cb);
+      }
+      return cb;
+    },
+    [buffer],
+  );
 
   // Fit the canvas to the browser source, preserving aspect ratio.
   useEffect(() => {
@@ -45,6 +107,32 @@ export default function SceneStage({
     return () => window.removeEventListener("resize", fit);
   }, [canvas.w, canvas.h]);
 
+  // ---- the frame loop ---------------------------------------------------
+  useEffect(() => {
+    let raf = 0;
+    let prev = performance.now();
+
+    const write = (id: number, m: Motion) => {
+      const node = nodes.current.get(id);
+      if (node) applyMotion(node, id, m, written.current);
+    };
+
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      // Clamped: OBS stops calling rAF for a source that isn't being rendered,
+      // and the first frame back would otherwise advance the playback clock by
+      // however long the source was away.
+      const dt = Math.min(100, now - prev);
+      prev = now;
+      const t = buffer.advance(dt);
+      if (t !== null) buffer.sample(t, write);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [buffer]);
+
+  // ---- the feed ---------------------------------------------------------
   useEffect(() => {
     let stopped = false;
     let es: EventSource | null = null;
@@ -53,14 +141,47 @@ export default function SceneStage({
     let sseFailures = 0;
     let gotAnyMessage = false;
 
-    const apply = (data: any) => {
+    /** A whole scene: shape into React, motion into the buffer. */
+    const applyScene = (data: any) => {
       if (stopped || !data) return;
       if (typeof data.version === "number") version.current = data.version;
-      if (data.canvas) setCanvas(data.canvas);
-      if (Array.isArray(data.elements)) setElements(data.elements);
+      if (data.canvas) {
+        setCanvas((c) => (c.w === data.canvas.w && c.h === data.canvas.h ? c : data.canvas));
+      }
+      if (!Array.isArray(data.elements)) return;
+
+      const els = data.elements as RElement[];
+      buffer.replace(els.map((e) => [e.id, motionOf(e)] as [number, Motion]));
+
+      // On the polling fallback every reply is a full scene even when only a
+      // position moved, so this guard is what stops a drag re-rendering the
+      // whole tree once a second.
+      const next = shapeOf(els);
+      if (next !== shape.current) {
+        shape.current = next;
+        setElements(els);
+      }
     };
 
-    // ---- fallback: the original polling loop -----------------------------
+    /** A movement, complete in the payload: [id, x, y, w, h, rotation]. */
+    const applyMovement = (data: any) => {
+      if (stopped || !Array.isArray(data?.m)) return;
+      // Versions are handed out in commit order, so one going backwards means
+      // a stale frame — a reconnection replaying, most likely. Applying it
+      // would drag the element back to where it used to be.
+      if (typeof data.v === "number") {
+        if (data.v <= version.current) return;
+        version.current = data.v;
+      }
+      const [id, x, y, w, h, rot] = data.m as number[];
+      // Opacity only ever changes through the slow path, so carry the last
+      // known value forward rather than resetting it.
+      const op = buffer.latestOf(id)?.op ?? 1;
+      const sentAt = typeof data.ts === "number" ? data.ts : undefined;
+      buffer.merge([[id, { x, y, w, h, rot, op }]], performance.now(), sentAt);
+    };
+
+    // ---- fallback: the original polling loop ----------------------------
     const poll = async () => {
       if (stopped) return;
       try {
@@ -69,7 +190,7 @@ export default function SceneStage({
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.ok && !data.unchanged) apply(data);
+          if (data.ok && !data.unchanged) applyScene(data);
         }
       } catch {
         /* keep polling */
@@ -79,11 +200,10 @@ export default function SceneStage({
 
     const startPolling = () => {
       if (stopped || pollTimer) return;
-      setSmoothMs(1000);
       pollTimer = setTimeout(poll, 500);
     };
 
-    // ---- primary: SSE ----------------------------------------------------
+    // ---- primary: SSE ---------------------------------------------------
     const openStream = () => {
       if (stopped) return;
       try {
@@ -93,23 +213,24 @@ export default function SceneStage({
         return;
       }
 
-      es.addEventListener("hello", (ev) => {
+      es.addEventListener("hello", () => {
         gotAnyMessage = true;
         sseFailures = 0;
-        try {
-          const d = JSON.parse((ev as MessageEvent).data);
-          // Ease over slightly longer than the update interval so motion stays
-          // continuous even if one update is a touch late.
-          if (typeof d.smoothMs === "number") setSmoothMs(Math.round(d.smoothMs * 1.6));
-        } catch {
-          setSmoothMs(200);
-        }
       });
 
       es.addEventListener("scene", (ev) => {
         gotAnyMessage = true;
         try {
-          apply(JSON.parse((ev as MessageEvent).data));
+          applyScene(JSON.parse((ev as MessageEvent).data));
+        } catch {
+          /* ignore a malformed frame */
+        }
+      });
+
+      es.addEventListener("motion", (ev) => {
+        gotAnyMessage = true;
+        try {
+          applyMovement(JSON.parse((ev as MessageEvent).data));
         } catch {
           /* ignore a malformed frame */
         }
@@ -145,7 +266,7 @@ export default function SceneStage({
       clearTimeout(pollTimer);
       clearTimeout(reopenTimer);
     };
-  }, [sceneKey]);
+  }, [sceneKey, buffer]);
 
   return (
     <div
@@ -169,7 +290,7 @@ export default function SceneStage({
         }}
       >
         {elements.map((el) => (
-          <ElementBox key={el.id} el={el} smoothMs={smoothMs} />
+          <ElementBox key={el.id} el={el} managed nodeRef={register(el.id)} />
         ))}
       </div>
     </div>
