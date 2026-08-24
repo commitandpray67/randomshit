@@ -636,6 +636,19 @@ p  { margin: 0.75rem 0; }
 .st-check { display: flex; align-items: center; gap: 0.45rem; margin: 0.4rem 0; font-size: 0.82rem; cursor: pointer; }
 .st-check input { accent-color: var(--accent); }
 
+/* Signature at the foot of the studio rail. Never rendered into a browser
+   source — the rail is editor chrome, so this can't end up on stream. */
+.st-credit {
+  margin: 1.25rem 0 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.st-heart { color: #e2557b; }
+
 .st-modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center; z-index: 200; padding: 1rem;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ElementView, type RElement } from "./SceneRenderer";
 import EmotePicker from "./EmotePicker";
+import { isEmbeddable } from "@/lib/embed";
 
 type Canvas = { w: number; h: number };
 
@@ -58,6 +59,9 @@ export default function StudioEditor({
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const selected = elements.find((e) => e.id === selectedId) ?? null;
+  // A video whose URL is a YouTube/Vimeo page rather than a media file, so it
+  // renders as that site's player and some of the controls below don't apply.
+  const embedded = selected?.kind === "video" && isEmbeddable(selected.props.url);
 
   const sceneUrl = `${siteUrl}/scene/${sceneKey}`;
 
@@ -595,13 +599,29 @@ export default function StudioEditor({
               {(selected.kind === "image" || selected.kind === "video") && (
                 <>
                   <label className="st-row"><span>URL</span>
-                    <input type="url" placeholder="https://…" value={selected.props.url ?? ""} onChange={(e) => setProp("url", e.target.value)} />
+                    <input
+                      type="url"
+                      placeholder={selected.kind === "video" ? "https://… or a YouTube link" : "https://…"}
+                      value={selected.props.url ?? ""}
+                      onChange={(e) => setProp("url", e.target.value)}
+                    />
                   </label>
-                  <label className="st-row"><span>Fit</span>
-                    <select value={selected.props.fit ?? "contain"} onChange={(e) => setProp("fit", e.target.value)}>
-                      <option>contain</option><option>cover</option><option>fill</option><option>none</option>
-                    </select>
-                  </label>
+                  {/* Fit crops or letterboxes the media inside the box, which
+                      only means anything for a file we render ourselves. An
+                      embedded player fills the box and does its own letterboxing. */}
+                  {embedded ? (
+                    <p className="st-hint">
+                      Playing through the site&apos;s own player. Size the box to the video&apos;s
+                      aspect ratio — Fit doesn&apos;t apply, and the player letterboxes
+                      anything else with black bars.
+                    </p>
+                  ) : (
+                    <label className="st-row"><span>Fit</span>
+                      <select value={selected.props.fit ?? "contain"} onChange={(e) => setProp("fit", e.target.value)}>
+                        <option>contain</option><option>cover</option><option>fill</option><option>none</option>
+                      </select>
+                    </label>
+                  )}
                 </>
               )}
 
@@ -614,6 +634,7 @@ export default function StudioEditor({
                     Browsers refuse to autoplay audio with no user gesture, and a browser
                     source has nobody to click. Unmuting usually means the video never
                     starts — route sound through a separate OBS source instead.
+                    {embedded && " YouTube and Vimeo enforce this too, so an embed always plays muted."}
                   </p>
                 </>
               )}
@@ -647,6 +668,11 @@ export default function StudioEditor({
               )}
             </section>
           )}
+
+          <p className="st-credit">
+            made with <span className="st-heart" role="img" aria-label="love">♥</span>,
+            for Juntella, by mochi
+          </p>
         </aside>
       </div>
 

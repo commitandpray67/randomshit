@@ -61,6 +61,7 @@ Fill `.env.local`:
 | `APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `CRON_SECRET` | `openssl rand -hex 32` |
+| `DATABASE_URL_UNPOOLED` | optional; the direct (non-pooled) Postgres endpoint, for the scene stream's `LISTEN` |
 
 > Steam's API key registration asks for a domain. For local testing you can
 > register with any domain you control (or `localhost`); the key itself works
@@ -124,6 +125,7 @@ polling. Pogly is Apache-2.0, and none of its code is used here.
 ```
 POGLY_ALLOWED_STEAM_IDS=76561198XXXXXXXXX     # comma-separated SteamID64s
 OVERLAY_SYNC_THROTTLE_SEC=60                  # optional, default 60
+SEVENTV_DEFAULT_CHANNEL=juntella              # optional, the studio picker's default
 ```
 
 Then create the table. In the **Neon SQL editor**, paste and run
@@ -196,7 +198,7 @@ Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 |---|---|
 | **Text** | content, colour, size, weight, alignment, font, drop shadow |
 | **Image** | any URL (incl. `data:`), object-fit |
-| **Video** | URL, loop / autoplay / muted, object-fit |
+| **Video** | a media file, or a YouTube / Vimeo link; loop / autoplay / muted, object-fit |
 | **Widget** | custom HTML+CSS+JS, or an embedded URL |
 
 Every element carries position, size, rotation, z-order, opacity, lock, hide and
@@ -205,6 +207,12 @@ a CSS `clip-path` — the same properties Pogly's `Elements` table stores.
 **7TV emotes**: the toolbar's *+ 7TV emote* button looks up any Twitch channel's
 emote set and drops one on the canvas as an image. The lookup is proxied through
 `/api/emotes`, so the browser never talks to 7TV directly.
+
+The picker opens straight onto a default channel's emotes — asking `/api/emotes`
+for no channel in particular returns that one — so the usual case needs no
+typing. Set it with `SEVENTV_DEFAULT_CHANNEL` (default `juntella`). Resolved
+sets are cached in-process for five minutes, since the picker now runs a lookup
+every time it opens.
 
 The lookup follows 7TV's v3 API: a numeric Twitch id hits
 `/users/twitch/{id}` directly; a login name goes through GQL `SearchUsers` →
@@ -220,31 +228,79 @@ are covered by `npm run test:7tv`:
 
 Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
 
+### Video links vs. video files
+
+`<video>` wants a media file. A YouTube watch link is an HTML page, so the
+element fetches it, finds nothing it can decode, and renders an empty box —
+no error, just nothing. Pasting a YouTube URL used to do exactly that.
+
+Links to sites that offer their own player (YouTube, Vimeo) are therefore
+turned into an embedded player instead; anything else still goes to `<video>`.
+The player URL is rebuilt from a validated video id rather than passing the
+pasted string through, so nothing user-supplied reaches an iframe's `src`
+intact. `npm run test:embed` covers the link shapes and the rejections.
+
+Two quirks worth knowing, both handled:
+
+- YouTube ignores `loop=1` for a single video unless the video is *also* named
+  in `playlist=`.
+- Every one of these players refuses to autoplay with sound, and a browser
+  source has nobody to click. Asking for autoplay therefore forces mute — the
+  alternative is a player that silently never starts.
+
 ### How the browser source stays current
 
-The editor writes to `/api/studio`; each write bumps `scenes.version`. The
-browser source holds an SSE connection to `/api/scene/<key>/stream`, and the
-server watches that version column and pushes only when it moves. Dragging
-pushes an update every 80ms.
+The editor writes to `/api/studio`; each write bumps `scenes.version` and
+publishes it with `pg_notify`. The browser source holds an SSE connection to
+`/api/scene/<key>/stream`, which is woken by that notification rather than
+sampling the version column on a timer.
 
-Two things make motion look continuous rather than stepped:
+Dragging takes a separate path from every other edit. `transform` is one
+statement — locate the element through its scene (which is also the ownership
+check), write it, bump the version, and notify with the new position inline —
+so the stream can forward a drag frame without reading anything back. The
+general update path costs six round trips, which is fine for a property edit
+and ruinous twenty times a second.
 
-- Elements are positioned with `transform: translate3d(...)`, not `left`/`top`.
-  The compositor can move a transformed layer without re-running layout, so it
-  stays at the display's refresh rate.
-- The overlay eases between transforms over roughly one update interval, so a
-  dozen positions per second render as smooth 60fps motion.
+Making that motion look continuous in OBS took more than easing it:
 
-Measured locally: an edit is fully rendered in OBS in **~280ms** over SSE
-versus **~1290ms** on the old one-second poll, both at ~50fps on screen.
+- **The editor sends one request at a time**, newest position coalesced behind
+  it. Fired in parallel they commit in whatever order the platform gets to
+  them, so a position from 60ms ago lands after the current one and the element
+  jerks backwards — and the database keeps the older position as the last thing
+  written, which nothing downstream can repair.
+- **The overlay buffers positions and plays them back on a delayed clock**,
+  interpolating between the two samples bracketing it (`components/sceneMotion.ts`).
+  Network jitter is absorbed by the buffer instead of being rendered, and the
+  delay sizes itself to the cadence actually observed. A fixed CSS transition
+  cannot do this: interrupt one halfway and it restarts from where it is over
+  its full duration, so early updates are velocity steps and late ones let the
+  element stop dead and then lurch.
+- **Samples are spaced by the editor's own timestamp, not by arrival.**
+  Timestamping on arrival bakes transit jitter into the timeline — positions
+  taken 50ms apart but delivered 30ms and 70ms apart get played back at those
+  speeds, so the element speeds up and slows down though the cursor never did.
+- **Positions are written straight to the DOM from a rAF loop**, so a drag
+  re-renders nothing. React keeps ownership of everything else about an
+  element; it simply never sets those four properties.
 
-If SSE can't be established — something between OBS and the server buffering
-the stream — the client falls back to the original polling loop and stretches
-its easing to match, so it degrades to smooth-but-lagging rather than frozen.
+Simulated against a typical connection, that takes per-frame velocity spread
+from 48% of mean to 12%, and frozen frames from 15% to none. Separately and
+measured locally, an edit reaches OBS in **~280ms** over SSE versus **~1290ms**
+on the old one-second poll.
+
+A listening connection has to stay on one backend, which a transaction-mode
+pooler won't give it — and it fails *silently* when it doesn't, so a slow safety
+poll runs regardless and the stream drops back to hot polling the moment it sees
+a change no notification announced. Set `DATABASE_URL_UNPOOLED` to the direct
+endpoint to keep it on the fast path.
+
+If SSE can't be established at all — something between OBS and the server
+buffering the stream — the client falls back to the original polling loop. The
+buffer doesn't care which is feeding it.
 
 The stream closes itself just under the platform's function duration cap and
-reconnects, and it backs off to a 1s watch interval after 20s with no changes
-so an untouched overlay isn't holding database compute hot all broadcast.
+reconnects.
 
 ### Widget safety
 
