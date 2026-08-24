@@ -177,6 +177,59 @@ while the source is open. `syncUser`'s DB-backed throttle
 Steam, however fast OBS polls — so the poll interval controls how quickly a
 *detected* change reaches the screen, not how hard the Steam API gets hit.
 
+## Overlay studio (the canvas editor)
+
+A Pogly-style overlay editor: place text, images, videos and browser widgets on
+a canvas, arrange them, and render the result in an OBS browser source. Nothing
+to do with the Steam friends tracker — it just lives in the same app.
+
+- **Editor** — `/studio`, gated by `POGLY_ALLOWED_STEAM_IDS` (same allowlist as
+  the alert overlay; anyone else gets a 404).
+- **Browser source** — `/scene/<key>`, reachable only via its unguessable key.
+
+Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
+`db/migrations/004_scenes.sql` (psql).
+
+### Elements
+
+| Kind | What it does |
+|---|---|
+| **Text** | content, colour, size, weight, alignment, font, drop shadow |
+| **Image** | any URL (incl. `data:`), object-fit |
+| **Video** | URL, loop / autoplay / muted, object-fit |
+| **Widget** | custom HTML+CSS+JS, or an embedded URL |
+
+Every element carries position, size, rotation, z-order, opacity, lock, hide and
+a CSS `clip-path` — the same properties Pogly's `Elements` table stores.
+
+**7TV emotes**: the toolbar's *+ 7TV emote* button looks up any Twitch channel's
+emote set and drops one on the canvas as an image. The lookup is proxied through
+`/api/emotes`, so the browser never talks to 7TV directly.
+
+### How the browser source stays current
+
+The editor writes to `/api/studio`; each write bumps `scenes.version`. The
+browser source polls `/api/scene/<key>?v=<version it has>` about once a second
+and only refetches elements when that number changes, so a scene that sits still
+all stream costs one tiny query per poll. Dragging pushes a throttled update
+every 250ms, so OBS follows along live rather than only on mouse-up.
+
+### Widget safety
+
+Custom-HTML widgets render in an iframe sandboxed **without** `allow-same-origin`.
+That gives the frame an opaque origin, so pasted JS can't reach the session
+cookie or the parent page even though it's served from this domain.
+
+### What this is not
+
+It is not Pogly, and it is not trying to be. Pogly is ~22k lines built on
+SpacetimeDB, and its real-time collaboration — multiple editors, live cursors,
+guest permissions, layouts, audit log, OIDC — needs a stateful websocket server
+that serverless can't provide. This is the single-editor subset: one person
+arranging elements, rendered live in OBS. If you ever want the full thing, run
+real Pogly (free cloud at pogly.gg, or `ghcr.io/poglyapp/pogly` on any Docker
+host) — it's Apache-2.0.
+
 ## What to build next
 
 - **Notifications** on an unfriend (email via Resend, or a Discord webhook).
