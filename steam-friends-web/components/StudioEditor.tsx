@@ -100,17 +100,59 @@ export default function StudioEditor({
     setElements((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }, []);
 
-  // While dragging we push at most one update every 250ms so the OBS source
-  // follows along live, then send a final one on release.
+  /**
+   * Push interval while dragging. The browser source eases between whatever it
+   * receives, so this sets how closely OBS tracks the cursor — 80ms (~12/sec)
+   * reads as continuous once interpolated, without a write per mouse event.
+   */
+  const DRAG_PUSH_MS = 80;
+
   const lastSent = useRef(0);
+  const pending = useRef<{ id: number; patch: any } | null>(null);
+  const trailing = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const send = useCallback(
+    (id: number, patch: any) => {
+      lastSent.current = Date.now();
+      // Position updates during a drag are throwaway: the next one supersedes
+      // this one, so a failure here needs no retry and no busy state. Going
+      // through `call` would re-render the whole editor on every push.
+      void fetch("/api/studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", id, patch }),
+      }).catch(() => {});
+    },
+    [],
+  );
+
   const flush = useCallback(
     (id: number, patch: any, force = false) => {
       const now = Date.now();
-      if (!force && now - lastSent.current < 250) return;
-      lastSent.current = now;
-      void call({ action: "update", id, patch });
+      if (force) {
+        if (trailing.current) clearTimeout(trailing.current);
+        trailing.current = null;
+        pending.current = null;
+        send(id, patch);
+        return;
+      }
+      if (now - lastSent.current >= DRAG_PUSH_MS) {
+        send(id, patch);
+        return;
+      }
+      // Too soon — remember the latest and fire once the window opens, so the
+      // element never stops short of where the cursor actually is.
+      pending.current = { id, patch };
+      if (!trailing.current) {
+        trailing.current = setTimeout(() => {
+          trailing.current = null;
+          const p = pending.current;
+          pending.current = null;
+          if (p) send(p.id, p.patch);
+        }, DRAG_PUSH_MS - (now - lastSent.current));
+      }
     },
-    [call],
+    [send],
   );
 
   /** Pointer position in canvas coordinates. */
@@ -352,11 +394,15 @@ export default function StudioEditor({
                 onPointerDown={(e) => startDrag(e, el)}
                 style={{
                   position: "absolute",
-                  left: el.x,
-                  top: el.y,
+                  // Transform rather than left/top: the compositor moves the
+                  // layer without a layout pass, which keeps dragging at the
+                  // display's refresh rate. Handles are children, so they ride
+                  // along and need no change.
+                  left: 0,
+                  top: 0,
                   width: el.w,
                   height: el.h,
-                  transform: `rotate(${el.rotation}deg)`,
+                  transform: `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.rotation}deg)`,
                   transformOrigin: "center center",
                   zIndex: el.zIndex,
                   opacity: el.hidden ? 0.25 : el.opacity,

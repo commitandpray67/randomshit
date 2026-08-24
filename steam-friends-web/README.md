@@ -223,10 +223,28 @@ Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
 ### How the browser source stays current
 
 The editor writes to `/api/studio`; each write bumps `scenes.version`. The
-browser source polls `/api/scene/<key>?v=<version it has>` about once a second
-and only refetches elements when that number changes, so a scene that sits still
-all stream costs one tiny query per poll. Dragging pushes a throttled update
-every 250ms, so OBS follows along live rather than only on mouse-up.
+browser source holds an SSE connection to `/api/scene/<key>/stream`, and the
+server watches that version column and pushes only when it moves. Dragging
+pushes an update every 80ms.
+
+Two things make motion look continuous rather than stepped:
+
+- Elements are positioned with `transform: translate3d(...)`, not `left`/`top`.
+  The compositor can move a transformed layer without re-running layout, so it
+  stays at the display's refresh rate.
+- The overlay eases between transforms over roughly one update interval, so a
+  dozen positions per second render as smooth 60fps motion.
+
+Measured locally: an edit is fully rendered in OBS in **~280ms** over SSE
+versus **~1290ms** on the old one-second poll, both at ~50fps on screen.
+
+If SSE can't be established — something between OBS and the server buffering
+the stream — the client falls back to the original polling loop and stretches
+its easing to match, so it degrades to smooth-but-lagging rather than frozen.
+
+The stream closes itself just under the platform's function duration cap and
+reconnects, and it backs off to a 1s watch interval after 20s with no changes
+so an untouched overlay isn't holding database compute hot all broadcast.
 
 ### Widget safety
 

@@ -142,12 +142,20 @@ export function ElementBox({
   el,
   editing = false,
   selected = false,
+  smoothMs = 0,
   onPointerDown,
   children,
 }: {
   el: RElement;
   editing?: boolean;
   selected?: boolean;
+  /**
+   * Milliseconds to ease between transforms. The overlay sets this to roughly
+   * the interval between updates, which turns a handful of positions per second
+   * into continuous 60fps motion. The editor leaves it at 0 — a dragged element
+   * must track the cursor exactly, not trail behind it.
+   */
+  smoothMs?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
   children?: React.ReactNode;
 }) {
@@ -158,12 +166,20 @@ export function ElementBox({
       onPointerDown={onPointerDown}
       style={{
         position: "absolute",
-        left: el.x,
-        top: el.y,
+        // Position lives in `transform`, not left/top: the compositor can move
+        // a transformed layer without re-running layout or paint, so motion
+        // stays at display refresh rate and transitions are essentially free.
+        // Animating left/top instead forces a full layout pass every frame.
+        left: 0,
+        top: 0,
         width: el.w,
         height: el.h,
-        transform: `rotate(${el.rotation}deg)`,
+        transform: `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.rotation}deg)`,
         transformOrigin: "center center",
+        transition: smoothMs
+          ? `transform ${smoothMs}ms linear, width ${smoothMs}ms linear, height ${smoothMs}ms linear, opacity ${smoothMs}ms linear`
+          : undefined,
+        willChange: smoothMs ? "transform" : undefined,
         zIndex: el.zIndex,
         opacity: el.hidden ? (editing ? 0.25 : 0) : el.opacity,
         clipPath: el.clip || undefined,
