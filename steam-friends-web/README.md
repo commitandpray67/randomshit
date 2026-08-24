@@ -279,6 +279,33 @@ with a cap so a video that genuinely can't play isn't nudged forever. If OBS
 has *Shutdown source when not visible* ticked it will stop the video whenever
 the scene is off screen; nothing in the page can override that.
 
+### Saving an edit
+
+Element edits are serialised: one request in flight at a time, with the newest
+patch per element coalesced behind it, and the reply deliberately discarded.
+
+Both halves of that matter. Every keystroke in a text box used to fire its own
+request, and each reply replaced the whole element list with the server's
+snapshot. Type faster than the round trip and those snapshots arrive stale —
+each one resetting the textarea to a version from several characters ago and
+discarding everything typed since. Typing `Hello Juntella!` reliably stored
+`Hl Jntla!`, on screen and in the database both. Serialising makes the last
+write the newest one; ignoring the reply stops a response that was already out
+of date from overwriting what has been typed since. The editor applied the
+change optimistically and is the authority on its own text.
+
+Because nothing reads the reply any more, the editor clamps numeric fields to
+the same bounds the server does — otherwise a value the server rejected would
+go on being displayed as though it had been stored.
+
+Structural changes (add, delete, reorder, canvas size) still take the reply,
+since the server decides things the editor can't know, like a new element's id.
+Those wait for the edit queue to drain first, so the list they echo back is not
+from before the edits.
+
+Whatever is still queued when the page goes away is flushed with
+`navigator.sendBeacon`, which outlives the page where a `fetch` would not.
+
 ### How the browser source stays current
 
 The editor writes to `/api/studio`; each write bumps `scenes.version` and

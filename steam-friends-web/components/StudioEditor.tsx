@@ -65,8 +65,19 @@ export default function StudioEditor({
 
   const sceneUrl = `${siteUrl}/scene/${sceneKey}`;
 
-  /** Call the mutation API and adopt the returned state. */
+  /**
+   * Call the mutation API and adopt the returned state.
+   *
+   * For structural changes only — adding, deleting, reordering, resizing the
+   * canvas — where the server decides something the editor can't know, like a
+   * new element's id or the z-order after a shuffle. Edits to an element that
+   * already exists go through `queueUpdate` instead and deliberately ignore
+   * what comes back; see the note there.
+   */
   const call = useCallback(async (payload: any) => {
+    // Any queued edits have to land first, or the element list echoed back
+    // here would be from before them and would undo them on arrival.
+    await drainUpdates();
     setBusy(true);
     setError(null);
     try {
@@ -111,6 +122,119 @@ export default function StudioEditor({
   const patchLocal = useCallback((id: number, patch: Partial<RElement>) => {
     setElements((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }, []);
+
+  /**
+   * Edits to existing elements: one request at a time, newest patch per
+   * element coalesced behind it, and the response thrown away.
+   *
+   * Every keystroke in a text box used to fire its own request, and each
+   * response replaced the entire element list with the server's snapshot. Type
+   * faster than the round trip and those snapshots arrive stale — every one of
+   * them resetting the textarea to a version from several characters ago, and
+   * throwing away everything typed since. Typing "Hello Juntella!" reliably
+   * stored "Hl Jntla!", on screen and in the database both.
+   *
+   * Two things fix it, and both are needed. Serialising means the writes
+   * commit in the order they were made, so the last one to land is the newest.
+   * Ignoring the echo means a reply that was already stale when it was sent
+   * can't overwrite what has been typed since — the editor applied the change
+   * optimistically and is the authority on its own text.
+   */
+  const queued = useRef(new Map<number, any>());
+  const sending = useRef(false);
+  const drained = useRef<(() => void)[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+
+  /** Later wins per field, but props merge rather than replacing wholesale. */
+  const mergePatch = (into: any, next: any) => {
+    const out = { ...(into ?? {}), ...next };
+    if (into?.props || next?.props) {
+      out.props = { ...(into?.props ?? {}), ...(next?.props ?? {}) };
+    }
+    return out;
+  };
+
+  const pumpEdits = useCallback(() => {
+    if (sending.current) return;
+
+    const first = queued.current.entries().next();
+    if (first.done) {
+      setSaving(false);
+      setJustSaved(true);
+      drained.current.splice(0).forEach((fn) => fn());
+      return;
+    }
+
+    const [id, patch] = first.value as [number, any];
+    queued.current.delete(id);
+    sending.current = true;
+    setSaving(true);
+    setJustSaved(false);
+
+    void fetch("/api/studio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", id, patch }),
+    })
+      .then((res) => {
+        if (!res.ok) setError(`save failed (${res.status})`);
+        else setError(null);
+      })
+      .catch((e) => setError(String(e?.message ?? e)))
+      .finally(() => {
+        sending.current = false;
+        pumpEdits();
+      });
+  }, []);
+
+  const queueUpdate = useCallback(
+    (id: number, patch: any) => {
+      queued.current.set(id, mergePatch(queued.current.get(id), patch));
+      setSaving(true);
+      pumpEdits();
+    },
+    [pumpEdits],
+  );
+
+  /** Resolves once everything queued has been written. */
+  const drainUpdates = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (!sending.current && queued.current.size === 0) return resolve();
+        drained.current.push(resolve);
+      }),
+    [],
+  );
+
+  // Closing the tab mid-word would otherwise drop whatever hadn't been sent
+  // yet. A beacon outlives the page; a fetch at this point does not.
+  useEffect(() => {
+    const flush = () => {
+      for (const [id, patch] of queued.current) {
+        try {
+          navigator.sendBeacon?.(
+            "/api/studio",
+            new Blob([JSON.stringify({ action: "update", id, patch })], {
+              type: "application/json",
+            }),
+          );
+        } catch {
+          /* nothing useful to do while the page is going away */
+        }
+      }
+      queued.current.clear();
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
+
+  // Let "saved" fade rather than sit there claiming credit forever.
+  useEffect(() => {
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(false), 1600);
+    return () => clearTimeout(t);
+  }, [justSaved]);
 
   /**
    * Floor on how often a drag may push. There is no ceiling: the next push
@@ -367,13 +491,36 @@ export default function StudioEditor({
   const setProps = (patch: Record<string, unknown>) => {
     if (!selected) return;
     patchLocal(selected.id, { props: { ...selected.props, ...patch } });
-    void call({ action: "update", id: selected.id, patch: { props: patch } });
+    queueUpdate(selected.id, { props: patch });
+  };
+
+  /**
+   * The same bounds the server applies. Kept in step deliberately: nothing
+   * reads the server's reply any more, so a value it would have clamped has to
+   * be clamped here too, or the editor would go on showing a number that was
+   * never actually stored.
+   */
+  const LIMITS: Partial<Record<keyof RElement, [number, number]>> = {
+    x: [-20000, 20000],
+    y: [-20000, 20000],
+    w: [1, 20000],
+    h: [1, 20000],
+    rotation: [-360, 360],
+    opacity: [0, 1],
+    zIndex: [-9999, 9999],
   };
 
   const setField = (key: keyof RElement, value: unknown) => {
     if (!selected) return;
-    patchLocal(selected.id, { [key]: value } as any);
-    void call({ action: "update", id: selected.id, patch: { [key]: value } });
+    const bound = LIMITS[key];
+    let v = value;
+    if (bound) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return;
+      v = Math.min(bound[1], Math.max(bound[0], n));
+    }
+    patchLocal(selected.id, { [key]: v } as any);
+    queueUpdate(selected.id, { [key]: v });
   };
 
   async function copyUrl() {
@@ -418,7 +565,11 @@ export default function StudioEditor({
             onBlur={() => call({ action: "canvas", w: canvas.w, h: canvas.h })}
           />
         </label>
-        {busy && <span className="st-busy">saving…</span>}
+        {busy || saving ? (
+          <span className="st-busy">saving…</span>
+        ) : justSaved ? (
+          <span className="st-busy st-saved">saved</span>
+        ) : null}
         {error && <span className="st-error">{error}</span>}
       </div>
 
@@ -548,10 +699,10 @@ export default function StudioEditor({
                 >
                   <span className="st-kind">{el.kind}</span>
                   <span className="st-label">{labelFor(el)}</span>
-                  <button title={el.hidden ? "Show" : "Hide"} onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); patchLocal(el.id, { hidden: !el.hidden }); void call({ action: "update", id: el.id, patch: { hidden: !el.hidden } }); }}>
+                  <button title={el.hidden ? "Show" : "Hide"} onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); patchLocal(el.id, { hidden: !el.hidden }); queueUpdate(el.id, { hidden: !el.hidden }); }}>
                     {el.hidden ? "🚫" : "👁"}
                   </button>
-                  <button title={el.locked ? "Unlock" : "Lock"} onClick={(e) => { e.stopPropagation(); patchLocal(el.id, { locked: !el.locked }); void call({ action: "update", id: el.id, patch: { locked: !el.locked } }); }}>
+                  <button title={el.locked ? "Unlock" : "Lock"} onClick={(e) => { e.stopPropagation(); patchLocal(el.id, { locked: !el.locked }); queueUpdate(el.id, { locked: !el.locked }); }}>
                     {el.locked ? "🔒" : "🔓"}
                   </button>
                   <button title="Up" onClick={(e) => { e.stopPropagation(); void call({ action: "reorder", id: el.id, direction: "up" }); }}>▲</button>
@@ -579,7 +730,7 @@ export default function StudioEditor({
                 <input
                   type="text" placeholder="inset(10% 0 0 0)" value={selected.clip ?? ""}
                   onChange={(e) => patchLocal(selected.id, { clip: e.target.value })}
-                  onBlur={(e) => call({ action: "update", id: selected.id, patch: { clip: e.target.value } })}
+                  onBlur={(e) => queueUpdate(selected.id, { clip: e.target.value.slice(0, 400) })}
                 />
               </label>
 

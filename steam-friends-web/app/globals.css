@@ -563,6 +563,7 @@ p  { margin: 0.75rem 0; }
 .st-add .btn { padding: 0.45rem 0.8rem; font-size: 0.85rem; }
 .st-spacer { flex: 1; }
 .st-busy { color: var(--text-dim); font-size: 0.8rem; }
+.st-saved { color: var(--accent); }
 .st-error { color: var(--danger); font-size: 0.85rem; }
 
 .st-canvas-size { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-dim); }
