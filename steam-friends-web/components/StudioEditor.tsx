@@ -68,7 +68,16 @@ export default function StudioEditor({
   const [sceneKey, setSceneKey] = useState(initialSceneKey);
   const [canvas, setCanvas] = useState<Canvas>(initialCanvas);
   const [elements, setElements] = useState<RElement[]>(initialElements);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  /**
+   * Everything currently selected. A set rather than one id so a group can be
+   * moved, restacked or deleted together; the properties panel still only
+   * appears when exactly one thing is picked, since the fields are per-element.
+   */
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  /** Elements removed by the last delete, kept so it can be taken back. */
+  const [undoable, setUndoable] = useState<RElement[] | null>(null);
+  /** Guides drawn while dragging, in canvas coordinates. */
+  const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
   const [scale, setScale] = useState(0.4);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +90,16 @@ export default function StudioEditor({
   const version = useRef(initialVersion);
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const selected = elements.find((e) => e.id === selectedId) ?? null;
+  const selected = selectedIds.length === 1
+    ? (elements.find((e) => e.id === selectedIds[0]) ?? null)
+    : null;
+  const isSelected = useCallback((id: number) => selectedIds.includes(id), [selectedIds]);
+  const selectOnly = useCallback((id: number | null) => setSelectedIds(id === null ? [] : [id]), []);
+  const toggleSelected = useCallback(
+    (id: number) =>
+      setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
+    [],
+  );
   // A video whose URL is a YouTube/Vimeo page rather than a media file, so it
   // renders as that site's player and some of the controls below don't apply.
   const embedded = selected?.kind === "video" && isEmbeddable(selected.props.url);
@@ -170,7 +188,7 @@ export default function StudioEditor({
   const sending = useRef(false);
   /** The element with an update in flight, and the one under the pointer. */
   const sendingId = useRef<number | null>(null);
-  const activeId = useRef<number | null>(null);
+  const activeIds = useRef<Set<number>>(new Set());
   /**
    * The scene version each element was last written at *by this editor*.
    *
@@ -262,7 +280,7 @@ export default function StudioEditor({
    * something is the authority on it until they stop.
    */
   const busyWith = useCallback(
-    (id: number) => activeId.current === id || sendingId.current === id || queued.current.has(id),
+    (id: number) => activeIds.current.has(id) || sendingId.current === id || queued.current.has(id),
     [],
   );
 
@@ -543,50 +561,145 @@ export default function StudioEditor({
     [scale],
   );
 
+  /**
+   * How close, in canvas pixels, an edge or centre has to be before it snaps.
+   * Measured on screen rather than on the canvas, so it feels the same however
+   * far you are zoomed out.
+   */
+  const SNAP_PX = 7;
+
+  /**
+   * Nudge a dragged box onto the nearest edge or centre line.
+   *
+   * Candidates are the canvas edges and middle, plus the edges and middles of
+   * every other element. Rotated elements are skipped: their on-screen box
+   * isn't the one being compared, so snapping them lines up something the eye
+   * cannot see.
+   */
+  const snapDrag = useCallback(
+    (moving: RElement[], nx: number, ny: number) => {
+      const tol = SNAP_PX / scale;
+      const box = moving[0];
+      if (moving.length !== 1 || box.rotation !== 0) {
+        return { x: nx, y: ny, v: [] as number[], h: [] as number[] };
+      }
+
+      const vs: number[] = [0, canvas.w / 2, canvas.w];
+      const hs: number[] = [0, canvas.h / 2, canvas.h];
+      for (const e of elements) {
+        if (e.id === box.id || e.hidden) continue;
+        vs.push(e.x, e.x + e.w / 2, e.x + e.w);
+        hs.push(e.y, e.y + e.h / 2, e.y + e.h);
+      }
+
+      let bx = nx, by = ny;
+      const hitV: number[] = [], hitH: number[] = [];
+      // Each of the box's own three lines can land on any candidate.
+      for (const [own, adjust] of [[nx, 0], [nx + box.w / 2, box.w / 2], [nx + box.w, box.w]] as const) {
+        for (const c of vs) {
+          if (Math.abs(own - c) <= tol) { bx = c - adjust; hitV.push(c); break; }
+        }
+        if (hitV.length) break;
+      }
+      for (const [own, adjust] of [[ny, 0], [ny + box.h / 2, box.h / 2], [ny + box.h, box.h]] as const) {
+        for (const c of hs) {
+          if (Math.abs(own - c) <= tol) { by = c - adjust; hitH.push(c); break; }
+        }
+        if (hitH.length) break;
+      }
+      return { x: bx, y: by, v: hitV, h: hitH };
+    },
+    [elements, canvas.w, canvas.h, scale],
+  );
+
   const startDrag = useCallback(
     (e: React.PointerEvent, el: RElement) => {
       if (el.locked) return;
       e.preventDefault();
       e.stopPropagation();
-      setSelectedId(el.id);
-      // Claim it, so an update from another editor doesn't move it out from
+
+      // Shift/Ctrl extends the selection; clicking something outside it makes
+      // it the selection. Clicking inside an existing selection keeps the
+      // group, so a group can be dragged without picking it apart.
+      let ids: number[];
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        toggleSelected(el.id);
+        ids = selectedIds.includes(el.id)
+          ? selectedIds.filter((x) => x !== el.id)
+          : [...selectedIds, el.id];
+      } else if (isSelected(el.id)) {
+        ids = selectedIds;
+      } else {
+        selectOnly(el.id);
+        ids = [el.id];
+      }
+
+      // Locked elements come along only if they were not what was grabbed.
+      const moving = elements.filter((x) => ids.includes(x.id) && !x.locked);
+      if (moving.length === 0) return;
+
+      // Claim them, so an update from another editor doesn't move one out from
       // under the pointer half way through the gesture.
-      activeId.current = el.id;
+      activeIds.current = new Set(moving.map((m) => m.id));
 
       const start = toCanvas(e);
-      const x0 = el.x;
-      const y0 = el.y;
-      // Size and rotation are fixed for the duration of a drag, so they can be
-      // read once and carried on every frame.
-      const fixed = { w: el.w, h: el.h, rotation: el.rotation };
+      const origin = new Map(moving.map((m) => [m.id, { x: m.x, y: m.y, w: m.w, h: m.h, rotation: m.rotation }]));
+      const anchor = origin.get(el.id)!;
 
-      const move = (ev: PointerEvent) => {
+      const apply = (ev: PointerEvent, final: boolean) => {
         const p = toCanvas(ev);
-        const nx = Math.round(x0 + (p.x - start.x));
-        const ny = Math.round(y0 + (p.y - start.y));
-        patchLocal(el.id, { x: nx, y: ny });
-        flush(el.id, { ...fixed, x: nx, y: ny });
+        let dx = p.x - start.x;
+        let dy = p.y - start.y;
+
+        // Snapping is computed for the grabbed element and the same offset is
+        // applied to the rest, so a group keeps its internal spacing.
+        if (!ev.altKey) {
+          const snapped = snapDrag(moving, anchor.x + dx, anchor.y + dy);
+          dx = snapped.x - anchor.x;
+          dy = snapped.y - anchor.y;
+          setGuides(final ? { v: [], h: [] } : { v: snapped.v, h: snapped.h });
+        } else {
+          setGuides({ v: [], h: [] });
+        }
+
+        for (const m of moving) {
+          const o = origin.get(m.id)!;
+          const nx = Math.round(o.x + dx);
+          const ny = Math.round(o.y + dy);
+          patchLocal(m.id, { x: nx, y: ny });
+          flush(m.id, { w: o.w, h: o.h, rotation: o.rotation, x: nx, y: ny });
+        }
       };
-      const up = (ev: PointerEvent) => {
-        const p = toCanvas(ev);
-        const nx = Math.round(x0 + (p.x - start.x));
-        const ny = Math.round(y0 + (p.y - start.y));
-        flush(el.id, { ...fixed, x: nx, y: ny });
-        activeId.current = null;
+
+      const move = (ev: PointerEvent) => apply(ev, false);
+      const done = (ev: PointerEvent) => {
+        apply(ev, true);
+        endGesture();
+      };
+      const cancel = () => endGesture();
+
+      const endGesture = () => {
+        activeIds.current.clear();
+        setGuides({ v: [], h: [] });
         window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointerup", done);
+        window.removeEventListener("pointercancel", cancel);
       };
+
       window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
+      window.addEventListener("pointerup", done);
+      // Without this a cancelled gesture leaves the element claimed for ever,
+      // silently ignoring every other editor for the rest of the session.
+      window.addEventListener("pointercancel", cancel);
     },
-    [toCanvas, patchLocal, flush],
+    [toCanvas, patchLocal, flush, elements, selectedIds, isSelected, selectOnly, toggleSelected, snapDrag],
   );
 
   const startResize = useCallback(
     (e: React.PointerEvent, el: RElement, sx: -1 | 0 | 1, sy: -1 | 0 | 1) => {
       e.preventDefault();
       e.stopPropagation();
-      activeId.current = el.id;
+      activeIds.current = new Set([el.id]);
 
       const start = toCanvas(e);
       const { x: x0, y: y0, w: w0, h: h0, rotation } = el;
@@ -623,14 +736,20 @@ export default function StudioEditor({
         patchLocal(el.id, next);
         flush(el.id, next);
       };
-      const up = (ev: PointerEvent) => {
-        flush(el.id, compute(ev));
-        activeId.current = null;
+      const stop = () => {
+        activeIds.current.clear();
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", stop);
+      };
+      const up = (ev: PointerEvent) => {
+        flush(el.id, compute(ev));
+        stop();
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
+      // A cancelled gesture would otherwise leave the element claimed for ever.
+      window.addEventListener("pointercancel", stop);
     },
     [toCanvas, patchLocal, flush],
   );
@@ -639,7 +758,7 @@ export default function StudioEditor({
     (e: React.PointerEvent, el: RElement) => {
       e.preventDefault();
       e.stopPropagation();
-      activeId.current = el.id;
+      activeIds.current = new Set([el.id]);
       const cx = el.x + el.w / 2;
       const cy = el.y + el.h / 2;
 
@@ -666,29 +785,114 @@ export default function StudioEditor({
         if (ev.shiftKey) next = Math.round(next / 15) * 15;
         next = ((next % 360) + 360) % 360;
         flush(el.id, { ...fixed, rotation: next });
-        activeId.current = null;
+        stop();
+      };
+      const stop = () => {
+        activeIds.current.clear();
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", stop);
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", stop);
     },
     [toCanvas, patchLocal, flush],
   );
 
-  // Keyboard: delete, nudge.
+  /**
+   * Delete, keeping what was removed so it can be put back.
+   *
+   * Deleting is instant and shared: it disappears for every editor at once,
+   * and before this there was no way back — one stray Backspace over a canvas
+   * someone had spent an hour on and it was simply gone.
+   */
+  const removeElements = useCallback(
+    async (ids: number[]) => {
+      if (ids.length === 0) return;
+      const res = await call({ action: "delete", ids });
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      if (res?.removed?.length) setUndoable(res.removed as RElement[]);
+    },
+    [call],
+  );
+
+  const undoDelete = useCallback(async () => {
+    if (!undoable?.length) return;
+    const res = await call({ action: "restore", elements: undoable });
+    setUndoable(null);
+    if (res?.created?.length) setSelectedIds(res.created.map((e: RElement) => e.id));
+  }, [call, undoable]);
+
+  const duplicateSelected = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const res = await call({ action: "duplicate", ids: selectedIds });
+    // Select the copies, so the next drag moves them rather than the originals.
+    if (res?.created?.length) setSelectedIds(res.created.map((e: RElement) => e.id));
+  }, [call, selectedIds]);
+
+  const restackSelected = useCallback(
+    (to: "front" | "back") => {
+      if (selectedIds.length === 0) return;
+      void call({ action: "restack", ids: selectedIds, to });
+    },
+    [call, selectedIds],
+  );
+
+  // An undo offer that sits there for ever would eventually put back something
+  // deleted on purpose ten minutes ago.
+  useEffect(() => {
+    if (!undoable) return;
+    const t = setTimeout(() => setUndoable(null), 12000);
+    return () => clearTimeout(t);
+  }, [undoable]);
+
+  // The drag pump's timer outlives the page without this.
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  // Keyboard: delete, duplicate, undo, nudge, select all.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
-      if (!selected || selected.locked) return;
+      const t = e.target as HTMLElement | null;
+      // Typing in a field, or in anything editable, is never a canvas shortcut.
+      if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        void undoDelete();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        void duplicateSelected();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelectedIds(elements.filter((el) => !el.locked).map((el) => el.id));
+        return;
+      }
+      if (e.key === "Escape") {
+        setSelectedIds([]);
+        return;
+      }
+
+      const picked = elements.filter((el) => selectedIds.includes(el.id) && !el.locked);
+      if (picked.length === 0) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        void call({ action: "delete", id: selected.id });
-        setSelectedId(null);
+        void removeElements(picked.map((el) => el.id));
         return;
       }
+      if (mod && (e.key === "]" || e.key === "[")) {
+        e.preventDefault();
+        restackSelected(e.key === "]" ? "front" : "back");
+        return;
+      }
+
       const step = e.shiftKey ? 10 : 1;
       const moves: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0],
@@ -699,21 +903,17 @@ export default function StudioEditor({
       const d = moves[e.key];
       if (d) {
         e.preventDefault();
-        const nx = Math.round(selected.x + d[0]);
-        const ny = Math.round(selected.y + d[1]);
-        patchLocal(selected.id, { x: nx, y: ny });
-        flush(selected.id, {
-          x: nx,
-          y: ny,
-          w: selected.w,
-          h: selected.h,
-          rotation: selected.rotation,
-        });
+        for (const el of picked) {
+          const nx = Math.round(el.x + d[0]);
+          const ny = Math.round(el.y + d[1]);
+          patchLocal(el.id, { x: nx, y: ny });
+          flush(el.id, { x: nx, y: ny, w: el.w, h: el.h, rotation: el.rotation });
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, call, patchLocal, flush]);
+  }, [elements, selectedIds, patchLocal, flush, removeElements, duplicateSelected, undoDelete, restackSelected]);
 
   const setProp = (key: string, value: unknown) => setProps({ [key]: value });
 
@@ -778,17 +978,31 @@ export default function StudioEditor({
       {/* ------------------------------- toolbar */}
       <div className="st-toolbar">
         {/* Centred on the toolbar itself rather than placed between the two
-            groups, so it stays in the middle whatever they happen to be wide. */}
-        <p className="st-credit">
-          made with <span className="st-heart" role="img" aria-label="love">♥</span>,
-          for Juntella, by mochi
-        </p>
+            groups, so it stays in the middle whatever they happen to be wide.
+            Which is also why it steps aside while something is selected: the
+            selection buttons grow the left group straight through the middle. */}
+        {selectedIds.length === 0 && (
+          <p className="st-credit">
+            made with <span className="st-heart" role="img" aria-label="love">♥</span>,
+            for Juntella, by mochi
+          </p>
+        )}
         <div className="st-add">
           <button className="btn" onClick={() => call({ action: "add", kind: "text" })}>+ Text</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "image" })}>+ Image</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "video" })}>+ Video</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "widget" })}>+ Widget</button>
           <button className="btn btn-ghost" onClick={() => setShowEmotes(true)}>+ 7TV emote</button>
+          {selectedIds.length > 0 && (
+            <>
+              <span className="st-sep" />
+              <button className="btn btn-ghost" title="Duplicate (Ctrl+D)" onClick={() => void duplicateSelected()}>Duplicate</button>
+              <button className="btn btn-ghost" title="Bring to front (Ctrl+])" onClick={() => restackSelected("front")}>Front</button>
+              <button className="btn btn-ghost" title="Send to back (Ctrl+[)" onClick={() => restackSelected("back")}>Back</button>
+              <button className="btn btn-ghost" title="Delete (Del)" onClick={() => void removeElements(selectedIds)}>Delete</button>
+              <span className="st-count">{selectedIds.length} selected</span>
+            </>
+          )}
         </div>
         <div className="st-spacer" />
         <label className="st-canvas-size">
@@ -815,7 +1029,16 @@ export default function StudioEditor({
 
       <div className="st-body">
         {/* ----------------------------- canvas */}
-        <div className="st-viewport" ref={viewportRef} onPointerDown={() => setSelectedId(null)}>
+        {undoable && (
+          <div className="st-undo" role="status">
+            <span>
+              {undoable.length === 1 ? "Element deleted" : `${undoable.length} elements deleted`}
+            </span>
+            <button className="btn" onClick={() => void undoDelete()}>Undo</button>
+            <button className="st-undo-x" title="Dismiss" onClick={() => setUndoable(null)}>✕</button>
+          </div>
+        )}
+        <div className="st-viewport" ref={viewportRef} onPointerDown={() => setSelectedIds([])}>
           {/* A box big enough for the frame plus a margin of parking space, so
               the viewport has something to scroll and elements dragged off the
               frame land somewhere reachable rather than off into nothing. */}
@@ -849,6 +1072,13 @@ export default function StudioEditor({
               {preview && (
                 <StreamBackdrop channel={preview} width={canvas.w} height={canvas.h} />
               )}
+              {/* Alignment guides, drawn only while a drag is actually snapping. */}
+              {guides.v.map((x) => (
+              <div key={"v" + x} className="st-guide st-guide-v" style={{ left: x, height: canvas.h }} />
+            ))}
+              {guides.h.map((y) => (
+              <div key={"h" + y} className="st-guide st-guide-h" style={{ top: y, width: canvas.w }} />
+            ))}
               {elements.map((el) => (
               <div
                 key={el.id}
@@ -869,7 +1099,7 @@ export default function StudioEditor({
                   opacity: el.hidden ? 0.25 : el.opacity,
                   clipPath: el.clip || undefined,
                   outline:
-                    el.id === selectedId
+                    isSelected(el.id)
                       ? "2px solid #66c0f4"
                       : offFrame(el)
                         ? "1px dashed rgba(226,160,60,0.7)"
@@ -884,7 +1114,7 @@ export default function StudioEditor({
                   <ElementView el={el} editing />
                 </div>
 
-                {el.id === selectedId && !el.locked && (
+                {isSelected(el.id) && selectedIds.length === 1 && !el.locked && (
                   <>
                     {HANDLES.map((h) => (
                       <div
@@ -1006,15 +1236,17 @@ export default function StudioEditor({
               {[...elements].reverse().map((el) => (
                 <li
                   key={el.id}
-                  className={el.id === selectedId ? "sel" : ""}
-                  onClick={() => setSelectedId(el.id)}
+                  className={isSelected(el.id) ? "sel" : ""}
+                  onClick={(e) =>
+                    e.shiftKey || e.ctrlKey || e.metaKey ? toggleSelected(el.id) : selectOnly(el.id)
+                  }
                 >
                   <span className="st-kind">{el.kind}</span>
                   <span className="st-label">
                     {labelFor(el)}
                     {offFrame(el) && <span className="st-parked" title="Parked outside the frame — not on stream">off-frame</span>}
                   </span>
-                  <button title={el.hidden ? "Show" : "Hide"} onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); patchLocal(el.id, { hidden: !el.hidden }); queueUpdate(el.id, { hidden: !el.hidden }); }}>
+                  <button title={el.hidden ? "Show" : "Hide"} onClick={(e) => { e.stopPropagation(); selectOnly(el.id); patchLocal(el.id, { hidden: !el.hidden }); queueUpdate(el.id, { hidden: !el.hidden }); }}>
                     {el.hidden ? "🚫" : "👁"}
                   </button>
                   <button title={el.locked ? "Unlock" : "Lock"} onClick={(e) => { e.stopPropagation(); patchLocal(el.id, { locked: !el.locked }); queueUpdate(el.id, { locked: !el.locked }); }}>
@@ -1022,7 +1254,7 @@ export default function StudioEditor({
                   </button>
                   <button title="Up" onClick={(e) => { e.stopPropagation(); void call({ action: "reorder", id: el.id, direction: "up" }); }}>▲</button>
                   <button title="Down" onClick={(e) => { e.stopPropagation(); void call({ action: "reorder", id: el.id, direction: "down" }); }}>▼</button>
-                  <button title="Delete" onClick={(e) => { e.stopPropagation(); void call({ action: "delete", id: el.id }); if (selectedId === el.id) setSelectedId(null); }}>✕</button>
+                  <button title="Delete" onClick={(e) => { e.stopPropagation(); void removeElements([el.id]); }}>✕</button>
                 </li>
               ))}
             </ul>

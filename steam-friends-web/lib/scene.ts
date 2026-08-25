@@ -389,13 +389,146 @@ export async function applyTransform(
   return rows[0] ? Number(rows[0].version) : null;
 }
 
-export async function deleteElement(sceneId: number, elementId: number): Promise<void> {
-  await sql`DELETE FROM scene_elements WHERE id = ${elementId} AND scene_id = ${sceneId}`;
+/**
+ * Delete elements, returning what was removed so it can be put back.
+ *
+ * Deleting is instant and shared — it vanishes for every editor at once — so
+ * the caller gets the rows back and can offer an undo. Nothing is kept
+ * server-side; the editor holds the payload and restores it if asked.
+ */
+export async function deleteElements(
+  sceneId: number,
+  elementIds: number[],
+): Promise<SceneElement[]> {
+  const ids = elementIds.map(Number).filter(Number.isFinite);
+  if (ids.length === 0) return [];
+  const rows = await sql`
+    DELETE FROM scene_elements
+    WHERE scene_id = ${sceneId} AND id IN ${sql(ids)}
+    RETURNING *
+  `;
   await bump(sceneId);
+  return rows.map(toElement);
 }
 
-export async function deleteAllElements(sceneId: number): Promise<void> {
-  await sql`DELETE FROM scene_elements WHERE scene_id = ${sceneId}`;
+export async function deleteAllElements(sceneId: number): Promise<SceneElement[]> {
+  const rows = await sql`DELETE FROM scene_elements WHERE scene_id = ${sceneId} RETURNING *`;
+  await bump(sceneId);
+  return rows.map(toElement);
+}
+
+/**
+ * Put deleted elements back.
+ *
+ * They come back as new rows: the originals are gone, and nothing references an
+ * element by id, so a fresh id costs nothing. Everything that was on screen —
+ * position, size, rotation, stacking, contents — is restored as it was.
+ */
+export async function restoreElements(
+  sceneId: number,
+  elements: Partial<SceneElement>[],
+): Promise<SceneElement[]> {
+  if (!Array.isArray(elements) || elements.length === 0) return [];
+  const out: SceneElement[] = [];
+
+  await sql.begin(async (tx) => {
+    for (const e of elements.slice(0, 100)) {
+      if (!KINDS.includes(e.kind as ElementKind)) continue;
+      const rows = await tx`
+        INSERT INTO scene_elements
+          (scene_id, kind, x, y, w, h, rotation, z_index, opacity, locked, hidden, clip, props)
+        VALUES (
+          ${sceneId}, ${e.kind as string},
+          ${num(e.x, -20000, 20000, 0)}, ${num(e.y, -20000, 20000, 0)},
+          ${num(e.w, 1, 20000, 320)}, ${num(e.h, 1, 20000, 180)},
+          ${num(e.rotation, -360, 360, 0)},
+          ${Math.round(num(e.zIndex, -9999, 9999, 0))},
+          ${num(e.opacity, 0, 1, 1)},
+          ${Boolean(e.locked)}, ${Boolean(e.hidden)},
+          ${e.clip ? String(e.clip).slice(0, 400) : null},
+          ${sql.json((e.props ?? {}) as any)}
+        )
+        RETURNING *
+      `;
+      out.push(toElement(rows[0]));
+    }
+  });
+
+  await bump(sceneId);
+  return out;
+}
+
+/**
+ * Copy elements, offset a little so the copy is visibly on top of its original
+ * rather than exactly hiding it.
+ */
+export async function duplicateElements(
+  sceneId: number,
+  elementIds: number[],
+): Promise<SceneElement[]> {
+  const ids = elementIds.map(Number).filter(Number.isFinite);
+  if (ids.length === 0) return [];
+
+  const source = await sql`
+    SELECT * FROM scene_elements
+    WHERE scene_id = ${sceneId} AND id IN ${sql(ids)}
+    ORDER BY z_index ASC, id ASC
+  `;
+  if (source.length === 0) return [];
+
+  const top = await sql`
+    SELECT COALESCE(MAX(z_index), 0) AS z FROM scene_elements WHERE scene_id = ${sceneId}
+  `;
+  let z = Number(top[0].z);
+  const out: SceneElement[] = [];
+
+  await sql.begin(async (tx) => {
+    for (const s of source) {
+      z += 1;
+      const rows = await tx`
+        INSERT INTO scene_elements
+          (scene_id, kind, x, y, w, h, rotation, z_index, opacity, locked, hidden, clip, props)
+        VALUES (
+          ${sceneId}, ${s.kind},
+          ${Number(s.x) + 24}, ${Number(s.y) + 24},
+          ${s.w}, ${s.h}, ${s.rotation}, ${z}, ${s.opacity},
+          ${false}, ${s.hidden}, ${s.clip}, ${sql.json(s.props ?? {})}
+        )
+        RETURNING *
+      `;
+      out.push(toElement(rows[0]));
+    }
+  });
+
+  await bump(sceneId);
+  return out;
+}
+
+/**
+ * Send elements to the very front or back of the stack.
+ *
+ * ▲/▼ move one step at a time, which is fine for three layers and tedious for
+ * a dozen. The whole stack is renumbered so z values stay dense.
+ */
+export async function restackElements(
+  sceneId: number,
+  elementIds: number[],
+  to: "front" | "back",
+): Promise<void> {
+  const ids = new Set(elementIds.map(Number).filter(Number.isFinite));
+  if (ids.size === 0) return;
+
+  const all = await getElements(sceneId);
+  const moving = all.filter((e) => ids.has(e.id));
+  const rest = all.filter((e) => !ids.has(e.id));
+  if (moving.length === 0) return;
+
+  const order = to === "front" ? [...rest, ...moving] : [...moving, ...rest];
+  await sql.begin(async (tx) => {
+    for (let k = 0; k < order.length; k++) {
+      await tx`UPDATE scene_elements SET z_index = ${k} WHERE id = ${order[k].id}`;
+    }
+  });
   await bump(sceneId);
 }
 

@@ -733,3 +733,25 @@ p  { margin: 0.75rem 0; }
   .st-body { flex-direction: column; }
   .st-rail { width: auto; border-left: none; border-top: 1px solid var(--border); max-height: 45vh; }
 }
+
+/* ---- studio: alignment guides, multi-select, undo ---- */
+.st-guide { position: absolute; pointer-events: none; z-index: 9999; }
+.st-guide-v { top: 0; width: 1px; background: #ff4dd2; box-shadow: 0 0 0 0.5px rgba(255,77,210,.5); }
+.st-guide-h { left: 0; height: 1px; background: #ff4dd2; box-shadow: 0 0 0 0.5px rgba(255,77,210,.5); }
+
+.st-sep { width: 1px; align-self: stretch; background: var(--border-strong); margin: 0 .3rem; }
+.st-count { color: var(--text-dim); font-size: .78rem; align-self: center; }
+
+/* Sits over the canvas so it is seen without moving the eye off the work. */
+.st-undo {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 1.25rem; z-index: 60;
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--panel-2); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: .5rem .6rem .5rem .9rem; box-shadow: var(--shadow);
+  font-size: .85rem;
+}
+.st-undo .btn { padding: .35rem .9rem; font-size: .8rem; }
+.st-undo-x {
+  background: none; border: 0; color: var(--text-dim); cursor: pointer; font-size: .8rem; padding: 0 .2rem;
+}
+.st-undo-x:hover { color: var(--heading); }
