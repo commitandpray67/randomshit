@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildLoginUrl } from "@/lib/steam";
+import { currentOrigin } from "@/lib/apphost";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // GET /api/auth/steam → bounce the user to Steam's sign-in page.
@@ -12,6 +13,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  // Return to whichever hostname the user reached us on, so someone who
+  // cannot load the canonical domain still ends up signed in where they are.
+  const appUrl = await currentOrigin(req.headers);
   return NextResponse.redirect(buildLoginUrl(appUrl));
 }

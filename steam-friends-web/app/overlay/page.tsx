@@ -9,6 +9,7 @@ import {
   updateOverlaySettings,
 } from "@/lib/overlay";
 import OverlayPanel from "@/components/OverlayPanel";
+import { currentOrigin } from "@/lib/apphost";
 
 /**
  * Control panel for the stream overlay.
@@ -24,8 +25,6 @@ export const metadata = {
   title: "Stream overlay",
   robots: { index: false, follow: false },
 };
-
-const SITE = process.env.APP_URL || "https://steamfriends.xyz";
 
 /** Every action re-checks the allowlist — the page render is not the gate. */
 async function requireAllowed(): Promise<string> {
@@ -68,7 +67,8 @@ export default async function OverlayControlPanel() {
     await sql`SELECT display_name, api_visibility FROM users WHERE steam_id = ${steamId}`
   )[0];
 
-  const overlayUrl = `${SITE}/overlay/${config.overlayKey}`;
+  // Same reasoning as the studio: hand back a URL on the host in use.
+  const overlayUrl = `${await currentOrigin()}/overlay/${config.overlayKey}`;
 
   return (
     <main>

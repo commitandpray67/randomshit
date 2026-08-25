@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentOrigin } from "@/lib/apphost";
 import { verifyLogin, getPlayerSummaries } from "@/lib/steam";
 import { createSession } from "@/lib/session";
 import { sql } from "@/lib/db";
@@ -6,7 +7,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // GET /api/auth/steam/return → Steam redirects here after login.
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = await currentOrigin(req.headers);
 
   // Burst protection: this endpoint verifies with Steam and writes to the DB.
   const rl = rateLimit(`login-return:${clientIp(req)}`, 15, 60);

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { isOverlayAllowed } from "@/lib/overlay";
 import { ensureScene, getElements } from "@/lib/scene";
 import StudioEditor from "@/components/StudioEditor";
+import { currentOrigin } from "@/lib/apphost";
 
 /**
  * Overlay studio — the canvas editor.
@@ -18,8 +19,6 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const SITE = process.env.APP_URL || "https://steamfriends.xyz";
-
 // The editor wants the full window, so the site's centred `main` column and the
 // footer are suppressed here. Server-rendered, no :has(), same as the overlay.
 const RESET = `
@@ -32,6 +31,9 @@ export default async function StudioPage() {
   if (!steamId) redirect("/");
   if (!isOverlayAllowed(steamId)) notFound();
 
+  // Build the browser-source URL from the host this page was reached on, so
+  // the URL copied into OBS is one that actually loads for whoever is here.
+  const site = await currentOrigin();
   const scene = await ensureScene(steamId);
   const elements = await getElements(scene.id);
 
@@ -42,7 +44,7 @@ export default async function StudioPage() {
         initialSceneKey={scene.sceneKey}
         initialCanvas={{ w: scene.canvasW, h: scene.canvasH }}
         initialElements={elements as any}
-        siteUrl={SITE}
+        siteUrl={site}
       />
     </>
   );
