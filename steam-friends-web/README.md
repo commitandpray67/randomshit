@@ -246,6 +246,28 @@ The stream closes itself just under the platform's function duration cap and
 reconnects, and it backs off to a 1s watch interval after 20s with no changes
 so an untouched overlay isn't holding database compute hot all broadcast.
 
+### Lite browser source (`/lite/<key>`)
+
+The same scene, rendered as one self-contained request of ~5 KB: hand-written
+HTML with inline vanilla JS, no framework bundle. `/scene/<key>` needs ~383 KB
+across 8 requests, most of it React chunks.
+
+That matters on a connection that truncates long responses. Russian ISPs have
+been capping foreign-hosted content at roughly 16 KB — measured on one
+streamer: `HTTP 200`, 16,506 of 65,536 bytes at 27 B/s, then connection reset.
+The normal page is 23x over that cliff and can never finish; the lite page fits
+under it. Measured 38x smaller, and it renders identically.
+
+It polls rather than using SSE on purpose: a long-lived stream is exactly what
+a throttling middlebox resets, while a small periodic request either arrives or
+is retried a second later. The version check costs ~60 bytes when nothing has
+changed, and elements ease between transforms the same way, so motion still
+looks smooth.
+
+The URL is on the studio page next to the normal one. The editor itself stays
+too heavy for such a connection — build scenes with a VPN on, then let OBS run
+the lite URL without one.
+
 ### Widget safety
 
 Custom-HTML widgets render in an iframe sandboxed **without** `allow-same-origin`.

@@ -47,11 +47,16 @@ export default function StudioEditor({
   const [error, setError] = useState<string | null>(null);
   const [showEmotes, setShowEmotes] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLite, setCopiedLite] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const selected = elements.find((e) => e.id === selectedId) ?? null;
 
   const sceneUrl = `${siteUrl}/scene/${sceneKey}`;
+  // Framework-free build of the same scene, a few KB in one request. For
+  // connections that truncate large responses and so never finish loading
+  // the normal page.
+  const liteUrl = `${siteUrl}/lite/${sceneKey}`;
 
   /** Call the mutation API and adopt the returned state. */
   const call = useCallback(async (payload: any) => {
@@ -339,6 +344,16 @@ export default function StudioEditor({
     }
   }
 
+  async function copyLite() {
+    try {
+      await navigator.clipboard.writeText(liteUrl);
+      setCopiedLite(true);
+      setTimeout(() => setCopiedLite(false), 1800);
+    } catch {
+      /* input is selectable as a fallback */
+    }
+  }
+
   return (
     <div className="st-root">
       {/* ------------------------------- toolbar */}
@@ -471,6 +486,20 @@ export default function StudioEditor({
               Size the OBS source to your canvas. Keep this URL private — rotating it
               breaks the old one immediately.
             </p>
+
+            <h3 style={{ marginTop: "1rem" }}>Lite URL</h3>
+            <div className="st-url-row">
+              <input className="st-url" readOnly value={liteUrl} onFocus={(e) => e.target.select()} />
+              <button className="btn btn-ghost" onClick={copyLite}>
+                {copiedLite ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="st-hint">
+              The same scene in a few KB and one request, instead of ~383 KB across
+              eight. Use this when the normal URL never finishes loading — a slow or
+              filtered connection that cuts long responses short.
+            </p>
+
             <button
               className="btn btn-ghost"
               onClick={() => {
