@@ -67,7 +67,7 @@ export async function GET(
       ok: true,
       version: scene.version,
       canvas: { w: scene.canvasW, h: scene.canvasH },
-      elements: elements.filter((e) => !e.hidden),
+      elements,
     },
     { headers: NO_STORE },
   );

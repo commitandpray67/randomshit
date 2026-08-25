@@ -61,6 +61,7 @@ Fill `.env.local`:
 | `APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `CRON_SECRET` | `openssl rand -hex 32` |
+| `DATABASE_URL_UNPOOLED` | optional; the direct (non-pooled) Postgres endpoint, for the scene stream's `LISTEN` |
 
 > Steam's API key registration asks for a domain. For local testing you can
 > register with any domain you control (or `localhost`); the key itself works
@@ -124,6 +125,8 @@ polling. Pogly is Apache-2.0, and none of its code is used here.
 ```
 POGLY_ALLOWED_STEAM_IDS=76561198XXXXXXXXX     # comma-separated SteamID64s
 OVERLAY_SYNC_THROTTLE_SEC=60                  # optional, default 60
+SEVENTV_DEFAULT_CHANNEL=juntella              # optional, the studio picker's default
+STUDIO_PREVIEW_CHANNEL=juntella               # optional, the canvas's stream preview
 ```
 
 Then create the table. In the **Neon SQL editor**, paste and run
@@ -177,6 +180,37 @@ while the source is open. `syncUser`'s DB-backed throttle
 Steam, however fast OBS polls — so the poll interval controls how quickly a
 *detected* change reaches the screen, not how hard the Steam API gets hit.
 
+## Connection check (`/diag`)
+
+A self-test for the streamer's own connection, at `/diag`. Ungated — the people
+who need it are usually the ones who can't load anything else.
+
+It exists because throttled connections in Russia have been cutting responses
+off partway rather than failing outright, which looks like a broken site rather
+than a broken link. `/diag` asks for known payload sizes (8, 16, 32, 64, 128 KB
+from `/api/diag/payload`) and compares what actually arrives, so the cliff shows
+up as a byte count — and says plainly that it's throttling rather than a bug
+here. It also checks streaming, which the overlay's live updates ride on, and
+whether the outside hosts the overlay pulls from are reachable. Results copy to
+the clipboard as text to send on.
+
+Two things about it are deliberate:
+
+- **It's a route handler, not a page.** A page ships the React runtime, and a
+  diagnostic too big to load under the conditions it's diagnosing is useless.
+  This is hand-written HTML with inline vanilla JS, about 7KB, and it's excluded
+  from the middleware so nothing gets added to it.
+- **The payload is random hex, not filler.** Repeated bytes would compress to
+  nothing and hide the very limit being measured.
+
+The streaming check points at `/api/diag/stream`, which really sends — six
+spaced frames carrying a running byte count. Aimed at the scene stream with a
+made-up key instead, it would prove nothing: that 404s, and `EventSource`
+reports a 404 and a connection that never arrived as the same `onerror`, so a
+blocked stream would come back looking fine. Sending for real separates
+streaming works / something is buffering / never connected, and the byte count
+catches a stream cut off partway.
+
 ## Overlay studio (the canvas editor)
 
 A Pogly-style overlay editor: place text, images, videos and browser widgets on
@@ -187,6 +221,59 @@ to do with the Steam friends tracker — it just lives in the same app.
   the alert overlay; anyone else gets a 404).
 - **Browser source** — `/scene/<key>`, reachable only via its unguessable key.
 
+### One canvas, several editors
+
+Everyone on the allowlist edits the same scene and shares one browser-source
+URL. The first SteamID in `POGLY_ALLOWED_STEAM_IDS` owns it, so the order of
+that list is meaningful — put the owner first. (If that account has never
+signed in there is no row to hang a scene off, and each editor falls back to
+their own rather than the studio 500ing.)
+
+The editor holds the same SSE stream the browser source does, so an add, a
+drag or a keystroke shows up in everybody's canvas as it happens. Adopting
+those updates blindly would be worse than not having them — it would yank an
+element out from under someone's pointer, or reset a text box to the version
+that was on the server two keystrokes ago. Two rules decide who wins:
+
+- Whoever is actively changing something keeps it: an element under the
+  pointer, with a write in flight, or with an edit still queued is left alone.
+- Otherwise the newer write wins, decided by scene version. Every write returns
+  the version it landed at, and a snapshot older than this editor's own last
+  write for that element is history rather than news. Without this second rule
+  a letter goes missing every so often — there is a gap between one write
+  completing and the next keystroke queueing, and a snapshot built before that
+  write lands inside it.
+
+Two people dragging the *same* element still fight over it, last write wins.
+There are no cursors or presence indicators.
+
+### The canvas and the space around it
+
+The frame is drawn at a zoom that leaves parking space around it, and elements
+can be dragged off the frame into that space — somewhere to leave an emote or
+a label that isn't in the shot without deleting it. Anything wholly outside is
+marked `off-frame` in the layer list and outlined in amber on the canvas.
+
+The browser source clips to the frame, which is what makes the parking area
+safe. An absolutely positioned child outside its parent still paints, so
+without that clip an element dropped just off the edge would go out on stream
+anyway.
+
+Zoom is bottom-left of the canvas; **Fit** returns to tracking the window.
+
+### Stream preview
+
+The canvas can show the live Twitch stream behind the elements, so you place
+things against what viewers will actually see rather than against an empty
+rectangle. Editor only — OBS is already capturing the stream this previews, so
+it is never part of the browser source.
+
+The channel defaults to `STUDIO_PREVIEW_CHANNEL`, then `SEVENTV_DEFAULT_CHANNEL`,
+then `juntella`, and is remembered per browser rather than shared: it's a
+working aid, not part of the scene. Twitch only embeds when `parent` matches
+the page's own hostname, which is read from the browser so it works on
+localhost and on the deployed domain without configuring either.
+
 Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 `db/migrations/004_scenes.sql` (psql).
 
@@ -195,8 +282,8 @@ Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 | Kind | What it does |
 |---|---|
 | **Text** | content, colour, size, weight, alignment, font, drop shadow |
-| **Image** | any URL (incl. `data:`), object-fit |
-| **Video** | URL, loop / autoplay / muted, object-fit |
+| **Image** | any URL (incl. `data:`), object-fit; page links resolved to the file |
+| **Video** | a media file, or a YouTube / Vimeo link; play/pause, loop, autoplay, mute + volume, object-fit |
 | **Widget** | custom HTML+CSS+JS, or an embedded URL |
 
 Every element carries position, size, rotation, z-order, opacity, lock, hide and
@@ -205,6 +292,12 @@ a CSS `clip-path` — the same properties Pogly's `Elements` table stores.
 **7TV emotes**: the toolbar's *+ 7TV emote* button looks up any Twitch channel's
 emote set and drops one on the canvas as an image. The lookup is proxied through
 `/api/emotes`, so the browser never talks to 7TV directly.
+
+The picker opens straight onto a default channel's emotes — asking `/api/emotes`
+for no channel in particular returns that one — so the usual case needs no
+typing. Set it with `SEVENTV_DEFAULT_CHANNEL` (default `juntella`). Resolved
+sets are cached in-process for five minutes, since the picker now runs a lookup
+every time it opens.
 
 The lookup follows 7TV's v3 API: a numeric Twitch id hits
 `/users/twitch/{id}` directly; a login name goes through GQL `SearchUsers` →
@@ -220,31 +313,159 @@ are covered by `npm run test:7tv`:
 
 Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
 
+### Page links vs. files
+
+The commonest way to get a blank element is to paste a link to a *page about*
+the thing rather than the thing itself. `imgur.com/abc123` is an HTML gallery
+page; the file lives on `i.imgur.com`. An `<img>` pointed at the page fetches
+it, finds no decodable bitmap, and shows nothing — no error, no console noise,
+just an empty box indistinguishable from an element you haven't positioned yet.
+
+Image links are therefore resolved at render time rather than rewritten, and
+produce a *list* of URLs to try in order. Imgur serves one hash under several
+extensions and the link doesn't say which is real, so guessing once would be a
+coin flip; `.png`, then `.jpeg`, then `.gif` costs a failed request at worst and
+always lands on the file. Dropbox share links (`?dl=0` → `?raw=1`) and Giphy
+page links get the same treatment. Anything unrecognised is passed through
+untouched — most pasted links already point at a file, and second-guessing them
+would break more than it fixed. `npm run test:image` covers the mappings.
+
+An Imgur *album* can't resolve to one file without their API, so it says so
+instead of failing silently, as does a link that simply doesn't load. Those
+messages appear in the editor only: a broken image on stream should be nothing
+at all, not a box explaining itself to viewers.
+
+### Video links vs. video files
+
+`<video>` wants a media file. A YouTube watch link is an HTML page, so the
+element fetches it, finds nothing it can decode, and renders an empty box —
+no error, just nothing. Pasting a YouTube URL used to do exactly that.
+
+Links to sites that offer their own player (YouTube, Vimeo) are therefore
+turned into an embedded player instead; anything else still goes to `<video>`.
+The player URL is rebuilt from a validated video id rather than passing the
+pasted string through, so nothing user-supplied reaches an iframe's `src`
+intact. `npm run test:embed` covers the link shapes and the rejections.
+
+YouTube ignores `loop=1` for a single video unless the video is *also* named in
+`playlist=`, which is handled.
+
+### Controlling a video
+
+The player's URL is its *starting* state, read once when the frame loads.
+Everything after that is sent to the running player over `postMessage`, because
+rebuilding the URL swaps the iframe's `src` — which tears the player down and
+starts the video again from the top. Toggling Mute used to do exactly that.
+
+That command channel is also the only way to control playback at all. A browser
+source has no cursor, and on the editor canvas the drag handler sits on top of
+the content, so there is nowhere to click a player's own controls. Play, pause
+and restart live in the properties panel instead, and because the paused state
+is stored on the element it reaches the browser source: pausing in the editor
+pauses what viewers see.
+
+*Autoplay on load* is deliberately only about what happens when the browser
+source starts. Toggling it pins whatever is playing right now, so it can't
+interrupt a video mid-play.
+
+**Sound works in OBS, but not in the editor preview.** A normal browser tab
+refuses to start audio nobody asked for, so a video that begins unmuted simply
+never begins. It therefore always starts muted and is unmuted once the player
+reports that it is genuinely playing — at which point the policy has already
+been satisfied. OBS's CEF runs with the autoplay policy relaxed (the same
+reason alert overlays can play their sounds unprompted), so there the unmute
+sticks. Tick **Control audio via OBS** on the browser source to get it into the
+mixer.
+
+**Keeping it playing.** Chrome suspends silent media in a backgrounded tab, and
+every video here starts silent, so alt-tabbing away from the editor or from OBS
+stops it and nothing restarts it on the way back. There's no way to opt out
+from the page, so the player's state is watched and playback re-issued when it
+stops without being asked — on a one-second check and on regaining visibility,
+with a cap so a video that genuinely can't play isn't nudged forever. If OBS
+has *Shutdown source when not visible* ticked it will stop the video whenever
+the scene is off screen; nothing in the page can override that.
+
+### Saving an edit
+
+Element edits are serialised: one request in flight at a time, with the newest
+patch per element coalesced behind it, and the reply deliberately discarded.
+
+Both halves of that matter. Every keystroke in a text box used to fire its own
+request, and each reply replaced the whole element list with the server's
+snapshot. Type faster than the round trip and those snapshots arrive stale —
+each one resetting the textarea to a version from several characters ago and
+discarding everything typed since. Typing `Hello Juntella!` reliably stored
+`Hl Jntla!`, on screen and in the database both. Serialising makes the last
+write the newest one; ignoring the reply stops a response that was already out
+of date from overwriting what has been typed since. The editor applied the
+change optimistically and is the authority on its own text.
+
+Because nothing reads the reply any more, the editor clamps numeric fields to
+the same bounds the server does — otherwise a value the server rejected would
+go on being displayed as though it had been stored.
+
+Structural changes (add, delete, reorder, canvas size) still take the reply,
+since the server decides things the editor can't know, like a new element's id.
+Those wait for the edit queue to drain first, so the list they echo back is not
+from before the edits.
+
+Whatever is still queued when the page goes away is flushed with
+`navigator.sendBeacon`, which outlives the page where a `fetch` would not.
+
 ### How the browser source stays current
 
-The editor writes to `/api/studio`; each write bumps `scenes.version`. The
-browser source holds an SSE connection to `/api/scene/<key>/stream`, and the
-server watches that version column and pushes only when it moves. Dragging
-pushes an update every 80ms.
+The editor writes to `/api/studio`; each write bumps `scenes.version` and
+publishes it with `pg_notify`. The browser source holds an SSE connection to
+`/api/scene/<key>/stream`, which is woken by that notification rather than
+sampling the version column on a timer.
 
-Two things make motion look continuous rather than stepped:
+Dragging takes a separate path from every other edit. `transform` is one
+statement — locate the element through its scene (which is also the ownership
+check), write it, bump the version, and notify with the new position inline —
+so the stream can forward a drag frame without reading anything back. The
+general update path costs six round trips, which is fine for a property edit
+and ruinous twenty times a second.
 
-- Elements are positioned with `transform: translate3d(...)`, not `left`/`top`.
-  The compositor can move a transformed layer without re-running layout, so it
-  stays at the display's refresh rate.
-- The overlay eases between transforms over roughly one update interval, so a
-  dozen positions per second render as smooth 60fps motion.
+Making that motion look continuous in OBS took more than easing it:
 
-Measured locally: an edit is fully rendered in OBS in **~280ms** over SSE
-versus **~1290ms** on the old one-second poll, both at ~50fps on screen.
+- **The editor sends one request at a time**, newest position coalesced behind
+  it. Fired in parallel they commit in whatever order the platform gets to
+  them, so a position from 60ms ago lands after the current one and the element
+  jerks backwards — and the database keeps the older position as the last thing
+  written, which nothing downstream can repair.
+- **The overlay buffers positions and plays them back on a delayed clock**,
+  interpolating between the two samples bracketing it (`components/sceneMotion.ts`).
+  Network jitter is absorbed by the buffer instead of being rendered, and the
+  delay sizes itself to the cadence actually observed. A fixed CSS transition
+  cannot do this: interrupt one halfway and it restarts from where it is over
+  its full duration, so early updates are velocity steps and late ones let the
+  element stop dead and then lurch.
+- **Samples are spaced by the editor's own timestamp, not by arrival.**
+  Timestamping on arrival bakes transit jitter into the timeline — positions
+  taken 50ms apart but delivered 30ms and 70ms apart get played back at those
+  speeds, so the element speeds up and slows down though the cursor never did.
+- **Positions are written straight to the DOM from a rAF loop**, so a drag
+  re-renders nothing. React keeps ownership of everything else about an
+  element; it simply never sets those four properties.
 
-If SSE can't be established — something between OBS and the server buffering
-the stream — the client falls back to the original polling loop and stretches
-its easing to match, so it degrades to smooth-but-lagging rather than frozen.
+Simulated against a typical connection, that takes per-frame velocity spread
+from 48% of mean to 12%, and frozen frames from 15% to none. Separately and
+measured locally, an edit reaches OBS in **~280ms** over SSE versus **~1290ms**
+on the old one-second poll.
+
+A listening connection has to stay on one backend, which a transaction-mode
+pooler won't give it — and it fails *silently* when it doesn't, so a slow safety
+poll runs regardless and the stream drops back to hot polling the moment it sees
+a change no notification announced. Set `DATABASE_URL_UNPOOLED` to the direct
+endpoint to keep it on the fast path.
+
+If SSE can't be established at all — something between OBS and the server
+buffering the stream — the client falls back to the original polling loop. The
+buffer doesn't care which is feeding it.
 
 The stream closes itself just under the platform's function duration cap and
-reconnects, and it backs off to a 1s watch interval after 20s with no changes
-so an untouched overlay isn't holding database compute hot all broadcast.
+reconnects.
 
 ### Lite browser source (`/lite/<key>`)
 

@@ -14,6 +14,9 @@ import { emotesFromSet, findEmoteSet, pickSearchedUserId, type Emote } from "@/l
  *
  * Endpoints per the 7TV v3 OpenAPI spec — see lib/seventv.ts for the response
  * shapes, which differ between the two user endpoints.
+ *
+ * Asking without a channel returns the default one, so the picker can open
+ * straight onto a populated grid instead of an empty search box.
  */
 export const dynamic = "force-dynamic";
 
@@ -22,6 +25,33 @@ const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
 // future 7TV base URL doesn't need a code change.
 const SEVENTV = process.env.SEVENTV_API_BASE || "https://7tv.io/v3";
 const TIMEOUT_MS = 8000;
+
+/** Whose emotes the picker opens on when no channel is asked for. */
+const DEFAULT_CHANNEL = (process.env.SEVENTV_DEFAULT_CHANNEL || "juntella").toLowerCase();
+
+/**
+ * Short-lived cache of resolved emote sets.
+ *
+ * Resolving a channel is two or three round trips to 7TV, and the picker now
+ * runs one every time it opens rather than only when someone searches. An
+ * emote set changes rarely enough that a few minutes of staleness costs
+ * nothing and saves the wait.
+ *
+ * Per-instance and lost on a cold start, like the rate limiter — this is a
+ * latency optimisation, not a source of truth.
+ */
+const CACHE_MS = 5 * 60_000;
+const cache = new Map<string, { at: number; emotes: Emote[] }>();
+
+function cached(channel: string): Emote[] | null {
+  const hit = cache.get(channel);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CACHE_MS) {
+    cache.delete(channel);
+    return null;
+  }
+  return hit.emotes;
+}
 
 async function getJson(url: string, init?: RequestInit): Promise<any | null> {
   try {
@@ -52,9 +82,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const channel = (req.nextUrl.searchParams.get("channel") ?? "").trim();
-  if (!channel || channel.length > 64 || !/^[\w.-]+$/.test(channel)) {
+  // No channel asked for means the default, not a bad request.
+  const channel = (req.nextUrl.searchParams.get("channel") ?? "").trim() || DEFAULT_CHANNEL;
+  if (channel.length > 64 || !/^[\w.-]+$/.test(channel)) {
     return NextResponse.json({ ok: false, error: "bad_channel" }, { status: 400, headers: NO_STORE });
+  }
+
+  const hit = cached(channel.toLowerCase());
+  if (hit) {
+    return NextResponse.json(
+      { ok: true, channel, count: hit.length, emotes: hit, cached: true },
+      { headers: NO_STORE },
+    );
   }
 
   try {
@@ -100,8 +139,16 @@ export async function GET(req: NextRequest) {
       if (full) emotes = emotesFromSet(full);
     }
 
+    const list = emotes.slice(0, 300);
+    // Only a set that actually resolved: a momentary empty result from 7TV
+    // shouldn't be held onto and served for the next five minutes.
+    if (list.length > 0) {
+      if (cache.size > 50) cache.clear();
+      cache.set(channel.toLowerCase(), { at: Date.now(), emotes: list });
+    }
+
     return NextResponse.json(
-      { ok: true, channel, count: emotes.length, emotes: emotes.slice(0, 300) },
+      { ok: true, channel, count: list.length, emotes: list },
       { headers: NO_STORE },
     );
   } catch {

@@ -1,16 +1,38 @@
 import { NextRequest } from "next/server";
-import { getSceneByKey, getElements, getSceneVersion } from "@/lib/scene";
+import { listenSql } from "@/lib/db";
+import {
+  getSceneByKey,
+  getElements,
+  getSceneVersion,
+  sceneChannel,
+  isChannelSafeKey,
+} from "@/lib/scene";
 
 /**
  * Live scene stream for the OBS browser source (Server-Sent Events).
  *
- * Replaces once-a-second polling. The browser source holds one connection and
- * the server watches the version column, pushing only when something actually
- * changes — so edits reach OBS in a fraction of a second instead of up to a
- * second, and an idle overlay makes no HTTP requests at all rather than 3,600
- * an hour.
+ * Changes arrive by LISTEN/NOTIFY: the writer publishes as it commits and this
+ * handler forwards it, so nothing here samples the database on a timer waiting
+ * to notice. That matters for dragging specifically — the previous 120ms watch
+ * loop quantised every movement to its own tick, and because the editor pushes
+ * on a different period the two alias against each other: some ticks carried
+ * two moves, some carried none. What OBS received was an unevenly spaced
+ * stream of positions, which is most of why dragging looked choppy no matter
+ * how it was eased on the far end.
  *
- * Polling stays as the client's fallback; see SceneStage.
+ * A drag NOTIFY carries the new transform inline (`m`), so those frames are
+ * forwarded without touching the database at all. Any other change sends just
+ * a version, and the scene is re-read and sent whole.
+ *
+ * Hidden elements are sent too. The renderer drops them (see ElementBox), and
+ * the studio is on the other end of this same stream — filtering them out here
+ * would make hiding something delete it from every editor's layer list.
+ *
+ * LISTEN needs a connection that stays on one backend, which a transaction-mode
+ * pooler will not give it — and the failure is silent, not an error. So a slow
+ * safety poll runs regardless, and if it ever finds a change that no
+ * notification announced, this stream gives up on LISTEN and polls hot for the
+ * rest of its life. Correctness never depends on the notification arriving.
  */
 export const dynamic = "force-dynamic";
 
@@ -20,15 +42,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const CLOSE_AFTER_MS = 50_000;
 
-// How often the server checks the version. This is a tiny indexed read, and it
-// runs inside the region next to the database rather than across the network
-// from the streamer.
-const HOT_MS = 120;
-// Once nothing has changed for a while, ease off — an overlay that sits still
-// for a whole broadcast shouldn't keep the database compute hot at 8 reads a
-// second. Any change snaps it straight back to HOT_MS.
-const IDLE_MS = 1000;
-const IDLE_AFTER_MS = 20_000;
+// The loop only wakes to check flags and the clock; it does no database work
+// unless something told it to.
+const TICK_MS = 60;
+// Backstop against a NOTIFY that never arrives. Cheap: one indexed read a
+// second, against the eight a second the old watch loop did.
+const POLL_SAFE_MS = 1000;
+// What we drop back to once LISTEN is shown not to be delivering.
+const POLL_HOT_MS = 120;
+const KEEPALIVE_MS = 15_000;
 
 export async function GET(
   req: NextRequest,
@@ -56,9 +78,12 @@ export async function GET(
         }
       };
 
+      let unlisten: (() => Promise<void>) | null = null;
+
       const finish = () => {
         if (closed) return;
         closed = true;
+        void unlisten?.().catch(() => {});
         try {
           controller.close();
         } catch {
@@ -69,63 +94,113 @@ export async function GET(
       // The client disconnecting (OBS closing the source) aborts the request.
       req.signal.addEventListener("abort", finish);
 
-      // Tell the client how long to ease between updates, so its interpolation
-      // matches the cadence it will actually receive.
-      send("hello", { smoothMs: HOT_MS });
+      send("hello", {});
 
       let lastVersion = Number.isFinite(since) ? since : 0;
-      let lastChangeAt = Date.now();
+      let lastBeat = Date.now();
       const startedAt = Date.now();
+
+      // Set when a notification says the scene changed but doesn't carry the
+      // change itself; the loop picks it up on its next tick.
+      let dirty = false;
+      let notifications = 0;
+      let listening = false;
+      let hot = false;
+
+      const pushFull = async () => {
+        const fresh = await getSceneByKey(key);
+        if (!fresh) {
+          send("bye", { reason: "deleted" });
+          finish();
+          return;
+        }
+        const elements = await getElements(fresh.id);
+        lastVersion = fresh.version;
+        send("scene", {
+          version: fresh.version,
+          canvas: { w: fresh.canvasW, h: fresh.canvasH },
+          elements,
+        });
+      };
+
+      // Subscribe before the first read, so a change landing between the two
+      // is queued rather than missed.
+      if (isChannelSafeKey(key)) {
+        try {
+          const sub = await listenSql.listen(sceneChannel(key), (raw) => {
+            if (closed) return;
+            notifications++;
+            try {
+              const d = JSON.parse(raw);
+              if (Array.isArray(d.m)) {
+                // A movement, complete in the payload — straight through.
+                if (typeof d.v === "number") lastVersion = d.v;
+                send("motion", d);
+              } else {
+                dirty = true;
+              }
+            } catch {
+              dirty = true;
+            }
+          });
+          unlisten = sub.unlisten;
+          listening = true;
+        } catch {
+          // No listening connection available (a pooled URL, most likely).
+          // Polling covers it.
+          hot = true;
+        }
+      } else {
+        hot = true;
+      }
 
       // Send the current state immediately when the client is behind, so a
       // reconnect never leaves a stale scene on screen.
       try {
-        if (scene.version !== lastVersion) {
-          const elements = await getElements(scene.id);
-          lastVersion = scene.version;
-          send("scene", {
-            version: scene.version,
-            canvas: { w: scene.canvasW, h: scene.canvasH },
-            elements: elements.filter((e) => !e.hidden),
-          });
-        }
+        if (scene.version !== lastVersion) await pushFull();
       } catch {
-        /* fall through to the watch loop */
+        /* fall through to the loop */
       }
 
-      let lastBeat = Date.now();
+      let nextPollAt = Date.now() + (hot ? POLL_HOT_MS : POLL_SAFE_MS);
 
       while (!closed) {
+        await new Promise((r) => setTimeout(r, TICK_MS));
+        if (closed) break;
+
         if (Date.now() - startedAt > CLOSE_AFTER_MS) {
           send("bye", { reason: "rotate" });
           finish();
           break;
         }
 
-        const idle = Date.now() - lastChangeAt > IDLE_AFTER_MS;
-        await new Promise((r) => setTimeout(r, idle ? IDLE_MS : HOT_MS));
-        if (closed) break;
-
         try {
-          const version = await getSceneVersion(key);
-          if (version === null) {
-            send("bye", { reason: "deleted" });
-            finish();
-            break;
+          if (dirty) {
+            dirty = false;
+            await pushFull();
           }
-          if (version !== lastVersion) {
-            lastVersion = version;
-            lastChangeAt = Date.now();
-            const fresh = await getSceneByKey(key);
-            if (fresh) {
-              const elements = await getElements(fresh.id);
-              send("scene", {
-                version,
-                canvas: { w: fresh.canvasW, h: fresh.canvasH },
-                elements: elements.filter((e) => !e.hidden),
-              });
+
+          if (Date.now() >= nextPollAt) {
+            const version = await getSceneVersion(key);
+            if (version === null) {
+              send("bye", { reason: "deleted" });
+              finish();
+              break;
             }
-          } else if (Date.now() - lastBeat > 15_000) {
+            if (version !== lastVersion) {
+              // A change nothing told us about. If we believe we're listening,
+              // we aren't really — some pooler is swallowing it — so stop
+              // trusting notifications from here on.
+              if (listening && notifications === 0) {
+                listening = false;
+                hot = true;
+              }
+              await pushFull();
+            }
+            nextPollAt = Date.now() + (hot ? POLL_HOT_MS : POLL_SAFE_MS);
+          }
+
+          if (Date.now() - lastBeat > KEEPALIVE_MS) {
             // A comment frame keeps proxies from dropping an idle connection.
             lastBeat = Date.now();
             if (!closed) {

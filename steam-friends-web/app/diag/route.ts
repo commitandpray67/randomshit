@@ -16,8 +16,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "unknown";
   const region = process.env.VERCEL_REGION ?? "local";
-  const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7);
-  const env = process.env.VERCEL_ENV ?? "development";
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -38,7 +36,7 @@ export async function GET(req: NextRequest) {
  code{background:rgba(255,255,255,.07);padding:.05rem .3rem;border-radius:3px}
 </style></head><body>
 <h1>Connection check</h1>
-<div class="sub">Serving host: <code>${host}</code> &middot; edge: <code>${region}</code> &middot; build: <code>${sha}</code> (${env})</div>
+<div class="sub">Serving host: <code>${host}</code> &middot; edge: <code>${region}</code></div>
 
 <p>Run this <b>with the VPN off</b>. It tests what your connection can reach.</p>
 <p><button id="go">Run the check</button> <button class="g" id="copy">Copy results</button></p>
@@ -68,6 +66,8 @@ async function sized(kb){
   return {want:kb*1024,got:buf.byteLength,ms:Math.round(performance.now()-t),status:r.status};
 }
 
+var SIZES=[8,16,32,64,128];
+
 async function run(){
   document.getElementById('go').disabled=true;
   rows=[];log=[];document.querySelector('#t tbody').innerHTML='';
@@ -79,13 +79,13 @@ async function run(){
     var t=performance.now();
     var r=await fetch('/api/diag/payload?kb=1&_='+Date.now(),{cache:'no-store'});
     var b=await r.text();
-    f(r.ok&&b.length===1024?'ok':'bad',(r.ok?'HTTP '+r.status:'HTTP '+r.status)+' · '+ms(t)+' · '+b.length+'B');
+    f(r.ok&&b.length===1024?'ok':'bad','HTTP '+r.status+' · '+ms(t)+' · '+b.length+'B');
   }catch(e){ f('bad','failed',String(e)); }
 
   // 2. The truncation cliff. A connection capped at ~16KB shows up here.
   var cliff=null;
-  for(var i=0;i<[8,16,32,64,128].length;i++){
-    var kb=[8,16,32,64,128][i];
+  for(var i=0;i<SIZES.length;i++){
+    var kb=SIZES[i];
     var g=row('2.'+(i+1)+' Download '+kb+' KB');
     try{
       var s=await sized(kb);
@@ -94,20 +94,39 @@ async function run(){
     }catch(e){ g('bad','failed',String(e)); if(cliff===null)cliff=0; }
   }
 
-  // 3. Streaming (the overlay's live updates ride on this).
+  // 3. Streaming, which is what the overlay's live updates ride on. Pointed at
+  // a stream that really sends, so "opened but silent" (something in between
+  // is buffering) stays distinguishable from "never connected".
   var sse=row('3. Live updates (SSE)');
   await new Promise(function(res){
-    var done=false,to=setTimeout(function(){ if(!done){done=true;try{es.close()}catch(_){ } sse('warn','no data in 8s','falls back to polling'); res();} },8000);
-    var es;
-    try{ es=new EventSource('/api/scene/diagnostic-probe/stream'); }
-    catch(e){ clearTimeout(to); sse('bad','cannot open',String(e)); return res(); }
-    // Any response at all - even the 404 for this fake key - proves streaming
-    // reaches us rather than being buffered or dropped.
-    es.onerror=function(){ if(done)return; done=true; clearTimeout(to);
+    var done=false,frames=0,bytes=0,opened=false,t=performance.now(),es;
+    function finish(cls,msg,detail){
+      if(done)return; done=true; clearTimeout(to);
       try{es.close()}catch(_){ }
-      sse('ok','server answered','stream endpoint reachable'); res(); };
-    es.onmessage=function(){ if(done)return; done=true; clearTimeout(to);
-      try{es.close()}catch(_){ } sse('ok','streaming','data received'); res(); };
+      sse(cls,msg,detail); res();
+    }
+    var to=setTimeout(function(){
+      if(frames>0) finish('warn','stopped early',frames+' frames, '+bytes+' bytes — stream cut off');
+      else if(opened) finish('bad','no data in 12s','connected, but something in between is buffering');
+      else finish('bad','never connected','the stream endpoint could not be reached');
+    },12000);
+    try{ es=new EventSource('/api/diag/stream?_='+Date.now()); }
+    catch(e){ finish('bad','cannot open',String(e)); return; }
+    es.onopen=function(){ opened=true; };
+    es.addEventListener('probe',function(ev){
+      opened=true; frames++; bytes+=ev.data.length;
+    });
+    es.addEventListener('done',function(){
+      finish('ok','streaming',frames+' frames, '+bytes+' bytes · '+ms(t));
+    });
+    es.onerror=function(){
+      // An error after data is the stream ending or being cut; before any, it
+      // never arrived. EventSource cannot tell us the status code, so the
+      // frames we did or didn't receive are the evidence.
+      if(frames>0) finish('warn','stopped early',frames+' frames, '+bytes+' bytes — stream cut off');
+      else if(opened) finish('bad','dropped','connected, then lost before any data');
+      else finish('bad','blocked','could not reach the stream endpoint');
+    };
   });
 
   // 4. Outside hosts the overlay depends on.

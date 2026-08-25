@@ -82,6 +82,23 @@ export function isOverlayAllowed(steamId: string | null): boolean {
   return overlayAllowlist().includes(steamId);
 }
 
+/**
+ * Whose canvas the studio edits.
+ *
+ * One shared canvas rather than one each: the point of the studio is three
+ * people building the same overlay, and a scene per account meant three
+ * unrelated canvases and three different browser-source URLs. The first
+ * SteamID in POGLY_ALLOWED_STEAM_IDS owns it and everyone else on the list
+ * edits that one, so the order of the allowlist is meaningful — put the owner
+ * first.
+ *
+ * The allowlist is still the only gate; this decides which scene an editor
+ * lands on, not whether they may edit at all.
+ */
+export function studioOwner(steamId: string): string {
+  return overlayAllowlist()[0] ?? steamId;
+}
+
 export function syncThrottleSec(): number {
   return Number.isFinite(SYNC_THROTTLE_SEC) && SYNC_THROTTLE_SEC >= 0
     ? SYNC_THROTTLE_SEC
