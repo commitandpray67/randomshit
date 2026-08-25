@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { resolveForLite } from "@/lib/litescene";
 import { getSceneByKey, getElements, getSceneVersion } from "@/lib/scene";
 
 /**
@@ -62,12 +63,16 @@ export async function GET(
   }
 
   const elements = await getElements(scene.id);
+  // The framework-free renderer has no room for the URL rules, so its feed
+  // carries media already resolved. Without this a lite scene renders fine and
+  // then breaks on its first update.
+  const lite = req.nextUrl.searchParams.get("lite") === "1";
   return NextResponse.json(
     {
       ok: true,
       version: scene.version,
       canvas: { w: scene.canvasW, h: scene.canvasH },
-      elements,
+      elements: lite ? resolveForLite(elements) : elements,
     },
     { headers: NO_STORE },
   );
