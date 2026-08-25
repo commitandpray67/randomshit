@@ -180,6 +180,37 @@ while the source is open. `syncUser`'s DB-backed throttle
 Steam, however fast OBS polls — so the poll interval controls how quickly a
 *detected* change reaches the screen, not how hard the Steam API gets hit.
 
+## Connection check (`/diag`)
+
+A self-test for the streamer's own connection, at `/diag`. Ungated — the people
+who need it are usually the ones who can't load anything else.
+
+It exists because throttled connections in Russia have been cutting responses
+off partway rather than failing outright, which looks like a broken site rather
+than a broken link. `/diag` asks for known payload sizes (8, 16, 32, 64, 128 KB
+from `/api/diag/payload`) and compares what actually arrives, so the cliff shows
+up as a byte count — and says plainly that it's throttling rather than a bug
+here. It also checks streaming, which the overlay's live updates ride on, and
+whether the outside hosts the overlay pulls from are reachable. Results copy to
+the clipboard as text to send on.
+
+Two things about it are deliberate:
+
+- **It's a route handler, not a page.** A page ships the React runtime, and a
+  diagnostic too big to load under the conditions it's diagnosing is useless.
+  This is hand-written HTML with inline vanilla JS, about 7KB, and it's excluded
+  from the middleware so nothing gets added to it.
+- **The payload is random hex, not filler.** Repeated bytes would compress to
+  nothing and hide the very limit being measured.
+
+The streaming check points at `/api/diag/stream`, which really sends — six
+spaced frames carrying a running byte count. Aimed at the scene stream with a
+made-up key instead, it would prove nothing: that 404s, and `EventSource`
+reports a 404 and a connection that never arrived as the same `onerror`, so a
+blocked stream would come back looking fine. Sending for real separates
+streaming works / something is buffering / never connected, and the byte count
+catches a stream cut off partway.
+
 ## Overlay studio (the canvas editor)
 
 A Pogly-style overlay editor: place text, images, videos and browser widgets on
