@@ -262,6 +262,34 @@ arranging elements, rendered live in OBS. If you ever want the full thing, run
 real Pogly (free cloud at pogly.gg, or `ghcr.io/poglyapp/pogly` on any Docker
 host) — it's Apache-2.0.
 
+## Diagnosing a blocked or throttled connection
+
+`/diag` is a self-test the streamer runs in their own browser, with any VPN
+off. It reports what their connection can reach and, crucially, whether
+responses are being cut short.
+
+It is a route handler serving hand-written HTML, not a page — about 6 KB with
+no framework JavaScript. That is the point: the failure it diagnoses truncates
+large responses, so a diagnostic carrying the normal ~103 KB bundle would be
+truncated too and tell you nothing.
+
+What it checks:
+
+1. Whether this origin is reachable at all, and how slowly.
+2. Downloads of 8 / 16 / 32 / 64 / 128 KB, comparing bytes received against
+   bytes promised. Russian ISPs have been capping throttled connections at
+   ~16 KB of content, which shows up as a page that half-loads rather than one
+   that fails cleanly — this finds that cliff and names it.
+3. Whether SSE reaches the browser, or is being buffered or dropped.
+4. Whether `cdn.7tv.app` and Steam's avatar CDN load, since those are fetched
+   directly by the browser and fail independently of where this app is hosted.
+
+The payload endpoint returns random hex rather than repeated filler:
+compressible data would shrink to nothing in transit and hide the limit being
+measured.
+
+**Copy results** puts the whole run on the clipboard as text.
+
 ## What to build next
 
 - **Notifications** on an unfriend (email via Resend, or a Discord webhook).
