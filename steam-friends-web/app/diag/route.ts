@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "unknown";
   const region = process.env.VERCEL_REGION ?? "local";
+  const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7);
+  const env = process.env.VERCEL_ENV ?? "development";
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
  code{background:rgba(255,255,255,.07);padding:.05rem .3rem;border-radius:3px}
 </style></head><body>
 <h1>Connection check</h1>
-<div class="sub">Serving host: <code>${host}</code> &middot; edge: <code>${region}</code></div>
+<div class="sub">Serving host: <code>${host}</code> &middot; edge: <code>${region}</code> &middot; build: <code>${sha}</code> (${env})</div>
 
 <p>Run this <b>with the VPN off</b>. It tests what your connection can reach.</p>
 <p><button id="go">Run the check</button> <button class="g" id="copy">Copy results</button></p>
