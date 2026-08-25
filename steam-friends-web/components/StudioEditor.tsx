@@ -5,6 +5,7 @@ import { ElementView, type RElement } from "./SceneRenderer";
 import EmotePicker from "./EmotePicker";
 import { isEmbeddable, videoPaused } from "@/lib/embed";
 import StreamBackdrop from "./StreamBackdrop";
+import { imageCandidates } from "@/lib/imagesrc";
 
 type Canvas = { w: number; h: number };
 
@@ -83,6 +84,10 @@ export default function StudioEditor({
   // A video whose URL is a YouTube/Vimeo page rather than a media file, so it
   // renders as that site's player and some of the controls below don't apply.
   const embedded = selected?.kind === "video" && isEmbeddable(selected.props.url);
+  // Says when a pasted link had to be pointed somewhere else to be loadable,
+  // or when it can't be — so a blank element isn't a mystery.
+  const imageNote =
+    selected?.kind === "image" && selected.props.url ? imageCandidates(selected.props.url).note : undefined;
 
   const sceneUrl = `${siteUrl}/scene/${sceneKey}`;
 
@@ -1050,6 +1055,9 @@ export default function StudioEditor({
                   {/* Fit crops or letterboxes the media inside the box, which
                       only means anything for a file we render ourselves. An
                       embedded player fills the box and does its own letterboxing. */}
+                  {selected.kind === "image" && imageNote && (
+                    <p className="st-hint">{imageNote}</p>
+                  )}
                   {embedded ? (
                     <p className="st-hint">
                       Playing through the site&apos;s own player. Size the box to the video&apos;s

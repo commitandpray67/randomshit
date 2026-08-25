@@ -251,7 +251,7 @@ Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 | Kind | What it does |
 |---|---|
 | **Text** | content, colour, size, weight, alignment, font, drop shadow |
-| **Image** | any URL (incl. `data:`), object-fit |
+| **Image** | any URL (incl. `data:`), object-fit; page links resolved to the file |
 | **Video** | a media file, or a YouTube / Vimeo link; play/pause, loop, autoplay, mute + volume, object-fit |
 | **Widget** | custom HTML+CSS+JS, or an embedded URL |
 
@@ -281,6 +281,28 @@ are covered by `npm run test:7tv`:
   `3x.webp` breaks on emotes never encoded at that size.
 
 Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
+
+### Page links vs. files
+
+The commonest way to get a blank element is to paste a link to a *page about*
+the thing rather than the thing itself. `imgur.com/abc123` is an HTML gallery
+page; the file lives on `i.imgur.com`. An `<img>` pointed at the page fetches
+it, finds no decodable bitmap, and shows nothing — no error, no console noise,
+just an empty box indistinguishable from an element you haven't positioned yet.
+
+Image links are therefore resolved at render time rather than rewritten, and
+produce a *list* of URLs to try in order. Imgur serves one hash under several
+extensions and the link doesn't say which is real, so guessing once would be a
+coin flip; `.png`, then `.jpeg`, then `.gif` costs a failed request at worst and
+always lands on the file. Dropbox share links (`?dl=0` → `?raw=1`) and Giphy
+page links get the same treatment. Anything unrecognised is passed through
+untouched — most pasted links already point at a file, and second-guessing them
+would break more than it fixed. `npm run test:image` covers the mappings.
+
+An Imgur *album* can't resolve to one file without their API, so it says so
+instead of failing silently, as does a link that simply doesn't load. Those
+messages appear in the editor only: a broken image on stream should be nothing
+at all, not a box explaining itself to viewers.
 
 ### Video links vs. video files
 

@@ -9,7 +9,8 @@
     "start": "next start",
     "db:init": "node --experimental-strip-types scripts/init-db.ts",
     "test:7tv": "node --experimental-strip-types scripts/test-seventv.ts",
-    "test:embed": "node --experimental-strip-types scripts/test-embed.ts"
+    "test:embed": "node --experimental-strip-types scripts/test-embed.ts",
+    "test:image": "node --experimental-strip-types scripts/test-imagesrc.ts"
   },
   "dependencies": {
     "next": "^15.1.0",

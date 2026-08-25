@@ -1,6 +1,7 @@
 "use client";
 
 import VideoPlayer from "./VideoPlayer";
+import ImageElement from "./ImageElement";
 
 export type RElement = {
   id: number;
@@ -53,15 +54,9 @@ export function ElementView({ el, editing = false }: { el: RElement; editing?: b
   }
 
   if (el.kind === "image") {
-    if (!p.url) return <Placeholder label="Image — set a URL" editing={editing} />;
-    return (
-      <img
-        src={p.url}
-        alt=""
-        draggable={false}
-        style={{ width: "100%", height: "100%", objectFit: p.fit ?? "contain", display: "block" }}
-      />
-    );
+    // A pasted link is often a page about the image rather than the image; see
+    // lib/imagesrc, and components/ImageElement for what happens when it is.
+    return <ImageElement props={p} editing={editing} />;
   }
 
   if (el.kind === "video") {
