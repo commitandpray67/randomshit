@@ -274,6 +274,20 @@ working aid, not part of the scene. Twitch only embeds when `parent` matches
 the page's own hostname, which is read from the browser so it works on
 localhost and on the deployed domain without configuring either.
 
+**Clickable** (on by default) decides whether the preview takes the pointer. It
+has to: a stream the browser declines to autoplay shows a play button, and a
+backdrop deaf to the pointer leaves no way to press it — as useful as no
+preview at all. Live, Twitch's own controls work, so it can be played, paused,
+unmuted and re-qualitied like any embed. Elements on top keep taking their own
+drags either way, since they come later in the DOM; only a click on *bare*
+canvas changes hands, which is why <kbd>Esc</kbd> also clears the selection.
+
+Controls stay in the player URL permanently and interactivity is toggled with
+`pointer-events` instead. Putting `controls` in the URL would mean rebuilding
+it to change your mind, and rebuilding the URL reloads the player — the same
+trap the video element had. Locked, the controls simply never appear, because
+nothing can hover them.
+
 Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 `db/migrations/004_scenes.sql` (psql).
 

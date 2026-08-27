@@ -77,6 +77,15 @@ export default function StudioEditor({
   // Keep tracking the viewport until someone picks a zoom of their own.
   const [autoFit, setAutoFit] = useState(true);
   const [preview, setPreview] = useState<string | null>(null);
+  /**
+   * Whether the preview takes clicks.
+   *
+   * On by default: a stream the browser declined to autoplay shows a play
+   * button, and with the backdrop deaf to the pointer there is no way to press
+   * it — which is exactly as useful as no preview at all. Turn it off when the
+   * stream starts getting in the way of arranging things over it.
+   */
+  const [previewLive, setPreviewLive] = useState(true);
   const version = useRef(initialVersion);
 
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -125,10 +134,20 @@ export default function StudioEditor({
     try {
       const saved = localStorage.getItem("studio:preview");
       setPreview(saved === null ? previewChannel : saved);
+      setPreviewLive(localStorage.getItem("studio:preview-live") !== "0");
     } catch {
       setPreview(previewChannel);
     }
   }, [previewChannel]);
+
+  const setPreviewLivePref = (live: boolean) => {
+    setPreviewLive(live);
+    try {
+      localStorage.setItem("studio:preview-live", live ? "1" : "0");
+    } catch {
+      /* private mode; the choice just won't be remembered */
+    }
+  };
 
   const setPreviewChannel = (name: string) => {
     setPreview(name);
@@ -676,6 +695,16 @@ export default function StudioEditor({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+
+      // Ahead of the guard below, and of everything else: with a clickable
+      // stream preview behind the canvas, a click on bare canvas may go to the
+      // player rather than clearing the selection, so this is the way out —
+      // including from a locked element, which the guard would otherwise skip.
+      if (e.key === "Escape") {
+        setSelectedId(null);
+        return;
+      }
+
       if (!selected || selected.locked) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -832,7 +861,12 @@ export default function StudioEditor({
               onPointerDown={(e) => e.stopPropagation()}
             >
               {preview && (
-                <StreamBackdrop channel={preview} width={canvas.w} height={canvas.h} />
+                <StreamBackdrop
+                  channel={preview}
+                  width={canvas.w}
+                  height={canvas.h}
+                  interactive={previewLive}
+                />
               )}
               {elements.map((el) => (
               <div
@@ -963,10 +997,27 @@ export default function StudioEditor({
                 {preview ? "Hide" : "Show"}
               </button>
             </div>
+            {preview && (
+              <label className="st-check">
+                <input
+                  type="checkbox"
+                  checked={previewLive}
+                  onChange={(e) => setPreviewLivePref(e.target.checked)}
+                />
+                <span>Clickable (play, pause, volume)</span>
+              </label>
+            )}
             <p className="st-hint">
               Shown behind the elements so you can place things against the real
               stream. Preview only — it is never part of the browser source, and
               it is remembered in this browser rather than shared.
+            </p>
+            <p className="st-hint">
+              Clickable lets you press Twitch&apos;s own play button, which you need
+              when the browser won&apos;t start it by itself, and reach its volume and
+              quality controls. Elements on top still drag either way; only a click
+              on bare canvas goes to the player instead of clearing the selection —
+              press <kbd>Esc</kbd> for that, or untick this.
             </p>
           </section>
 
