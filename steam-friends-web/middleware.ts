@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { sessionSteamId } from "@/lib/session-edge";
+import { checkSession } from "@/lib/session-edge";
 
 const COOKIE = "lang";
 const MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -13,7 +13,16 @@ export async function middleware(request: NextRequest) {
   // early: it is a static canvas with its own text, so there is no locale to
   // pick and no reason to put a Set-Cookie on it or on the audio beside it.
   if (path === "/jayc" || path.startsWith("/jayc/")) {
-    if (await sessionSteamId(request)) return response;
+    const session = await checkSession(request);
+    if (session.status === "ok") return response;
+    if (session.status === "misconfigured") {
+      // Bouncing to Steam here would loop forever: the login would mint a
+      // cookie this deployment still cannot verify. Say so instead.
+      return new NextResponse(
+        "The game is unavailable: this deployment has no SESSION_SECRET, so sign-in cannot be verified.",
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const to = new URL("/api/auth/steam", request.url);
     to.searchParams.set("to", "jayc");
     return NextResponse.redirect(to);

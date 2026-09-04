@@ -36,18 +36,36 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/** Distinguishes "you are not signed in" from "this deployment cannot tell". */
+export type SessionCheck =
+  | { status: "ok"; steamId: string }
+  | { status: "anonymous" }
+  | { status: "misconfigured" };
+
 /**
- * Returns the SteamID carried by the request's session cookie, or null when
- * there is no cookie, the signature does not verify, or it has expired.
+ * Returns the SteamID carried by the request's session cookie.
  *
- * Fails closed: with no SESSION_SECRET configured nobody is authenticated,
- * rather than everybody being let through on an unverifiable cookie.
+ * Fails closed: with no SESSION_SECRET nobody is authenticated, rather than
+ * everybody being let through on an unverifiable cookie. That case is reported
+ * separately, though, because a caller that treats it as "not signed in" will
+ * bounce the visitor to Steam, mint a cookie it still cannot verify, and bounce
+ * them again — an infinite redirect loop instead of a legible error.
  */
-export async function sessionSteamId(req: {
+export async function checkSession(req: {
   cookies: { get(name: string): { value: string } | undefined };
-}): Promise<string | null> {
+}): Promise<SessionCheck> {
+  const steamId = await verify(req);
+  if (steamId === MISCONFIGURED) return { status: "misconfigured" };
+  return steamId ? { status: "ok", steamId } : { status: "anonymous" };
+}
+
+const MISCONFIGURED = Symbol("no SESSION_SECRET");
+
+async function verify(req: {
+  cookies: { get(name: string): { value: string } | undefined };
+}): Promise<string | null | typeof MISCONFIGURED> {
   const secret = process.env.SESSION_SECRET;
-  if (!secret) return null;
+  if (!secret) return MISCONFIGURED;
 
   const value = req.cookies.get(COOKIE)?.value;
   if (!value) return null;
