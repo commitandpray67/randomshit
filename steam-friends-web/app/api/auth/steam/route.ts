@@ -16,5 +16,21 @@ export async function GET(req: NextRequest) {
   // Return to whichever hostname the user reached us on, so someone who
   // cannot load the canonical domain still ends up signed in where they are.
   const appUrl = await currentOrigin(req.headers);
-  return NextResponse.redirect(buildLoginUrl(appUrl));
+  const res = NextResponse.redirect(buildLoginUrl(appUrl));
+
+  // Where to land after Steam bounces back. Carried in a short-lived cookie
+  // rather than in openid.return_to, so the signed OpenID round trip stays
+  // byte-for-byte what it is today. Only a fixed set of names is accepted, so
+  // this can never become an open redirect.
+  if (req.nextUrl.searchParams.get("to") === "jayc") {
+    res.cookies.set("sfw_after", "jayc", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 600,
+    });
+  }
+
+  return res;
 }

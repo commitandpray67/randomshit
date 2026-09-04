@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS users (
     avatar        TEXT,
     -- 'public' | 'private' | 'unknown' — last known friends-list visibility
     api_visibility TEXT NOT NULL DEFAULT 'unknown',
+    -- False for someone who signed in only to post a JayC leaderboard score:
+    -- they never asked us to call the Steam API for them, so the daily poll
+    -- skips them. See db/migrations/004_jayc.sql.
+    tracker_opt_in BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_polled   TIMESTAMPTZ
 );
@@ -96,3 +100,27 @@ CREATE TABLE IF NOT EXISTS overlay_configs (
 );
 
 CREATE INDEX IF NOT EXISTS overlay_configs_key_idx ON overlay_configs (overlay_key);
+
+-- JayC: The Rise of the Gooners — leaderboard for the game at /jayc.
+-- See db/migrations/004_jayc.sql to add this to an existing database.
+-- One row per player: their best full clear, ranked by run_frames ascending.
+
+CREATE TABLE IF NOT EXISTS jayc_scores (
+    steam_id     TEXT PRIMARY KEY REFERENCES users(steam_id) ON DELETE CASCADE,
+    run_frames   INT NOT NULL CHECK (run_frames > 0),
+    kills        INT NOT NULL DEFAULT 0 CHECK (kills >= 0),
+    score        INT NOT NULL DEFAULT 0 CHECK (score >= 0),
+    modifier     TEXT NOT NULL DEFAULT 'none'
+                 CHECK (modifier IN ('clutch', 'caring', 'catty', 'l', 'none')),
+    quotes       INT NOT NULL DEFAULT 0 CHECK (quotes >= 0),
+    achievements INT NOT NULL DEFAULT 0 CHECK (achievements >= 0),
+    runs         INT NOT NULL DEFAULT 1,
+    -- Moderation: a browser game cannot prove its own score, so the backstop
+    -- is hiding an entry without losing the history.
+    hidden       BOOLEAN NOT NULL DEFAULT false,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS jayc_scores_board_idx
+    ON jayc_scores (run_frames) WHERE NOT hidden;
