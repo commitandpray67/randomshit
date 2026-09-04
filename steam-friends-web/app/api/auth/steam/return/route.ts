@@ -38,14 +38,23 @@ export async function GET(req: NextRequest) {
     // Non-fatal, we can still log the user in without their display name.
   }
 
+  // Someone arriving from the game only wants a leaderboard identity, so their
+  // new row opts out of the daily Steam poll. On conflict the column is left
+  // alone: an existing tracker user signing in via the game keeps tracking, and
+  // syncUser() opts a game player in the moment they use the dashboard.
+  const fromGame = req.cookies.get("sfw_after")?.value === "jayc";
+
   await sql`
-    INSERT INTO users (steam_id, display_name, avatar)
-    VALUES (${steamId}, ${displayName}, ${avatar})
+    INSERT INTO users (steam_id, display_name, avatar, tracker_opt_in)
+    VALUES (${steamId}, ${displayName}, ${avatar}, ${!fromGame})
     ON CONFLICT (steam_id) DO UPDATE SET
       display_name = COALESCE(EXCLUDED.display_name, users.display_name),
       avatar = COALESCE(EXCLUDED.avatar, users.avatar)
   `;
 
   await createSession(steamId);
-  return NextResponse.redirect(`${appUrl}/dashboard`);
+
+  const res = NextResponse.redirect(`${appUrl}${fromGame ? "/jayc" : "/dashboard"}`);
+  if (fromGame) res.cookies.delete("sfw_after");
+  return res;
 }
