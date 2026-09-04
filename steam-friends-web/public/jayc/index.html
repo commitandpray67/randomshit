@@ -1045,6 +1045,21 @@ const Snd = {
 
   /* Step sequencer. Scheduled against ctx.currentTime with a short lookahead
      so timing does not drift with the frame rate. */
+  /* Where the sibling audio files live when they are not embedded.
+
+     A host may serve this page as /jayc, /jayc/, or /jayc/index.html, and the
+     first of those is the trap: with no trailing slash the browser treats
+     "jayc" as a filename, so a bare relative path resolves against the site
+     root and every track 404s into the synth fallback. Work the directory out
+     from the path instead of trusting relative resolution. */
+  assetBase() {
+    const p = location.pathname;
+    // A path ending in a file extension names a file; strip it to its folder.
+    if (/\.[a-z0-9]+$/i.test(p)) return p.replace(/[^/]*$/, '');
+    // Otherwise the whole path is the folder, slash or no slash.
+    return p.replace(/\/?$/, '/');
+  },
+
   /* Each track carries both a base64 blob and a file path. The standalone
      build embeds the blob so the page works from file:// with no server;
      the web build nulls the blobs and lets `src` be fetched on demand, so
@@ -1114,7 +1129,7 @@ const Snd = {
     this.fallbackSong(name);
     if (tr.loading) return;
     tr.loading = true;
-    fetch(tr.src)
+    fetch(this.assetBase() + tr.src)
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then(decode)
       .catch(() => {})

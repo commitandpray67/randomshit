@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sessionSteamId } from "@/lib/session-edge";
 
 const COOKIE = "lang";
 const MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const path = request.nextUrl.pathname;
+
+  // The game at /jayc is behind Steam sign-in. Handled first and returned
+  // early: it is a static canvas with its own text, so there is no locale to
+  // pick and no reason to put a Set-Cookie on it or on the audio beside it.
+  if (path === "/jayc" || path.startsWith("/jayc/")) {
+    if (await sessionSteamId(request)) return response;
+    const to = new URL("/api/auth/steam", request.url);
+    to.searchParams.set("to", "jayc");
+    return NextResponse.redirect(to);
+  }
 
   // Visiting a locale page always wins — stamp the matching cookie.
   if (path === "/ru" || path.startsWith("/ru/")) {
@@ -50,7 +61,11 @@ export const config = {
   // and without any locale handling.
   // `overlay` is excluded too: the OBS browser source has no user and no
   // language to pick, and a Set-Cookie on it would do nothing but churn.
+  //
+  // `jayc` is deliberately NOT excluded any more: the sign-in gate above has
+  // to see those requests. It returns before any locale handling, so the game
+  // still gets no language cookie.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|studio|diag|jayc|api/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|studio|diag|api/).*)",
   ],
 };
