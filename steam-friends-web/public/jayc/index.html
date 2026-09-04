@@ -1371,7 +1371,8 @@ const ENEMY_MEMBERS = {
     id: 'mochi', name: 'MOCHI', color: '#c89bff', lines: [
       'JUST ONE MORE PULL...', 'BASICALLY GLOBAL...', 'I AM THE CSGO OVERSEER!',
       'CAN EVERYONE STOP SKULLING ME PLS X', 'THIS IS UNFAIR', 'ANY GAMERS X',
-      'I AM GONNA RUN AND GET ICE CREAM', 'STOP STEALING MY GUYS',
+      'I AM GONNA RUN AND GET ICE CREAM', 'STOP STEALING MY GUYS', 'GO.',
+      'CLAUDE DESTROYED UR ASS FR JAYC', 'URE NOT MAKING ANY SENSE JAYC',
     ],
   },
   sprinter: {
@@ -1379,6 +1380,7 @@ const ENEMY_MEMBERS = {
       'STILL NEED?', 'I PLAY WITH 5.', 'WHAT KIND OF ONION AM I',
       'I AM REQUESTING A NO PATCH POLICY', 'YOU UNDERESTIMATE THE POWER OF THIS DISCORD',
       'HOW BAD IS YOUR PING', 'I WILL TRY BE QUICK', "THAT'S FIRE",
+      'ANY GAMERS GAMING?', 'YEAH. GAMER TIME.', 'I GO SLEEP.',
     ],
   },
   spitter: {
@@ -1393,13 +1395,16 @@ const ENEMY_MEMBERS = {
       'PROS STICK.', 'OUTSIDE THE BOX.', 'HOLY SHIT, CRACKED MY DUDES',
       'LEMME GET PIZZA', 'HI IS THIS STILL AVAILABLE', 'HONK IF THATCHER IS DEAD',
       'THIS GOES HECKIN HARDERINO', 'JOB INTERVIEW',
+      "I THINK YOU'LL FIND THE QUESTION WAS ANY GAMERS", 'I AM NOT A GAMER',
+      "I'M SORRY I'VE BECOME TOO ENLIGHTENED",
     ],
   },
   popper: {
     id: 'connor', name: 'CONNOR', color: '#a8ff6b', lines: [
       'PREPARE YOUR BACKS.', 'YOU DROPPED THIS', 'DIDNT ASK PLUS RATIO',
       'THE GRIND STARTS THEN', 'NOPERS', 'I CAN PLAY IN LIKE 7 HOURS',
-      'SO GOOD MEN', 'SHOUTOUT TO MUMS ACROSS THE WORLD',
+      'SO GOOD MEN', 'SHOUTOUT TO MUMS ACROSS THE WORLD', 'THE FUCK?',
+      'YOUR A TWAT.', 'YOUR A PURE DAFTEY.',
     ],
   },
 };
@@ -1426,19 +1431,46 @@ const QUOTE_BANK = [
   { id: 'jayc_beg', who: 'JAYC', text: 'I BEG, I BEG, I BEG.' },
   { id: 'jayc_dinner', who: 'JAYC', text: 'I GO MAKE DINNER.' },
   { id: 'jayc_chungus', who: 'JAYC', text: 'THIS IS A WHOLESOME PLACE FOR WHOLESOME PEOPLE.' },
+  { id: 'jayc_go', who: 'JAYC', text: '"GO" IS A GRAMMATICALLY INCORRECT RESPONSE FOR ANY OUTCOME TO THAT QUESTION. I AM NOT THE PROBLEM HERE.' },
+  { id: 'jayc_fraud', who: 'JAYC', text: 'CLAUDE MORE LIKE FRAUD.' },
   { id: 'connor_backs', who: 'CONNOR', text: 'PREPARE YOUR BACKS.' },
+  { id: 'connor_pay', who: 'CONNOR', text: '#PAYMYGUYPLEASEJAYC.' },
+  { id: 'connor_twat', who: 'CONNOR', text: 'YOUR A TWAT.' },
   { id: 'cait_obama', who: 'CAIT', text: 'WHO PLAYS ME IN THE MOVIE? OBAMA.' },
   { id: 'cait_bass', who: 'CAIT', text: 'I KEPT GETTING SEA BASSES.' },
+  { id: 'cait_school', who: 'CAIT', text: 'BUT ITS NOT A SCHOOL.' },
+  { id: 'cait_better', who: 'CAIT', text: 'THATS BETTER.' },
+  { id: 'sparth_island', who: 'SPARTH', text: 'ISLAND SHOOTER.' },
+  { id: 'sewfie_dock', who: 'SEWFIE', text: 'DOCK + BAIT.' },
   { id: 'nile_quote', who: 'NILE', text: 'AND THEY CALL ME A SERIAL QUOTER.' },
   { id: 'werder_bogos', who: 'WERDER', text: 'BOGOS BINTED?' },
   { id: 'werder_chips', who: 'WERDER', text: 'G12 WITHOUT WERDERDLEY IS FISH AND CHIPS WITHOUT THE CHIPS.' },
+  { id: 'werder_meal', who: 'WERDER', text: 'ITS STILL A MEAL, BUT IT AINT WHAT IT USED TO BE.' },
+  { id: 'werder_small', who: 'WERDER', text: "KEEP TALKING JAMIE, YOU'RE JUST A SMALL MAN IN A TINY WORLD." },
+  { id: 'werder_star', who: 'WERDER', text: 'I AM THE STAR PLAYER.' },
   { id: 'harold_easy', who: 'HAROLD', text: 'EVERYONE KNOWS VALORANT IS EASIER THAN CS.' },
   { id: 'harold_five', who: 'HAROLD', text: 'I PLAY WITH 5.' },
+  { id: 'harold_child', who: 'HAROLD', text: 'VALORANT PLAYER CHILD ONLY KNOW SOLO PEEK AND DIE.' },
+  { id: 'harold_vengeance', who: 'HAROLD', text: 'I AM VENGEANCE.' },
+  { id: 'harold_genius', who: 'HAROLD', text: 'IM AN ACTUAL CS GENIUS.' },
+  { id: 'harold_anubis', who: 'HAROLD', text: 'ONLY IF THERES ANUBIS THO.' },
+  { id: 'harold_brainrot', who: 'HAROLD', text: 'LAST MENTALLY SANE INDIVIDUAL RUNNING FROM THE BRAINROT IN 2028.' },
   { id: 'dom_pros', who: 'DOM', text: 'PROS STICK.' },
+  { id: 'dom_gamer', who: 'DOM', text: 'AND AS MUSTY CAN TESTIFY I AM NOT A GAMER.' },
+  { id: 'dom_enlightened', who: 'DOM', text: "I'M SORRY I'VE BECOME TOO ENLIGHTENED." },
   { id: 'rico_micro', who: 'RICO', text: 'WITHOUT ME MICROMANAGING G12 DO NOT GET HALF OUR ROUNDS.' },
   { id: 'mustie_milk', who: 'MUSTIE', text: 'WHOLE MILK OR NOTHING.' },
+  { id: 'mustie_skimmed', who: 'MUSTIE', text: 'SKIMMED IS LIKE WATER.' },
   { id: 'mustie_dota', who: 'MUSTIE', text: 'I PLAYED LIKE 3K HOURS OF DOTA.' },
+  { id: 'mustie_clean', who: 'MUSTIE', text: "I'M CLEAN OF THAT NOW." },
+  { id: 'mustie_newman', who: 'MUSTIE', text: "IF I COULD STOP CS THEN I'D BE A NEW MAN FR." },
+  { id: 'mustie_brainrot', who: 'MUSTIE', text: 'ENGLISH BRAINROT IS BEING EXPLAINED TO TURKISH TIKTOKERS.' },
+  { id: 'mustie_minnos', who: 'MUSTIE', text: 'MINNOS BUFF.' },
   { id: 'mustie_love', who: 'MUSTIE', text: 'I LOVE ALL OF YOU.' },
+  { id: 'freddie_cs', who: 'FREDDIE', text: 'ANY @COUNTER-STRIKE THO?' },
+  { id: 'mochi_claude', who: 'MOCHI', text: 'CLAUDE DESTROYED UR ASS FR JAYC.' },
+  { id: 'olive_archives', who: 'OLIVE', text: 'MY TIKTOKS FROM THEN ARE IN THE ARCHIVES... TOO UNSTABLE EVEN FOR ME.' },
+  { id: 'callum_stfu', who: 'CALLUM', text: 'HOLY SHT STFU CONNOR.' },
   { id: 'marcus_soda', who: 'MARCUS', text: 'SODA.' },
   { id: 'marcus_cob', who: 'MARCUS', text: 'SOME OF YALL ARE AFRAID TO BE CORNY. I WAS BORN ON THE COB.' },
   { id: 'olive_g12', who: 'OLIVE', text: 'THE ONLY G2 WORTH SUPPORTING IS G ONE 2.' },
@@ -1499,12 +1531,41 @@ const SECRET_ROOMS = {
 };
 
 const FLOOR_CALLOUTS = {
-  0: ['UN-GOON THEM TO FILL THE PING.', 'EVERY RESCUE IS +1. GET FIVE.'],
-  1: ['STILL NEED?', 'I CAN PLAY IN 7 HOURS.', 'ANY GAMERS GAMING?', 'EMERGENCY FIFTH INCOMING.', 'IN IT FOR THE LOVE OF THE GAME, NOT THE MONYEY.', 'CHOCCY MILK IS MORE BASED THAN LITTLE MIX.'],
-  2: ['NOVEMBER GANG.', 'CAIT TRAINING ISABELLE.', 'DOOM GUY + ISABELLE. CANON.', 'NOT ANOTHER SEA BASS.'],
-  3: ['G ONE 2', 'THIS FKIN SODA MOB BRO.', 'DID SOMEBODY SAY BOGOS?'],
-  4: ['THE WALLS REMEMBER EVERYTHING.', 'SERIAL QUOTER TERRITORY.'],
-  5: ['WATCH A PRO VOD.', 'VERTIGO B SITE. DO NOT ROTATE.'],
+  0: ['PING SIGNAL RISING.', 'NEXT LOOP DETECTED.'],
+  1: ['LOCAL TIME: 04:00.', 'WARMUP CONTINUES.', 'STILL WAITING FOR A FIFTH.'],
+  2: ['ISLAND LOOP RESTARTED.', 'THE FLOWERS ARE HOSTILE.', 'SEA BASS SURGE DETECTED.'],
+  3: ['AUX LEVEL CRITICAL.', 'THE FLOOR IS SWEATING.', 'NEXT TRACK INCOMING.'],
+  4: ['ARCHIVE DEPTH INCREASING.', 'CONTEXT NOT FOUND.', 'OLDER MESSAGES RESTORED.'],
+  5: ['B SITE STILL OCCUPIED.', 'ONE GATEKEEPER REMAINS.', 'MID DOORS OPEN.'],
+};
+
+// Authored Discord exchanges live in the bottom dialogue panel. Each appears
+// once at a wave break, so the archive grows without random quote spam.
+const FLOOR_WAVE_BARKS = {
+  0: [
+    { s: 'SQUID', t: 'YOU UNDERESTIMATE THE POWER OF THIS DISCORD.' },
+    { s: 'JAYC', t: 'I BEG.' },
+  ],
+  1: [
+    { s: 'MUSTIE', t: "WE'VE BEEN PLAYING TILL LIKE 4AM THE PAST 4 DAYS. LOWKEY ADDICTED." },
+    { s: 'JAYC', t: 'EVEN I SLEPT A LIL.' },
+    { s: 'OLIVE', t: 'YOU TOO JAMIE.' },
+  ],
+  2: [
+    { s: 'SEWFIE', t: 'R U LOOKING FOR ANY FISHIES?' },
+    { s: 'SEWFIE', t: 'DOCK + BAIT.' },
+  ],
+  3: [
+    { s: 'WERDER', t: 'I AM THE STAR PLAYER.' },
+  ],
+  4: [
+    { s: 'OLIVE', t: 'MY TIKTOKS FROM THEN ARE IN THE ARCHIVES... TOO UNSTABLE EVEN FOR ME.' },
+    { s: 'JAYC', t: 'POSTING THAT AFTER A 1 WORD REPLY TO UR ESSAY IN BOLD.' },
+    { s: 'MOCHI', t: 'URE NOT MAKING ANY SENSE JAYC.' },
+  ],
+  5: [
+    { s: 'MUSTIE', t: 'SOCIETY WHEN JAYC NOT BANNING DUST 2 IN A FULL MAP POOL.' },
+  ],
 };
 
 const CAMEOS = [
@@ -1624,6 +1685,12 @@ const SPEAKERS = {
   squid:   { name: 'SQUID',           color: '#6ad0c0', portrait: null },
   harold:  { name: 'HAROLD',          color: '#e0504f', portrait: 'harold' },
   nile:    { name: 'NILE',            color: '#b48ce0', portrait: null },
+  sparth:  { name: 'SPARTH',          color: '#ff9f68', portrait: null },
+  sewfie:  { name: 'SEWFIE',          color: '#ffb7dc', portrait: null },
+  connor:  { name: 'CONNOR',          color: '#a8ff6b', portrait: null },
+  freddie: { name: 'FREDDIE',         color: '#ffd36a', portrait: null },
+  callum:  { name: 'CALLUM',          color: '#7dff91', portrait: null },
+  dom:     { name: 'DOM',             color: '#7db0ff', portrait: null },
   none:    { name: '', color: '#8f8fae', portrait: null },
 };
 
@@ -1636,7 +1703,7 @@ const STORY = {
     { s: 'winston', t: 'JAYC. I AM READY TO UNLEASH MY PRIMAL RAGE.' },
     { s: 'jayc', t: 'Not you, Winston. You are a chat bot. Go back to sleep.' },
     { s: 'jayc', t: 'Evie thinks I am 25+. Connor already put Glasgow Unis into the nursing home. Apparently I am the veteran here.' },
-    { s: 'jayc', t: 'Climb the tower. Break the loops. Rebuild the five-stack. Gondor calls for aid. Lets go.' },
+    { s: 'jayc', t: "Climb the tower. Break the loops. Rebuild the five-stack. Gondor calls for aid. Let's go." },
   ],
   l1_out: [
     { s: 'jayc', t: 'First loop broken. Mochi? You still in there?' },
@@ -1649,6 +1716,9 @@ const STORY = {
     { s: 'jayc', t: 'The 4AM queue. The Feed kept it exactly as we left it: too warm, too late, still waiting for a fifth.' },
     { s: 'olive', t: 'BRO GO TO SLEEP OMG.' },
     { s: 'squid', t: 'SLEEPIES MY HOMESLICE.' },
+    { s: 'mustie', t: "BRO, IT'S 4AM." },
+    { s: 'squid', t: 'YEAH. GAMER TIME.' },
+    { s: 'mustie', t: '5?' },
     { s: 'jayc', t: 'That is the problem. Nobody logged off. Every answered ping weakens the signal. Keep moving.' },
   ],
   l2_out: [
@@ -1661,12 +1731,15 @@ const STORY = {
     { s: 'cait', t: 'DOOM GUY AND ISABELLE ARE CANONICALLY MARRIED.' },
     { s: 'jayc', t: 'Cait, that is the Feed talking in loops. Put down the net and answer the ping.' },
     { s: 'cait', t: 'I WANTED TO SHOOT UP MY ANIMAL CROSSING ISLAND BECAUSE I KEPT GETTING SEA BASSES.' },
-    { s: 'jayc', t: 'Right. We do this the hard way.' },
+    { s: 'cait', t: 'BUT ITS NOT A SCHOOL.' },
+    { s: 'sparth', t: 'ISLAND SHOOTER.' },
+    { s: 'cait', t: 'THATS BETTER.' },
+    { s: 'jayc', t: 'Cait training Isabelle. Right. We do this the hard way.' },
   ],
   l3_out: [
     { s: 'none', t: 'The last flower falls. Cait looks at the phone in her hand.' },
     { s: 'cait', t: 'I KEPT GETTING SEA BASSES :(' },
-    { s: 'jayc', t: 'You can tell us about it in the lobby. We still need one.' },
+    { s: 'jayc', t: 'You can troubleshoot the fishing in the lobby. We still need one.' },
     { s: 'none', t: 'Cait lowers the net. Her status changes from DO NOT DISTURB to ONLINE.' },
     { s: 'none', t: 'The island goes still. Somewhere a bootleg K.K. track finally stops looping.' },
   ],
@@ -1677,18 +1750,24 @@ const STORY = {
     { s: 'werder', t: 'BOGOS BINTED?' },
     { s: 'jayc', t: 'What.' },
     { s: 'werder', t: 'G12 WITHOUT WERDERDLEY IS LIKE FISH AND CHIPS WITHOUT THE CHIPS.' },
-    { s: 'jayc', t: 'Exactly. So stop leaving us without the chips.' },
+    { s: 'werder', t: 'ITS STILL A MEAL, BUT IT AINT WHAT IT USED TO BE.' },
+    { s: 'jayc', t: 'That was annoyingly persuasive. Stop leaving us without the chips.' },
   ],
   l4_out: [
     { s: 'werder', t: 'GIVE ME MY 2 BILLION DOLLAPS.' },
-    { s: 'jayc', t: 'That is the closest thing to a yes I have heard all night.' },
+    { s: 'werder', t: '#GIVEWERDERDLEYHISMONEY.' },
+    { s: 'connor', t: '#PAYMYGUYPLEASEJAYC.' },
+    { s: 'jayc', t: 'The budget committee will reply within three to five business years.' },
     { s: 'none', t: 'The record stops skipping. Werder takes the aux cord and falls in behind JayC.' },
     { s: 'jayc', t: 'Two bosses left. But first, something ahead is mining every word we ever said.' },
   ],
   l5_in: [
     { s: 'jayc', t: 'The Quote Mines. Every wall is a screenshot of something one of us said.' },
+    { s: 'none', t: 'One wall displays a single word: GO. Beneath it, a rebuttal continues for three paragraphs.' },
+    { s: 'jayc', t: '"GO" IS A GRAMMATICALLY INCORRECT RESPONSE FOR ANY OUTCOME TO THAT QUESTION. I AM NOT THE PROBLEM HERE.' },
+    { s: 'mochi', t: 'CLAUDE DESTROYED UR ASS FR JAYC.' },
+    { s: 'jayc', t: 'CLAUDE MORE LIKE FRAUD.' },
     { s: 'nile', t: 'Of course I kept them all. I am always seeking chances to quote you, Jamie.' },
-    { s: 'none', t: 'Thousands of old messages repeat across the walls, stripped of dates and context.' },
     { s: 'nile', t: 'These are not memories. The Feed keeps copying them because it has nothing of its own.' },
     { s: 'jayc', t: 'So every time they repeat themselves...' },
     { s: 'nile', t: 'They are still in there. Find the original. Break the loop.' },
@@ -1702,13 +1781,22 @@ const STORY = {
   ],
   l6_in: [
     { s: 'jayc', t: 'The Feed Tower. Top of the ranked ladder. One gatekeeper between us and Mustie.' },
-    { s: 'harold', t: 'EVERYONE KNOWS VALORANT IS EASIER THAN CS.' },
+    { s: 'harold', t: 'LAST MENTALLY SANE INDIVIDUAL RUNNING FROM THE BRAINROT IN 2028.' },
+    { s: 'jayc', t: 'Harold. You ran directly into Dust II.' },
+    { s: 'harold', t: 'VALORANT PLAYER CHILD ONLY KNOW SOLO PEEK AND DIE.' },
+    { s: 'connor', t: "BATMAN DOESN'T KNOW TEAMWORK. SHUT YOUR MOUTH." },
+    { s: 'harold', t: 'I AM VENGEANCE.' },
     { s: 'jayc', t: 'Mustie says I have never seen a Harold Vertigo B-site pistol hold.' },
     { s: 'harold', t: 'RARE L FROM JC.' },
     { s: 'jayc', t: 'All that Vertigo talk and you queued Dust II.' },
   ],
   l6_out: [
     { s: 'harold', t: 'GOTTA GO PRACTICE WITH FAZE ACTUALLY.' },
+    { s: 'none', t: 'The Feed slips. One old invitation cuts cleanly through the static.' },
+    { s: 'mustie', t: 'YOU KNOW WHAT WOULD BE AN EVEN BETTER CS GENIUS MOMENT WOULD BE TO PLAY IN OUR FIVE STACK.' },
+    { s: 'harold', t: 'ONLY IF THERES ANUBIS THO.' },
+    { s: 'jayc', t: 'Best I can do is Dust II.' },
+    { s: 'harold', t: 'VOMIT.' },
     { s: 'jayc', t: 'After we get Mustie.' },
     { s: 'none', t: 'Harold looks up the final stairwell, shoulders the AK, and answers the ping.' },
     { s: 'harold', t: 'ONE MORE.' },
@@ -1716,19 +1804,26 @@ const STORY = {
   ],
   l7_in: [
     { s: 'none', t: 'The Feed pulls every stolen message into one voice. Mustie\'s voice.' },
-    { s: 'mustie', t: 'AT LAST. THE ONE WHO STILL LOOKS AWAY.' },
-    { s: 'jayc', t: 'Mustie. The Feed has been wearing everyone\'s voice. Now it is wearing yours.' },
+    { s: 'mustie', t: 'ENGLISH BRAINROT IS BEING EXPLAINED TO TURKISH TIKTOKERS.' },
+    { s: 'mustie', t: "IT'S OVER FOR US." },
+    { s: 'jayc', t: 'Not yet. The Feed wore everyone\'s voice to get here. Now it is wearing yours.' },
     { s: 'mustie', t: 'HISTORIANS WILL SKIP OUR BRAINROTTED GENERATION. STAY DOWN HERE. IT IS #BLESSED.' },
     { s: 'jayc', t: 'You walked away from Dota after three thousand hours. You can walk away from this.' },
-    { s: 'mustie', t: 'I AM CLEAN OF THAT NOW.' },
-    { s: 'jayc', t: 'Then prove it. Minnos is waiting. The boys are waiting. Get off the throne.' },
+    { s: 'mustie', t: "I PLAYED LIKE 3K HOURS OF DOTA. HAVEN'T TOUCHED IT IN LIKE 2 OR 3 YEARS THO. I'M CLEAN OF THAT NOW." },
+    { s: 'mustie', t: "IF I COULD STOP CS THEN I'D BE A NEW MAN FR." },
+    { s: 'freddie', t: 'ANY @COUNTER-STRIKE THO?' },
+    { s: 'jayc', t: 'One addiction at a time. Minnos is waiting. The boys are waiting. Get off the throne.' },
     { s: 'mustie', t: 'WHOLE MILK. OR NOTHING.' },
   ],
   victory: [
     { s: 'none', t: 'The march winds down to one last cymbal. Mustie sinks to the floor.' },
     { s: 'none', t: 'And then nothing. A room. A window. Ordinary Glasgow light.' },
-    { s: 'mustie', t: '...Jamie? where are the boys. i love all of you. even peanut-brain Freddie.' },
-    { s: 'jayc', t: 'I know. They are all right behind you. Minnos too. He is fine.' },
+    { s: 'mustie', t: '...Jamie? Where are the boys?' },
+    { s: 'mustie', t: "YEAH, I DON'T LIKE ANY OF YOU GUYS." },
+    { s: 'none', t: 'A beat.' },
+    { s: 'mustie', t: 'I LOVE ALL OF YOU.' },
+    { s: 'jayc', t: 'I know. They are all right behind you. Minnos too.' },
+    { s: 'mustie', t: 'MINNOS BUFF.' },
     { s: 'jayc', t: 'Come on. I am making dinner after.' },
     { s: 'none', t: 'JAYC SENT THE PING. AND THIS TIME, EVERYONE CAME RUNNING.' },
     { s: 'none', t: 'A beat after the credits, one notification remains.' },
@@ -2306,17 +2401,25 @@ function secretRoomStory(kind) {
   if (kind === 'winston') return [
     { s: 'winston', t: 'IT IS WHITE GIRL WINSTON WEDNESDAY!' },
     { s: 'jayc', t: 'It is not even Wednesday, Winston.' },
+    { s: 'none', t: 'The Feed tries to copy Winston. It gives up.' },
+    { s: 'jayc', t: 'For once, being a chat bot makes you immune.' },
     { s: 'winston', t: 'HOW EMBARRASSING!' },
   ];
   if (kind === 'connor') return [
     { s: 'none', t: 'The channel name becomes a physical law.' },
-    { s: 'jayc', t: 'HOLY SHT STFU CONNOR.' },
+    { s: 'callum', t: 'HOLY SHT STFU CONNOR.' },
+    { s: 'connor', t: 'THE FUCK?' },
+    { s: 'connor', t: 'YOUR A TWAT.' },
+    { s: 'harold', t: 'HIS A TWAT WHAT?' },
     { s: 'none', t: 'Enemy projectiles are silenced for twenty seconds.' },
   ];
   return [
-    { s: 'jayc', t: 'A room outside the arena. Of course Dom is in here.' },
+    { s: 'olive', t: 'WHAT WAIT WHY ARE U INSIDE THE BOX? UR OUTSIDE THE BOX. THATS LIKE UR WHOLE THING.' },
+    { s: 'dom', t: 'JAMIE POINTED OUT IVE BEEN OUTSIDE THE BOX SO LONG IVE FORGOTTEN WHATS INSIDE. IM HAVING A MOMENT OF SELF-CLARITY.' },
+    { s: 'olive', t: 'GET OUT THE BOX PLS FOR OUR SAKES.' },
+    { s: 'dom', t: 'IM SORRY IVE BECOME TOO ENLIGHTENED.' },
     { s: 'none', t: 'PROS STICK. Bullets now pierce one extra target.' },
-    { s: 'jayc', t: 'The C stands for copyright infringement.' },
+    { s: 'jayc', t: 'President of the esports soc. Not a gamer. Too enlightened. Understood.' },
   ];
 }
 
@@ -2742,7 +2845,7 @@ function updateCait(e, toP, d) {
     FX.addShake(6); FX.addFlash(0.3);
     FX.burst(e.x, e.y, 44, ['#a8e063', '#fffbe6'], 3.2, 28);
     setHint('CAIT FLOODS THE ISLAND', 110);
-    setBark('CAIT', 'I KEPT GETTING SEA BASSES.', 150, true);
+    setBark('CAIT', 'I CAN EXPLAIN.', 150, true);
     Game.obamaT = 180;
   }
 
@@ -2781,7 +2884,7 @@ function updateMustie(e, toP, d) {
     FX.addShake(7); FX.addFlash(0.34); FX.addHitstop(8);
     FX.burst(e.x, e.y, 60, ['#f5c542', '#ffffff'], 3.6, 32);
     setHint(newPhase === 2 ? 'THE MEHTER QUICKENS' : 'FINAL MOVEMENT - ALLA TURCA', 130);
-    setBark('MUSTIE', newPhase === 2 ? 'STAY DOWN HERE. IT IS #BLESSED.' : 'WHOLE MILK OR NOTHING.', 150, true);
+    setBark('MUSTIE', newPhase === 2 ? 'SKIMMED IS LIKE WATER.' : 'WHOLE MILK OR NOTHING.', 150, true);
   }
 
   e.atkT++;
@@ -2849,7 +2952,7 @@ function updateWerder(e, toP, d) {
     FX.addShake(6); FX.addFlash(0.3);
     FX.burst(e.x, e.y, 48, ['#5f82ff', '#f5c542'], 3.4, 30);
     setHint('WERDER DROPS THE BEAT', 110);
-    setBark('WERDER', 'BOGOS BINTED?', 150, true);
+    setBark('WERDER', "KEEP TALKING JAMIE. YOU'RE JUST A SMALL MAN IN A TINY WORLD.", 180, true);
   }
   const sp = e.speed * (e.phase === 2 ? 1.6 : 1);
   if (d > 50) { e.vx += Math.cos(toP) * sp * 0.2; e.vy += Math.sin(toP) * sp * 0.2; }
@@ -2885,7 +2988,7 @@ function updateHarold(e, toP, d) {
     FX.addShake(6); FX.addFlash(0.3);
     FX.burst(e.x, e.y, 48, ['#e0504f', '#8a97b0'], 3.4, 30);
     setHint('HAROLD IS TILTED', 110);
-    setBark('HAROLD', 'VERTIGO. ONE MORE.', 150, true);
+    setBark('HAROLD', 'IM AN ACTUAL CS GENIUS.', 150, true);
     unlockAchievement('vod');
   }
   const sp = e.speed * (e.phase === 2 ? 1.7 : 1);
@@ -3017,7 +3120,13 @@ function updateWaves() {
     Game.waveGap = 70;
     const calls = FLOOR_CALLOUTS[Game.level];
     setHint(calls ? pick(calls) : 'WAVE ' + (Game.waveIndex + 1) + ' OF ' + L.waves.length, 100);
-    if (Math.random() < 0.32 || (Game.cModifier && Game.cModifier.id === 'catty')) winstonBark('wave');
+    const scripted = FLOOR_WAVE_BARKS[Game.level] && FLOOR_WAVE_BARKS[Game.level][Game.waveIndex - 1];
+    if (scripted) {
+      // Never erase a time-sensitive "someone bailed" notification.
+      if (!(Game.bark && Game.bark.bail)) setBark(scripted.s, scripted.t, 180, true);
+    } else if (Math.random() < 0.32 || (Game.cModifier && Game.cModifier.id === 'catty')) {
+      winstonBark('wave');
+    }
     queueWave(L.waves[Game.waveIndex]);
     return;
   }
@@ -4146,7 +4255,8 @@ function boot() {
 /* Test handle. Lets the smoke test drive the machine without pretending to
    be a person mashing keys for four minutes. */
 window.__jayc = {
-  Game, View, LEVELS, WEAPONS, QUOTE_BANK, SECRET_ROOMS, CAMEOS, ACHIEVEMENTS, FX, Snd, Net,
+  Game, View, LEVELS, WEAPONS, QUOTE_BANK, STORY, SPEAKERS, FLOOR_WAVE_BARKS,
+  SECRET_ROOMS, CAMEOS, ACHIEVEMENTS, FX, Snd, Net,
   get state() { return Game.state; },
   get scale() { return View.scale; },
   get smoothing() { return sctx.imageSmoothingEnabled; },
