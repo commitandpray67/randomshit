@@ -1,5 +1,8 @@
 -- JayC: The Rise of the Gooners — leaderboard for the game served at /jayc.
 -- Run against your Postgres:  psql "$DATABASE_URL" -f db/migrations/004_jayc.sql
+--
+-- No psql? Paste db/neon-jayc.sql into the Neon SQL editor instead. It does
+-- the same thing, is safe to re-run, and prints a report at the end.
 
 -- Signing in to post a game score creates a `users` row just like signing in to
 -- track friends does, but a game player never asked us to call the Steam API on
