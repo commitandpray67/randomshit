@@ -980,11 +980,11 @@ function renderFinalPetCat(g, camX, camY, showLabel = true) {
   }
 }
 
-const PUPPY = { name: 'BRACKEN', idleDelay: 60, cooldown: 60 * 60, duration: 8 * 60, damage: 8, biteRate: 40, tauntRadius: 90 };
+const PUPPY = { name: 'BRACKEN', idleDelay: 60, cooldown: 45 * 60, duration: 8 * 60, damage: 8, biteRate: 40, tauntRadius: 90 };
 const PUPPY_RESCUE = {
   floor: 3, wave: 1, multiplier: 4,
   swarmTime: 240, distantTime: 120, revealTime: 240, panTime: 120,
-  minChargeTime: 360, maxChargeTime: 720, biteRate: 8, greetingTime: 180,
+  minChargeTime: 240, maxChargeTime: 480, biteRate: 8 / 1.5, chargeSpeed: 9, greetingTime: 180,
   lines: {
     swarm: { s: 'JAYC', t: 'I ASKED FOR A FIFTH. NOT THE ENTIRE SERVER!' },
     distant: { s: 'JAYC', t: 'HANG ON... I KNOW THAT BARK.' },
@@ -1411,6 +1411,8 @@ const Snd = {
     harold:  { b64: AUDIO_HAROLD, src: 'audio/harold.mp3',  buffer: null, loading: false }
   },
   trackSrc: null, wantTrack: null,
+  // Pending "give the download a moment before falling back to the synth" timer.
+  fallbackTimer: null,
 
   startMusic(scale, boss, song) {
     this.scale = scale; this.boss = !!boss; this.step = 0;
@@ -1440,9 +1442,6 @@ const Snd = {
     };
     if (tr.buffer) { go(); return; }
 
-    // Decoding is async either way, so the synth theme starts immediately and
-    // is swapped out the moment the real track is ready. A boss fight is never
-    // silent while a download is in flight.
     const decode = (arrayBuffer) => {
       this.ctx.decodeAudioData(arrayBuffer, (buf) => {
         tr.buffer = buf;
@@ -1464,18 +1463,59 @@ const Snd = {
       return;
     }
 
-    // Web build: the mp3 sits next to index.html. Play the synth theme now and
-    // upgrade when the fetch lands; a failed fetch just means we keep it.
-    this.fallbackSong(name);
-    if (tr.loading) return;
+    /* Web build: the mp3 is a sibling file. It should already be decoded --
+       preloadTrack() starts it when the floor does -- so the usual path is the
+       `tr.buffer` return above.
+
+       If it is somehow not ready, do NOT drop to the synth immediately. Doing
+       that guarantees the wrong theme plays for as long as the download takes,
+       which on a hosted build is a second or two of clearly-wrong music before
+       it snaps over. Give the fetch a short grace period instead: silence is
+       less jarring than the wrong track, and a ready buffer inside the grace
+       means the boss theme simply starts on time. */
+    this.loadTrack(name);
+    if (this.fallbackTimer) clearTimeout(this.fallbackTimer);
+    this.fallbackTimer = setTimeout(() => {
+      this.fallbackTimer = null;
+      if (this.wantTrack === name && !tr.buffer) this.fallbackSong(name);
+    }, 600);
+  },
+
+  /* Fetch and decode a track without playing it. Called when a floor starts so
+     the boss theme is in memory long before the boss appears. Idempotent, and
+     safe to call for a track that is embedded or already loaded. */
+  preloadTrack(name) {
+    const tr = this.tracks[name];
+    if (!tr || tr.buffer || tr.b64 || !tr.src || tr.loading) return;
+    if (!this.ctx) return;   // no audio context yet; playTrack will fetch later
+    this.loadTrack(name);
+  },
+
+  loadTrack(name) {
+    const tr = this.tracks[name];
+    if (!tr || tr.loading || tr.buffer || !tr.src || !this.ctx) return;
     tr.loading = true;
     fetch(this.assetBase() + tr.src)
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-      .then(decode)
-      .catch(() => {})
+      .then((buf) => new Promise((res, rej) => this.ctx.decodeAudioData(buf, res, rej)))
+      .then((buf) => {
+        tr.buffer = buf;
+        if (this.wantTrack !== name) return;
+        // The boss is already fighting and the grace period may have started
+        // the synth. Stop it and hand over to the real track.
+        if (this.fallbackTimer) { clearTimeout(this.fallbackTimer); this.fallbackTimer = null; }
+        if (this.timer) { clearInterval(this.timer); this.timer = null; }
+        this.song = null;
+        this.playTrack(name);
+      })
+      .catch(() => { if (this.wantTrack === name) this.fallbackSong(name); })
       .then(() => { tr.loading = false; });
   },
-  stopTrack() { if (this.trackSrc) { try { this.trackSrc.stop(); } catch (e) {} this.trackSrc = null; } this.wantTrack = null; },
+  stopTrack() {
+    if (this.fallbackTimer) { clearTimeout(this.fallbackTimer); this.fallbackTimer = null; }
+    if (this.trackSrc) { try { this.trackSrc.stop(); } catch (e) {} this.trackSrc = null; }
+    this.wantTrack = null;
+  },
   fallbackSong(name) {
     this.song = SONGS[name] || null;
     if (!this.ctx || this.timer) return;
@@ -1724,9 +1764,9 @@ const UPGRADES = [
 const ENEMY_MEMBERS = {
   gooner: {
     id: 'mochi', name: 'MOCHI', color: '#c89bff', lines: [
-      'JUST ONE MORE PULL...', 'BASICALLY GLOBAL...', 'I AM THE CSGO OVERSEER!',
-      'CAN EVERYONE STOP SKULLING ME PLS X', 'THIS IS UNFAIR', 'ANY GAMERS X',
-      'I AM GONNA RUN AND GET ICE CREAM', 'STOP STEALING MY GUYS', 'GO.',
+      'JUST ONE MORE PULL...', 'BASICALLY GLOBAL...', 'GO.',
+      'INFERNO MY LOVE', "IT'S A LEARNING EXPERIENCE FOR THEM LOL",
+      'IF U KEEP AN OPEN MIND ALL TEAMMATES ARE NICE',
       'CLAUDE DESTROYED UR ASS FR JAYC', 'URE NOT MAKING ANY SENSE JAYC',
     ],
   },
@@ -1768,7 +1808,7 @@ const RECRUIT_ORDER = ['mochi', 'squid', 'alexso', 'dom', 'connor'];
 const RECRUIT_NAMES = { jayc: 'JAYC', mochi: 'MOCHI', squid: 'SQUID', alexso: 'ALEXSO', dom: 'DOM', connor: 'CONNOR' };
 // Real excuses from the server export. A full five-stack is never permanent.
 const BAIL_LINES = {
-  mochi: 'I AM GONNA RUN AND GET ICE CREAM.',
+  mochi: 'I SLEEP.',
   squid: 'I GO SLEEP.',
   alexso: 'OK I GOTTA DO SOMETHING IN MY CHIPPY.',
   dom: 'MEETING MY NEW ADVISOR TOMORROW. GOTTA BE UP BRIGHT AND EARLY.',
@@ -2141,10 +2181,10 @@ const STORY = {
     { s: 'jayc', t: "Get the boys out. Break the Feed. Be home for dinner. Gondor calls for aid. Let's go." },
   ],
   l1_out: [
-    { s: 'jayc', t: 'First loop broken. Mochi? You still in there?' },
-    { s: 'mochi', t: 'I AM THE CSGO OVERSEER!' },
+    { s: 'jayc', t: 'First loop broken. Eevie? You still in there?' },
+    { s: 'eevie', t: 'I AM THE CSGO OVERSEER!' },
     { s: 'jayc', t: 'Excellent. Oversee the accept button.' },
-    { s: 'mochi', t: 'CAN EVERYONE STOP SKULLING ME PLS X' },
+    { s: 'eevie', t: 'CAN EVERYONE STOP SKULLING ME PLS X' },
     { s: 'none', t: 'A skull reaction appears. Then another. The voice channel crackles back to life.' },
     { s: 'jayc', t: 'They can hear us. Terrible news for you. Good news for the rescue.' },
     { s: 'none', t: 'Above the stairs: ESTIMATED WAIT, ONE MORE. It does not specify a unit.' },
@@ -2746,9 +2786,7 @@ function renderPuppy(g, camX, camY) {
   } else if (puppyRescueBusy() && ['reveal', 'charge'].includes(Game.puppyRescue.phase)) {
     g.fillStyle = 'rgba(10,8,16,0.88)'; g.fillRect(x - 26, y - 28, 52, 12);
     drawText(g, 'BRACKEN', x, y - 25, '#fff0d0', 'center');
-    if (Game.puppyRescue.phase === 'reveal') {
-      drawText(g, "JAYC'S PUP", x, y + 15, '#f3cd91', 'center');
-    } else {
+    if (Game.puppyRescue.phase === 'charge') {
       const wave = 15 + Game.frames % 18;
       g.strokeStyle = 'rgba(243,205,145,0.5)'; g.beginPath();
       g.arc(x, y, wave, -0.6, 0.6); g.stroke();
@@ -2840,10 +2878,11 @@ function updatePuppyRescue() {
     mobs.sort((a, b) => dist2(a.x, a.y, dog.x, dog.y) - dist2(b.x, b.y, dog.x, dog.y));
     if (mobs.length) {
       const target = mobs[0];
-      movePuppy(target.x, target.y, 6);
-      if (scene.biteT > 0) scene.biteT--;
-      if (!scene.biteT && dist2(target.x, target.y, dog.x, dog.y) < 28 * 28 && puppyClearPath(dog.x, dog.y, target.x, target.y, 0)) {
-        scene.biteT = PUPPY_RESCUE.biteRate;
+      movePuppy(target.x, target.y, PUPPY_RESCUE.chargeSpeed);
+      // Preserve fractional timing for the 50% speedup without banking attacks in transit.
+      scene.biteT = Math.max(-1, scene.biteT - 1);
+      if (scene.biteT <= 0 && dist2(target.x, target.y, dog.x, dog.y) < 28 * 28 && puppyClearPath(dog.x, dog.y, target.x, target.y, 0)) {
+        scene.biteT += PUPPY_RESCUE.biteRate;
         damageEnemy(target, target.hp, angleTo(dog.x, dog.y, target.x, target.y), 0.4);
         FX.burst(dog.x, dog.y, 5, ['#f3cd91', '#fff0d0'], 1.6, 12);
       }
@@ -2865,7 +2904,7 @@ function updatePuppyRescue() {
   const spot = puppyFollowSpot();
   movePuppy(spot.x, spot.y, 3);
   if (scene.t >= PUPPY_RESCUE.greetingTime) {
-    // His first normal burst is ready for wave three; subsequent bursts rest 60s.
+    // His first normal burst is ready for wave three; subsequent bursts rest 45s.
     dog.rescueComplete = true; dog.active = 0; dog.cooldown = 0; dog.biteCd = 0;
     dog.idleFrames = 0; dog.lastPlayerX = p.x; dog.lastPlayerY = p.y;
     Game.puppyRescue = null; Game.waveGap = 180;
@@ -3075,6 +3114,13 @@ function startLevel(index) {
   }
 
   Snd.startMusic(L.scale, false);
+  /* Start pulling this floor's boss theme now. In the hosted build the track is
+     a separate file, and fetching it at the moment the boss spawns meant the
+     fight opened on the wrong music while a couple of megabytes downloaded.
+     The floor's waves give it minutes of head start, so by the time the boss
+     appears the buffer is decoded and its theme starts on the beat. Embedded
+     builds already have it and this is a no-op. */
+  if (L.boss) Snd.preloadTrack(bossSong(L.boss));
   setHint(L.name + (Game.cModifier ? '  C STANDS FOR ' + Game.cModifier.name : ''), 180);
   queueWave(L.waves[0]);
   if (finalPetsBusy()) setHint('BRACKEN HAS FOUND A BETTER PARTY.', 240);
@@ -3527,7 +3573,6 @@ function updatePlayer() {
   if (Input.hit('KeyQ')) clarityBlast();
 
   if (p.invuln > 0) p.invuln--;
-  if (p.hurtFlash > 0) p.hurtFlash--;
 
   // pickup magnetism
   for (const pk of Game.pickups) {
@@ -5374,6 +5419,13 @@ function tick() {
   Game.frames++;
   if (Game.obamaT > 0) Game.obamaT--;
   if (Game.achievementTimer > 0) Game.achievementTimer--;
+  /* The hit flash swaps in a solid-white sprite for 12 frames, and it used to
+     tick down only inside updatePlay(). Anything that draws the player without
+     running that -- a story beat, the upgrade screen, a floor transition,
+     Bracken's rescue -- froze the flash on, so a hit taken just before one of
+     those left JayC a white silhouette until play resumed. It is cosmetic, so
+     it belongs here with the other frame timers, independent of game state. */
+  if (Game.player && Game.player.hurtFlash > 0) Game.player.hurtFlash--;
   else Game.achievementToast = null;
   updateBarks();
   for (const t of Game.ungoonTags) t.life--;
