@@ -68,18 +68,13 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ## 3. Get the code
 
 ```sh
+apt install -y git
 cd /opt
 git clone https://github.com/commitandpray67/randomshit.git
 cd randomshit/steam-friends-web
 ```
 
-The repository is private, so `git clone` will ask for a username and
-password. The password is a **GitHub personal access token**, not your GitHub
-password: GitHub → Settings → Developer settings → Fine-grained tokens → give it
-read-only *Contents* access to this one repository.
-
-This deploys the default branch, `steamfriends`. The VPS setup is new, so merge
-it into `steamfriends` before this step (or `git checkout` the branch it's on).
+This deploys the default branch, `steamfriends` — the same code Vercel runs.
 
 ## 4. Configure
 
@@ -96,7 +91,13 @@ The file explains each value. Two things matter most:
 - Copy the rest from **Vercel → Project → Settings → Environment Variables**.
   For `DATABASE_URL_UNPOOLED`, use Neon's *direct* connection string — the one
   without `-pooler` in the host name. If Vercel has the Neon integration, it's
-  already there under that name.
+  already there under that name; otherwise it's in the Neon console under
+  **Connect**, with connection pooling switched off.
+- Vercel won't show a variable marked *Sensitive*. For those:
+  `DATABASE_URL` is in the Neon console under **Connect**, `STEAM_API_KEY` is
+  shown at <https://steamcommunity.com/dev/apikey>, and `SESSION_SECRET` can
+  simply be a new one from `openssl rand -hex 32` — it only signs login
+  cookies, and this host has its own login anyway.
 
 Save with <kbd>Ctrl</kbd>+<kbd>O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>.
 
