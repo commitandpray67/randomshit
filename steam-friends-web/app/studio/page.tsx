@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { isOverlayAllowed } from "@/lib/overlay";
 import { studioScene, getElements } from "@/lib/scene";
 import StudioEditor from "@/components/StudioEditor";
+import { currentOrigin } from "@/lib/apphost";
 
 /**
  * Overlay studio — the canvas editor.
@@ -17,8 +18,6 @@ export const metadata = {
   title: "Overlay studio",
   robots: { index: false, follow: false },
 };
-
-const SITE = process.env.APP_URL || "https://steamfriends.xyz";
 
 // The channel the canvas shows behind the elements while you arrange them, so
 // you're positioning against the actual stream rather than against nothing.
@@ -36,9 +35,13 @@ export default async function StudioPage() {
   const steamId = await getSession();
   // Straight to Steam and back here, rather than to the home page: on the
   // studio's own host there is nothing on the home page you came for.
-  if (!steamId) redirect("/api/auth/steam?next=/studio");
+  if (!steamId) redirect("/api/auth/steam?to=studio");
   if (!isOverlayAllowed(steamId)) notFound();
 
+  // Browser-source URLs are built from the host this page was reached on, not
+  // from APP_URL: whoever is here needs a URL that loads for them, and the
+  // canonical domain is unreachable on some connections.
+  const site = await currentOrigin();
   const scene = await studioScene(steamId);
   const elements = await getElements(scene.id);
 
@@ -50,7 +53,7 @@ export default async function StudioPage() {
         initialCanvas={{ w: scene.canvasW, h: scene.canvasH }}
         initialElements={elements as any}
         initialVersion={scene.version}
-        siteUrl={SITE}
+        siteUrl={site}
         previewChannel={PREVIEW_CHANNEL}
       />
     </>

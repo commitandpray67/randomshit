@@ -96,8 +96,14 @@ take the studio back. It's ignored on the studio host itself, so copying every
 variable across doesn't make that host redirect to itself.
 
 Signing in on the studio host sends you back to the studio rather than the
-dashboard: `/api/auth/steam?next=` accepts `/dashboard`, `/studio` or
-`/overlay` and nothing else, so it can't be turned into an open redirect.
+dashboard: `/api/auth/steam?to=` takes a name — `studio`, `jayc` or `overlay`,
+nothing else — and remembers it in a short-lived cookie, so it can't be turned
+into an open redirect and Steam's signed return URL never changes.
+
+`/lite/<key>` is served by both hosts and deliberately isn't redirected: it
+polls rather than streams, so it runs fine on Vercel, and on a throttled
+connection an extra redirect hop is one more request to lose. The studio shows
+it on whichever host you're using.
 
 ## Ads (Google AdSense)
 
@@ -515,6 +521,28 @@ So idle pool connections close after 20 seconds, and the `LISTEN` connection is
 shared and refcounted: it opens with the first stream and closes 30 seconds
 after the last one goes. With nobody in the studio, no connections are held.
 
+### Lite browser source (`/lite/<key>`)
+
+The same scene, rendered as one self-contained request of ~5 KB: hand-written
+HTML with inline vanilla JS, no framework bundle. `/scene/<key>` needs ~383 KB
+across 8 requests, most of it React chunks.
+
+That matters on a connection that truncates long responses. Russian ISPs have
+been capping foreign-hosted content at roughly 16 KB — measured on one
+streamer: `HTTP 200`, 16,506 of 65,536 bytes at 27 B/s, then connection reset.
+The normal page is 23x over that cliff and can never finish; the lite page fits
+under it. Measured 38x smaller, and it renders identically.
+
+It polls rather than using SSE on purpose: a long-lived stream is exactly what
+a throttling middlebox resets, while a small periodic request either arrives or
+is retried a second later. The version check costs ~60 bytes when nothing has
+changed, and elements ease between transforms the same way, so motion still
+looks smooth.
+
+The URL is on the studio page next to the normal one. The editor itself stays
+too heavy for such a connection — build scenes with a VPN on, then let OBS run
+the lite URL without one.
+
 ### Widget safety
 
 Custom-HTML widgets render in an iframe sandboxed **without** `allow-same-origin`.
@@ -530,6 +558,34 @@ that serverless can't provide. This is the single-editor subset: one person
 arranging elements, rendered live in OBS. If you ever want the full thing, run
 real Pogly (free cloud at pogly.gg, or `ghcr.io/poglyapp/pogly` on any Docker
 host) — it's Apache-2.0.
+
+## Diagnosing a blocked or throttled connection
+
+`/diag` is a self-test the streamer runs in their own browser, with any VPN
+off. It reports what their connection can reach and, crucially, whether
+responses are being cut short.
+
+It is a route handler serving hand-written HTML, not a page — about 6 KB with
+no framework JavaScript. That is the point: the failure it diagnoses truncates
+large responses, so a diagnostic carrying the normal ~103 KB bundle would be
+truncated too and tell you nothing.
+
+What it checks:
+
+1. Whether this origin is reachable at all, and how slowly.
+2. Downloads of 8 / 16 / 32 / 64 / 128 KB, comparing bytes received against
+   bytes promised. Russian ISPs have been capping throttled connections at
+   ~16 KB of content, which shows up as a page that half-loads rather than one
+   that fails cleanly — this finds that cliff and names it.
+3. Whether SSE reaches the browser, or is being buffered or dropped.
+4. Whether `cdn.7tv.app` and Steam's avatar CDN load, since those are fetched
+   directly by the browser and fail independently of where this app is hosted.
+
+The payload endpoint returns random hex rather than repeated filler:
+compressible data would shrink to nothing in transit and hide the limit being
+measured.
+
+**Copy results** puts the whole run on the clipboard as text.
 
 ## What to build next
 

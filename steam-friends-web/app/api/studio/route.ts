@@ -4,12 +4,16 @@ import { isOverlayAllowed } from "@/lib/overlay";
 import { rateLimit } from "@/lib/ratelimit";
 import {
   KINDS,
+  type SceneElement,
   type ElementKind,
   studioScene,
   addElement,
   updateElement,
-  deleteElement,
   deleteAllElements,
+  deleteElements,
+  restoreElements,
+  duplicateElements,
+  restackElements,
   reorderElement,
   applyTransform,
   setCanvasSize,
@@ -82,6 +86,11 @@ export async function POST(req: NextRequest) {
   const scene = await studioScene(steamId);
   const owner = scene.steamId;
 
+  // Elements this request removed or created, echoed back: the editor needs the
+  // removed ones to offer an undo, and the created ones to select them.
+  let removed: SceneElement[] = [];
+  let created: SceneElement[] = [];
+
   switch (action) {
     case "add": {
       const kind = String(body.kind ?? "") as ElementKind;
@@ -113,16 +122,46 @@ export async function POST(req: NextRequest) {
     }
 
     case "delete": {
-      const id = Number(body.id);
-      if (!Number.isFinite(id)) {
+      // One id or many — multi-select deletes the whole selection at once.
+      const ids = Array.isArray(body.ids) ? body.ids : [body.id];
+      const clean = ids.map(Number).filter(Number.isFinite);
+      if (clean.length === 0) {
         return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
       }
-      await deleteElement(scene.id, id);
+      // Handed back so the editor can offer an undo: deleting is shared and
+      // irreversible otherwise, and there is no other way to get it back.
+      removed = await deleteElements(scene.id, clean);
+      break;
+    }
+
+    case "restore": {
+      const list = Array.isArray(body.elements) ? body.elements : [];
+      created = await restoreElements(scene.id, list);
+      break;
+    }
+
+    case "duplicate": {
+      const ids = Array.isArray(body.ids) ? body.ids : [body.id];
+      const clean = ids.map(Number).filter(Number.isFinite);
+      if (clean.length === 0) {
+        return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
+      }
+      created = await duplicateElements(scene.id, clean);
+      break;
+    }
+
+    case "restack": {
+      const ids = Array.isArray(body.ids) ? body.ids : [body.id];
+      const clean = ids.map(Number).filter(Number.isFinite);
+      if (clean.length === 0) {
+        return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
+      }
+      await restackElements(scene.id, clean, body.to === "back" ? "back" : "front");
       break;
     }
 
     case "clear":
-      await deleteAllElements(scene.id);
+      removed = await deleteAllElements(scene.id);
       break;
 
     case "reorder": {
@@ -159,6 +198,8 @@ export async function POST(req: NextRequest) {
       sceneKey: fresh.sceneKey,
       canvas: { w: fresh.canvasW, h: fresh.canvasH },
       elements: await getElements(fresh.id),
+      removed,
+      created,
     },
     { headers: NO_STORE },
   );

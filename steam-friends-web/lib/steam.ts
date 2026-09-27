@@ -13,31 +13,29 @@ const IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_select";
 const API_BASE = "https://api.steampowered.com";
 
 /**
- * Where a login may send you afterwards.
+ * Where a login may send you afterwards, by name.
  *
- * A fixed list rather than "any path on this site": the value arrives in a
- * query string anyone can craft, so accepting arbitrary paths invites the
- * usual tricks (`//evil.example`, `/\evil.example`, encoded variants) that turn
- * a login link into an open redirect. Nothing needs more than these.
+ * `/api/auth/steam?to=<name>` remembers the name in a short-lived cookie and
+ * the return route looks it up here. A fixed list rather than "any path on this
+ * site": the value comes from a query string anyone can craft, and accepting
+ * paths invites the usual tricks (`//evil.example`, `/\evil.example`, encoded
+ * variants) that turn a login link into an open redirect. A Map rather than an
+ * object literal, so names like `constructor` find nothing.
  */
-const AFTER_LOGIN = ["/dashboard", "/studio", "/overlay"] as const;
+const AFTER_LOGIN = new Map<string, string>([
+  ["jayc", "/jayc"],
+  ["studio", "/studio"],
+  ["overlay", "/overlay"],
+]);
 
-export function safeNext(raw: string | null | undefined): string {
-  return AFTER_LOGIN.includes(raw as (typeof AFTER_LOGIN)[number]) ? (raw as string) : "/dashboard";
+/** The path for a known name, or null — the caller then uses the dashboard. */
+export function afterLogin(name: string | null | undefined): string | null {
+  return (name && AFTER_LOGIN.get(name)) || null;
 }
 
-/**
- * Build the URL to send the user to for "Sign in through Steam".
- *
- * `next` rides inside `openid.return_to`, which Steam signs and hands back, so
- * it survives the round trip without any state of our own. It matters most on
- * the studio host, which is a separate origin with its own cookie: without it
- * a login there lands on the dashboard and the studio has to be found again.
- */
-export function buildLoginUrl(appUrl: string, next?: string): string {
-  const dest = next ? safeNext(next) : null;
-  const returnTo =
-    `${appUrl}/api/auth/steam/return` + (dest && dest !== "/dashboard" ? `?next=${encodeURIComponent(dest)}` : "");
+/** Build the URL to send the user to for "Sign in through Steam". */
+export function buildLoginUrl(appUrl: string): string {
+  const returnTo = `${appUrl}/api/auth/steam/return`;
   const params = new URLSearchParams({
     "openid.ns": OPENID_NS,
     "openid.mode": "checkid_setup",

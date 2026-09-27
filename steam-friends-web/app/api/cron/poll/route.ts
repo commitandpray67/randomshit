@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const users = await sql`SELECT steam_id FROM users`;
+  // Only people who actually use the tracker. Signing in purely to post a
+  // JayC leaderboard score leaves tracker_opt_in false, and we have no
+  // business spending Steam API calls on them.
+  const users = await sql`SELECT steam_id FROM users WHERE tracker_opt_in`;
   const summary: Record<string, unknown>[] = [];
 
   for (const u of users) {

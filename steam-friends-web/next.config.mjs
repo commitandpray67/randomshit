@@ -49,6 +49,13 @@ const nextConfig = {
       { source: "/scene/:key", destination: `${studioOrigin}/scene/:key`, permanent: false },
     ];
   },
+
+  // The game is a static file in public/jayc/. Next serves public files at
+  // their literal path and does not do directory indexes, so /jayc alone
+  // would 404 without this.
+  async rewrites() {
+    return [{ source: "/jayc", destination: "/jayc/index.html" }];
+  },
 };
 
 export default nextConfig;

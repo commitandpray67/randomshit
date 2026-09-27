@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Private per-user pages and API routes shouldn't be indexed.
-      disallow: ["/dashboard", "/overlay", "/studio", "/scene", "/diag", "/api/"],
+      disallow: ["/dashboard", "/overlay", "/studio", "/scene", "/lite", "/diag", "/api/"],
     },
     sitemap: `${SITE}/sitemap.xml`,
     host: SITE,

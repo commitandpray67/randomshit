@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLogin, getPlayerSummaries, safeNext } from "@/lib/steam";
+import { currentOrigin } from "@/lib/apphost";
+import { verifyLogin, getPlayerSummaries, afterLogin } from "@/lib/steam";
 import { createSession } from "@/lib/session";
 import { sql } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // GET /api/auth/steam/return → Steam redirects here after login.
 export async function GET(req: NextRequest) {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = await currentOrigin(req.headers);
 
   // Burst protection: this endpoint verifies with Steam and writes to the DB.
   const rl = rateLimit(`login-return:${clientIp(req)}`, 15, 60);
@@ -37,16 +38,24 @@ export async function GET(req: NextRequest) {
     // Non-fatal, we can still log the user in without their display name.
   }
 
+  // Someone arriving from the game only wants a leaderboard identity, so their
+  // new row opts out of the daily Steam poll. On conflict the column is left
+  // alone: an existing tracker user signing in via the game keeps tracking, and
+  // syncUser() opts a game player in the moment they use the dashboard.
+  const after = req.cookies.get("sfw_after")?.value;
+  const fromGame = after === "jayc";
+
   await sql`
-    INSERT INTO users (steam_id, display_name, avatar)
-    VALUES (${steamId}, ${displayName}, ${avatar})
+    INSERT INTO users (steam_id, display_name, avatar, tracker_opt_in)
+    VALUES (${steamId}, ${displayName}, ${avatar}, ${!fromGame})
     ON CONFLICT (steam_id) DO UPDATE SET
       display_name = COALESCE(EXCLUDED.display_name, users.display_name),
       avatar = COALESCE(EXCLUDED.avatar, users.avatar)
   `;
 
   await createSession(steamId);
-  // Re-checked here rather than trusted: this is the request's own query
-  // string, which is not what Steam signed.
-  return NextResponse.redirect(`${appUrl}${safeNext(query.get("next"))}`);
+
+  const res = NextResponse.redirect(`${appUrl}${afterLogin(after) ?? "/dashboard"}`);
+  if (after) res.cookies.delete("sfw_after");
+  return res;
 }

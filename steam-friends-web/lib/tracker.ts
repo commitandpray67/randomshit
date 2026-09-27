@@ -47,7 +47,8 @@ export async function syncUser(
     current = await getFriendList(steamId);
   } catch (e: any) {
     if (e?.code === "private") {
-      await sql`UPDATE users SET api_visibility = 'private', last_polled = now()
+      await sql`UPDATE users SET api_visibility = 'private', last_polled = now(),
+                       tracker_opt_in = true
                 WHERE steam_id = ${steamId}`;
       return { status: "private" };
     }
@@ -112,7 +113,10 @@ export async function syncUser(
       await logEvent(tx, steamId, r.friend_steam_id, r.name, "removed");
     }
 
-    await tx`UPDATE users SET api_visibility = 'public', last_polled = now()
+    // Syncing is the act that opts someone into the daily poll — a player who
+    // first signed in through the game becomes a tracker user right here.
+    await tx`UPDATE users SET api_visibility = 'public', last_polled = now(),
+                    tracker_opt_in = true
              WHERE steam_id = ${steamId}`;
   });
 

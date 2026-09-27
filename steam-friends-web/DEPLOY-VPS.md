@@ -124,7 +124,8 @@ Caddy fetches the TLS certificate by itself once DNS from step 1 points here.
 2. Open **`https://studio.steamfriends.xyz/studio`**. It sends you to Steam to
    sign in and back to the studio. (It's a separate login from the main site —
    one sign-in per browser.)
-3. The *Browser source* box now shows a `studio.steamfriends.xyz/scene/…` URL.
+3. The *Browser source* box now shows `studio.steamfriends.xyz/scene/…` and
+   `/lite/…` URLs.
 
 Every other page on this host redirects to `steamfriends.xyz`. That's
 deliberate — only the studio lives here.
@@ -142,6 +143,10 @@ Now `steamfriends.xyz/studio` and every `steamfriends.xyz/scene/<key>` redirect
 here. **OBS follows the redirect**, so existing browser sources keep working
 without anyone re-pasting a URL — though pasting the new one from the studio
 saves a hop.
+
+`/lite/<key>` URLs are left alone: they poll rather than stream, so they work
+the same from either host, and the ones already in OBS keep loading from
+`steamfriends.xyz`.
 
 ---
 
