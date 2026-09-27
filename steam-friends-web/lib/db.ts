@@ -5,8 +5,27 @@ if (!process.env.DATABASE_URL) {
   console.warn("DATABASE_URL is not set — database calls will fail.");
 }
 
+/**
+ * Neon's connection strings now end in `channel_binding=require`. postgres.js
+ * doesn't know that option, so it forwards it to the server as a setting, and
+ * the server refuses the connection: `unrecognized configuration parameter
+ * "channel_binding"`. postgres.js doesn't do channel binding either way, so
+ * dropping it loses nothing and lets Neon's string be pasted as-is.
+ */
+function dbUrl(url: string | undefined): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has("channel_binding")) return url;
+    u.searchParams.delete("channel_binding");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 // A single shared connection pool. postgres.js handles pooling internally.
-export const sql = postgres(process.env.DATABASE_URL ?? "", {
+export const sql = postgres(dbUrl(process.env.DATABASE_URL), {
   // Supabase/Neon poolers speak SSL; most managed URLs include sslmode already.
   // Uncomment if your provider needs it explicitly:
   // ssl: "require",
@@ -31,11 +50,11 @@ export const sql = postgres(process.env.DATABASE_URL ?? "", {
  * NOTIFY has no such constraint: it commits with the surrounding statement, so
  * the writers keep using the pooled `sql` above.
  */
-const LISTEN_URL =
+const LISTEN_URL = dbUrl(
   process.env.DATABASE_URL_UNPOOLED ??
-  process.env.POSTGRES_URL_NON_POOLING ??
-  process.env.DATABASE_URL ??
-  "";
+    process.env.POSTGRES_URL_NON_POOLING ??
+    process.env.DATABASE_URL,
+);
 
 /**
  * Borrowed and returned rather than exported as a singleton, because nothing
