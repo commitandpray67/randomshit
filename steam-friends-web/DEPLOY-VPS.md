@@ -68,7 +68,7 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ## 3. Get the code
 
 ```sh
-apt install -y git
+apt install -y git nano
 cd /opt
 git clone https://github.com/commitandpray67/randomshit.git
 cd randomshit/steam-friends-web
