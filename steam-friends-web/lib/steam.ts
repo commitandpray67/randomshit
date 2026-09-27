@@ -12,9 +12,32 @@ const OPENID_NS = "http://specs.openid.net/auth/2.0";
 const IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_select";
 const API_BASE = "https://api.steampowered.com";
 
-/** Build the URL to send the user to for "Sign in through Steam". */
-export function buildLoginUrl(appUrl: string): string {
-  const returnTo = `${appUrl}/api/auth/steam/return`;
+/**
+ * Where a login may send you afterwards.
+ *
+ * A fixed list rather than "any path on this site": the value arrives in a
+ * query string anyone can craft, so accepting arbitrary paths invites the
+ * usual tricks (`//evil.example`, `/\evil.example`, encoded variants) that turn
+ * a login link into an open redirect. Nothing needs more than these.
+ */
+const AFTER_LOGIN = ["/dashboard", "/studio", "/overlay"] as const;
+
+export function safeNext(raw: string | null | undefined): string {
+  return AFTER_LOGIN.includes(raw as (typeof AFTER_LOGIN)[number]) ? (raw as string) : "/dashboard";
+}
+
+/**
+ * Build the URL to send the user to for "Sign in through Steam".
+ *
+ * `next` rides inside `openid.return_to`, which Steam signs and hands back, so
+ * it survives the round trip without any state of our own. It matters most on
+ * the studio host, which is a separate origin with its own cookie: without it
+ * a login there lands on the dashboard and the studio has to be found again.
+ */
+export function buildLoginUrl(appUrl: string, next?: string): string {
+  const dest = next ? safeNext(next) : null;
+  const returnTo =
+    `${appUrl}/api/auth/steam/return` + (dest && dest !== "/dashboard" ? `?next=${encodeURIComponent(dest)}` : "");
   const params = new URLSearchParams({
     "openid.ns": OPENID_NS,
     "openid.mode": "checkid_setup",

@@ -1,0 +1,54 @@
+# The studio host: the app, with Caddy in front handling TLS. See DEPLOY-VPS.md.
+#
+#   docker compose up -d --build     start, or update after a git pull
+#   docker compose logs -f           watch it
+#
+# Everything is read from .env beside this file (start from .env.vps.example).
+
+name: studio
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_URL: ${APP_URL:?set APP_URL in .env}
+    env_file: .env
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-vps}
+    restart: unless-stopped
+    # Not published: only Caddy talks to it.
+    expose:
+      - "3000"
+    healthcheck:
+      # The smallest thing the app serves that touches no database, so a Neon
+      # hiccup doesn't get the container restarted for nothing.
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:3000/api/diag/payload?kb=1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      MAIN_URL: ${MAIN_URL:-https://steamfriends.xyz}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here. Keep the volume: losing it means asking Let's
+      # Encrypt again, and they rate-limit repeated requests for one name.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

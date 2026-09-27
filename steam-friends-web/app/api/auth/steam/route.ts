@@ -13,5 +13,5 @@ export async function GET(req: NextRequest) {
   }
 
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  return NextResponse.redirect(buildLoginUrl(appUrl));
+  return NextResponse.redirect(buildLoginUrl(appUrl, req.nextUrl.searchParams.get("next") ?? undefined));
 }

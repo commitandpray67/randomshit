@@ -1,0 +1,29 @@
+# The studio host, in front of the app. See DEPLOY-VPS.md.
+#
+# Caddy obtains and renews the TLS certificate for {$DOMAIN} by itself, as soon
+# as DNS points here and ports 80 and 443 are open. Nothing to configure.
+
+{$DOMAIN} {
+	# Only the studio is served from here. The same app is running behind this,
+	# so without the filter every page of the main site would be reachable on
+	# this host too — a second copy of the site, with a separate login.
+	@studio path /studio /studio/* /scene/* /api/studio /api/studio/* /api/scene/* /api/emotes /api/emotes/* /api/auth/* /diag /api/diag/* /_next/* /icon.svg /favicon.ico
+
+	handle @studio {
+		reverse_proxy app:3000 {
+			# Pass each chunk through the moment it arrives. The editors and every
+			# OBS browser source are fed by Server-Sent Events, and a proxy that
+			# buffers them delivers a drag as one lurch at the end.
+			flush_interval -1
+		}
+	}
+
+	# Everything else belongs to the main deployment.
+	handle {
+		redir {$MAIN_URL}{uri} 302
+	}
+
+	# ">" applies it after the app has answered, so it replaces the app's own
+	# header rather than sending two.
+	header >X-Robots-Tag "noindex, nofollow"
+}

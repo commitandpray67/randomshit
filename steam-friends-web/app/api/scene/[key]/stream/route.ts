@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { listenSql } from "@/lib/db";
+import { acquireListener, releaseListener } from "@/lib/db";
 import {
   getSceneByKey,
   getElements,
@@ -79,11 +79,32 @@ export async function GET(
       };
 
       let unlisten: (() => Promise<void>) | null = null;
+      let holding = false;
+
+      /**
+       * Drop the subscription and hand the listening connection back — once,
+       * however the stream ended.
+       *
+       * Separate from `finish` because not every ending goes through it: a
+       * write to a client that has already gone sets `closed` directly, and
+       * `finish` then returns early. Tying the cleanup to `finish` alone left
+       * those streams subscribed for good, which on a long-running server is a
+       * connection that never closes.
+       */
+      const letGo = () => {
+        const u = unlisten;
+        unlisten = null;
+        if (u) void u().catch(() => {});
+        if (holding) {
+          holding = false;
+          releaseListener();
+        }
+      };
 
       const finish = () => {
+        letGo();
         if (closed) return;
         closed = true;
-        void unlisten?.().catch(() => {});
         try {
           controller.close();
         } catch {
@@ -127,7 +148,9 @@ export async function GET(
       // is queued rather than missed.
       if (isChannelSafeKey(key)) {
         try {
-          const sub = await listenSql.listen(sceneChannel(key), (raw) => {
+          const client = acquireListener();
+          holding = true;
+          const sub = await client.listen(sceneChannel(key), (raw) => {
             if (closed) return;
             notifications++;
             try {
@@ -143,12 +166,19 @@ export async function GET(
               dirty = true;
             }
           });
-          unlisten = sub.unlisten;
-          listening = true;
+          if (closed) {
+            // The client left while LISTEN was still being set up, and letGo
+            // has already run — so this subscription is nobody's to undo.
+            void sub.unlisten().catch(() => {});
+          } else {
+            unlisten = sub.unlisten;
+            listening = true;
+          }
         } catch {
           // No listening connection available (a pooled URL, most likely).
           // Polling covers it.
           hot = true;
+          letGo();
         }
       } else {
         hot = true;
@@ -216,6 +246,9 @@ export async function GET(
           // tick retries, and a persistent failure ends with the duration cap.
         }
       }
+
+      // Whatever ended the loop, the subscription ends with it.
+      letGo();
     },
   });
 

@@ -1,0 +1,12 @@
+# Built inside the image; copying the host's would bake in the wrong platform's
+# binaries and a stale build.
+node_modules
+.next
+
+# Secrets never go into an image. The container reads .env at runtime instead.
+.env
+.env.*
+!.env.example
+!.env.vps.example
+
+*.log

@@ -36,7 +36,9 @@ Postgres  ◀── friends + events ──  lib/tracker.ts  ◀──  /api/cro
 
 - Next.js 15 (App Router) — one codebase for UI + API
 - Postgres (Supabase / Neon / local) via `postgres` (postgres.js)
-- Deploys on Vercel; the cron is a Vercel Cron job
+- Deploys on Vercel; the cron is a Vercel Cron job. The overlay studio can
+  optionally run on its own server instead — see
+  [DEPLOY-VPS.md](DEPLOY-VPS.md)
 
 ## Local setup
 
@@ -62,6 +64,7 @@ Fill `.env.local`:
 | `SESSION_SECRET` | `openssl rand -hex 32` |
 | `CRON_SECRET` | `openssl rand -hex 32` |
 | `DATABASE_URL_UNPOOLED` | optional; the direct (non-pooled) Postgres endpoint, for the scene stream's `LISTEN` |
+| `STUDIO_ORIGIN` | optional; where the studio lives when it isn't here, e.g. `https://studio.steamfriends.xyz`. See below |
 
 > Steam's API key registration asks for a domain. For local testing you can
 > register with any domain you control (or `localhost`); the key itself works
@@ -76,6 +79,25 @@ Fill `.env.local`:
    is set, Vercel automatically sends it as the `Authorization: Bearer` header,
    which the endpoint checks.
 4. Create the tables against your production database (run the schema once).
+
+### The studio on its own server
+
+The overlay studio (`/studio` and the OBS source at `/scene/<key>`) holds
+long-lived connections, which serverless handles badly, so it can run on a VPS
+while everything else stays on Vercel against the same database.
+[DEPLOY-VPS.md](DEPLOY-VPS.md) walks through it; the pieces are the
+`Dockerfile`, `docker-compose.yml`, `Caddyfile` and `.env.vps.example` in this
+folder.
+
+The switch is `STUDIO_ORIGIN` on the Vercel side: set it and redeploy, and
+`/studio` and `/scene/*` redirect there (temporary redirects, which OBS
+follows, so existing browser sources keep working). Delete it and redeploy to
+take the studio back. It's ignored on the studio host itself, so copying every
+variable across doesn't make that host redirect to itself.
+
+Signing in on the studio host sends you back to the studio rather than the
+dashboard: `/api/auth/steam?next=` accepts `/dashboard`, `/studio` or
+`/overlay` and nothing else, so it can't be turned into an open redirect.
 
 ## Ads (Google AdSense)
 
@@ -193,6 +215,12 @@ up as a byte count — and says plainly that it's throttling rather than a bug
 here. It also checks streaming, which the overlay's live updates ride on, and
 whether the outside hosts the overlay pulls from are reachable. Results copy to
 the clipboard as text to send on.
+
+It also times this server's round trip to the database (`/api/diag/db`, five
+`select 1`s, rate-limited, reports timings only). On Vercel that's next door;
+with the studio on its own server it crosses the internet on every save, and
+running `/diag` on both hosts compares the two. The top line says which host
+answered (`edge:` is the Vercel region, or `SERVER_NAME` on the VPS).
 
 Two things about it are deliberate:
 
@@ -480,6 +508,12 @@ buffer doesn't care which is feeding it.
 
 The stream closes itself just under the platform's function duration cap and
 reconnects.
+
+On a long-running server connections don't die with the function the way they
+do on Vercel, and one that never closes keeps Neon's compute from suspending.
+So idle pool connections close after 20 seconds, and the `LISTEN` connection is
+shared and refcounted: it opens with the first stream and closes 30 seconds
+after the last one goes. With nobody in the studio, no connections are held.
 
 ### Widget safety
 

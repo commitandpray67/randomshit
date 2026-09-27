@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLogin, getPlayerSummaries } from "@/lib/steam";
+import { verifyLogin, getPlayerSummaries, safeNext } from "@/lib/steam";
 import { createSession } from "@/lib/session";
 import { sql } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
@@ -46,5 +46,7 @@ export async function GET(req: NextRequest) {
   `;
 
   await createSession(steamId);
-  return NextResponse.redirect(`${appUrl}/dashboard`);
+  // Re-checked here rather than trusted: this is the request's own query
+  // string, which is not what Steam signed.
+  return NextResponse.redirect(`${appUrl}${safeNext(query.get("next"))}`);
 }

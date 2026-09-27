@@ -34,7 +34,9 @@ const RESET = `
 
 export default async function StudioPage() {
   const steamId = await getSession();
-  if (!steamId) redirect("/");
+  // Straight to Steam and back here, rather than to the home page: on the
+  // studio's own host there is nothing on the home page you came for.
+  if (!steamId) redirect("/api/auth/steam?next=/studio");
   if (!isOverlayAllowed(steamId)) notFound();
 
   const scene = await studioScene(steamId);

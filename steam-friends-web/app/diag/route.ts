@@ -15,7 +15,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "unknown";
-  const region = process.env.VERCEL_REGION ?? "local";
+  // Which machine answered. Vercel names its region; the VPS sets SERVER_NAME.
+  // With the studio split across two hosts, this is how you tell which one
+  // you're actually talking to — mid-cutover, DNS can say either.
+  const region = process.env.VERCEL_REGION ?? process.env.SERVER_NAME ?? "local";
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -129,13 +132,24 @@ async function run(){
     };
   });
 
-  // 4. Outside hosts the overlay depends on.
+  // 4. This server's distance to its database. Every save from the studio pays
+  // it; on a host that isn't beside the database, it's the likeliest slow link.
+  var d=row('4. Server → database');
+  try{
+    var dr=await fetch('/api/diag/db?_='+Date.now(),{cache:'no-store'});
+    var dj=await dr.json();
+    if(dj.ok) d(dj.median<60?'ok':dj.median<200?'warn':'bad',dj.median+'ms',
+      'per query · first '+dj.first+'ms (includes connecting), then '+dj.all.slice(1).join(', ')+'ms');
+    else d('bad',dj.error||('HTTP '+dr.status));
+  }catch(e){ d('bad','failed',String(e)); }
+
+  // 5. Outside hosts the overlay depends on.
   var ext=[['7TV emote images','https://cdn.7tv.app/emote/60aeab8df6a2c3b332d21139/1x.webp'],
            ['Steam avatars','https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg']];
   for(var j=0;j<ext.length;j++){
     (function(name,url){
       rows.push(new Promise(function(res){
-        var e=row('4. '+name);
+        var e=row('5. '+name);
         var img=new Image(),t=performance.now(),fin=false;
         var to=setTimeout(function(){ if(!fin){fin=true;e('bad','timeout','no response in 10s');res();} },10000);
         img.onload=function(){ if(fin)return;fin=true;clearTimeout(to);e('ok','loaded',ms(t));res(); };
