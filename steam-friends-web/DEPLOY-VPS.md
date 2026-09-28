@@ -169,6 +169,58 @@ Everything goes back to how it was; the VPS can keep running or be stopped with
 
 **Restarts** are automatic — after a crash, or after the server reboots.
 
+## Moving the database closer
+
+Neon's project was created in the US (AWS us-east-1, Virginia), an ocean from a
+server in Europe. Row 4 on `/diag` shows what that costs every save. Neon
+can't move a project, so moving it means a new project, a copy and a switch —
+about 20 minutes, with the studio down for a minute or so during the copy.
+
+Pick a quiet time. Anything saved on the main site between the copy and the
+Vercel switch stays behind in the old database. Avoid 06:00 UTC, when the daily
+poll runs.
+
+**1. Create the new database.** In the Neon console, **New project** (or
+Vercel → **Storage** → **Create Database** → Neon, if the console sends you
+there). Region **AWS Europe Central 1 (Frankfurt)**, Postgres **17**, the same
+version as now. Don't connect it to the Vercel project yet. Then **Connect**,
+switch **Connection pooling off**, **Show password**, **Copy snippet**.
+
+**2. Copy it**, on the studio server:
+
+```sh
+cd /opt/randomshit/steam-friends-web
+git pull
+sh scripts/move-db.sh
+```
+
+Paste the new connection string when it asks. The script:
+- refuses unless the target is a different database with no tables;
+- stops the studio, copies everything and compares every table's row count;
+- only if they all match, points `.env` at the new database (keeping the old
+  one as `.env.before-move`) and starts the studio again.
+
+The old database is only ever read. If it says the counts don't match,
+someone used the site during the copy: delete the new project in Neon, create
+it again and re-run.
+
+**3. Switch Vercel.**
+- **Settings → Environment Variables**: set `DATABASE_URL` to the new
+  connection string *with* pooling on, and `DATABASE_URL_UNPOOLED` to the one
+  without. If Vercel won't let you edit them because the Neon integration
+  manages them, go to **Storage**, disconnect the old database from the
+  project, and connect the new one instead.
+- **Settings → Functions → Function Region**: **Frankfurt (fra1)**. Otherwise
+  the main site's functions stay in Washington, an ocean from their database.
+- **Deployments** → ⋯ → **Redeploy**.
+
+**4. Check.** `/diag` on both hosts: row 4 should drop to tens of milliseconds
+on the studio host and a few on `steamfriends.xyz`. Sign in on the main site
+and open the studio.
+
+Keep the old project for a week in case anything turns up missing, then delete
+it.
+
 ## When something's wrong
 
 | Symptom | Likely cause |
