@@ -59,11 +59,20 @@ L="psql -v ON_ERROR_STOP=1 -U studio -d studio -tA"
 # earlier, unfinished run left here can go.
 $L -c "SET client_min_messages = warning; DROP TABLE IF EXISTS scene_elements, scenes CASCADE" >/dev/null || exit 1
 
+# Give up rather than wait for ever: on connecting, on a lock someone else
+# holds, and on the whole read. What pg_dump was doing when it stopped is
+# kept, and shown if it fails.
+export PGCONNECT_TIMEOUT=20
+
 echo "Reading the studio's tables from Neon..."
-pg_dump "$NEON" -Fc --no-owner --no-acl \
+if ! timeout 180 pg_dump "$NEON" --lock-wait-timeout=30s --verbose -Fc --no-owner --no-acl \
   -t public.scenes -t public.scenes_id_seq \
   -t public.scene_elements -t public.scene_elements_id_seq \
-  -f /tmp/studio.dump || { echo "Couldn't read from Neon."; exit 1; }
+  -f /tmp/studio.dump 2>/tmp/studio.log; then
+  echo "Couldn't read from Neon. The last thing it was doing:"
+  tail -4 /tmp/studio.log | sed 's/^/  /'
+  exit 1
+fi
 
 # Everything but the link from scenes to users: users stay in Neon.
 pg_restore -l /tmp/studio.dump | grep -v 'FK CONSTRAINT public scenes ' > /tmp/studio.list
@@ -79,7 +88,7 @@ Q="select (select count(*) from scenes) || ' scenes, '
        || coalesce((select md5(string_agg(e::text, '|' order by e.id)) from scene_elements e), '-') || ' '
        || (select last_value from scenes_id_seq) || ' '
        || (select last_value from scene_elements_id_seq)"
-A=$(PGTZ=UTC psql "$NEON" -tAc "$Q") || exit 1
+A=$(PGTZ=UTC timeout 60 psql "$NEON" -tAc "$Q") || { echo "Couldn't check Neon's side."; exit 1; }
 B=$(PGTZ=UTC $L -c "$Q") || exit 1
 
 echo

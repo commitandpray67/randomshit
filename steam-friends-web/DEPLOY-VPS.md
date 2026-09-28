@@ -182,8 +182,8 @@ poll runs.
 
 **1. Create the new database.** In the Neon console, **New project** (or
 Vercel → **Storage** → **Create Database** → Neon, if the console sends you
-there). Region **AWS Europe Central 1 (Frankfurt)**, Postgres **17**, the same
-version as now. Don't connect it to the Vercel project yet. Then **Connect**,
+there). Region **AWS Europe Central 1 (Frankfurt)**. The scripts copy with
+Postgres 18's tools, which read 18 and anything older, but not newer. Don't connect it to the Vercel project yet. Then **Connect**,
 switch **Connection pooling off**, **Show password**, **Copy snippet**.
 
 **2. Copy it**, on the studio server:

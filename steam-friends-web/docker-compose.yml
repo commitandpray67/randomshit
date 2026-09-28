@@ -44,7 +44,9 @@ services:
   #
   # Off until the move: the script switches the "studio-db" profile on in .env.
   db:
-    image: postgres:17-alpine
+    # The same major version as Neon runs, so its tools can copy from Neon
+    # (pg_dump refuses a server newer than itself).
+    image: postgres:18-alpine
     profiles: ["studio-db"]
     restart: unless-stopped
     environment:
@@ -52,8 +54,10 @@ services:
       POSTGRES_DB: studio
       POSTGRES_PASSWORD: ${STUDIO_DB_PASSWORD:-}
     # Not published: only the app, and the backups below, talk to it.
+    # From 18 the image keeps its data in a per-version folder under this one
+    # (/var/lib/postgresql/18/docker), so the volume goes here, not at .../data.
     volumes:
-      - studio_db:/var/lib/postgresql/data
+      - studio_pg18:/var/lib/postgresql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "studio", "-d", "studio"]
       interval: 5s
@@ -64,7 +68,7 @@ services:
   # Neon kept history for us; nothing does here unless this does. They sit on
   # the same disk, so download one now and then (DEPLOY-VPS.md says how).
   backup:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     profiles: ["studio-db"]
     restart: unless-stopped
     environment:
@@ -112,4 +116,6 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  studio_db:
+  # Named for its major version: a later Postgres can't open this one's files,
+  # so an upgrade gets a fresh volume and a copy, never this one reused.
+  studio_pg18:

@@ -56,7 +56,7 @@ echo
 echo "Stopping the studio for the copy..."
 docker compose stop app
 
-docker run --rm -i -e OLD="$OLD" -e NEW="$NEW" postgres:17-alpine sh -s <<'COPY'
+docker run --rm -i -e OLD="$OLD" -e NEW="$NEW" postgres:18-alpine sh -s <<'COPY'
 n=$(psql "$NEW" -tAc "select count(*) from information_schema.tables where table_schema = 'public'") || {
   echo "Couldn't connect to the new database. Check the connection string."; exit 1; }
 if [ "$n" != "0" ]; then
