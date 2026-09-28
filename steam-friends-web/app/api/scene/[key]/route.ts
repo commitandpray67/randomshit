@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { resolveForLite } from "@/lib/litescene";
-import { getSceneByKey, getElements, getSceneVersion } from "@/lib/scene";
+import { getSceneVersion, sceneWithElements } from "@/lib/scene";
+import { withLiveMoves } from "@/lib/live";
 
 /**
  * Scene feed for the OBS browser source.
@@ -54,15 +55,17 @@ export async function GET(
     }
   }
 
-  const scene = await getSceneByKey(key);
-  if (!scene) {
+  const found = await sceneWithElements({ key });
+  if (!found) {
     return NextResponse.json(
       { ok: false, error: "unknown_scene" },
       { status: 404, headers: NO_STORE },
     );
   }
-
-  const elements = await getElements(scene.id);
+  const scene = found.scene;
+  // Same as the stream: positions already shown live win over a read that
+  // predates them.
+  const elements = withLiveMoves(scene.version, found.elements);
   // The framework-free renderer has no room for the URL rules, so its feed
   // carries media already resolved. Without this a lite scene renders fine and
   // then breaks on its first update.

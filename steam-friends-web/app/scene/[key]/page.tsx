@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getSceneByKey, getElements } from "@/lib/scene";
+import { sceneWithElements } from "@/lib/scene";
+import { withLiveMoves } from "@/lib/live";
 import SceneStage from "@/components/SceneStage";
 
 /**
@@ -24,10 +25,10 @@ const RESET = `
 
 export default async function ScenePage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
-  const scene = await getSceneByKey(key);
-  if (!scene) notFound();
-
-  const elements = await getElements(scene.id);
+  const found = await sceneWithElements({ key });
+  if (!found) notFound();
+  const { scene } = found;
+  const elements = withLiveMoves(scene.version, found.elements);
 
   return (
     <>

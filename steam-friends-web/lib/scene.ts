@@ -144,6 +144,30 @@ export async function getElements(sceneId: number): Promise<SceneElement[]> {
   return rows.map(toElement);
 }
 
+/**
+ * A scene and all its elements in one round trip.
+ *
+ * Reading them separately is two trips to the database, which cost nothing
+ * while the app sat next to it on Vercel and cost two transatlantic round
+ * trips from the studio's own server — on every change pushed to OBS.
+ */
+export async function sceneWithElements(
+  by: { key: string } | { id: number },
+): Promise<{ scene: Scene; elements: SceneElement[] } | null> {
+  if ("key" in by && (!by.key || by.key.length > 64)) return null;
+  const rows = await sql`
+    SELECT s.*,
+           COALESCE(
+             (SELECT json_agg(e ORDER BY e.z_index, e.id) FROM scene_elements e WHERE e.scene_id = s.id),
+             '[]'::json
+           ) AS elements
+    FROM scenes s
+    WHERE ${"key" in by ? sql`s.scene_key = ${by.key}` : sql`s.id = ${by.id}`}
+  `;
+  if (!rows[0]) return null;
+  return { scene: toScene(rows[0]), elements: (rows[0].elements as any[]).map(toElement) };
+}
+
 /** LISTEN/NOTIFY channel for one scene. */
 export function sceneChannel(key: string): string {
   return `scene_${key}`;
@@ -163,7 +187,7 @@ export function isChannelSafeKey(key: string): boolean {
  *
  * The NOTIFY is what lets the scene stream stop polling: the watcher is woken
  * by the commit itself instead of rediscovering the change up to a tick later.
- * A payload of just the version means "re-read the scene" — `applyTransform`
+ * A payload of just the version means "re-read the scene" — `writeMoves`
  * below sends the movement inline instead, so a drag needs no read at all.
  */
 async function bump(sceneId: number): Promise<number | null> {
@@ -260,133 +284,136 @@ export type ElementPatch = {
 };
 
 /**
- * Update one element. Only the provided fields change; props are merged so the
- * editor can send a single changed key without resending the whole payload.
- */
-/**
  * Update one element, returning the scene version the change landed at.
  *
- * The version is what lets an editor tell its own writes apart from a snapshot
- * that predates them — see mergeRemote in the studio.
+ * Only the provided fields change, and props are merged key by key (`||` on
+ * JSONB) so the editor can send a single changed key without resending the
+ * rest. The version is what lets an editor tell its own writes apart from a
+ * snapshot that predates them — see mergeRemote in the studio.
+ *
+ * One statement: write, bump, notify. It used to read the row first and write
+ * every column back, which was three round trips — a keystroke's worth of
+ * latency three times over from a server an ocean away from the database —
+ * and it could also write back a position read before a drag landed.
  */
 export async function updateElement(
   sceneId: number,
   elementId: number,
   patch: ElementPatch,
 ): Promise<number | null> {
-  const cur = (
-    await sql`SELECT * FROM scene_elements WHERE id = ${elementId} AND scene_id = ${sceneId}`
-  )[0];
-  if (!cur) return null;
-
+  // null means "leave as is", matching the old fallback to the current value
+  // for anything missing or not a number.
+  const opt = (v: unknown, min: number, max: number): number | null => {
+    if (v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : null;
+  };
+  const z = opt(patch.zIndex, -9999, 9999);
+  const clipSet = patch.clip !== undefined;
+  const clip = patch.clip ? String(patch.clip).slice(0, 400) : null;
+  // Objects, not JSON text: postgres.js encodes a json parameter itself, and
+  // text would arrive as one JSON string rather than an object.
   const props =
-    patch.props && typeof patch.props === "object"
-      ? { ...(cur.props ?? {}), ...patch.props }
-      : (cur.props ?? {});
+    patch.props && typeof patch.props === "object" && !Array.isArray(patch.props)
+      ? sql.json(patch.props as any)
+      : null;
 
-  await sql`
-    UPDATE scene_elements SET
-      x        = ${patch.x        !== undefined ? num(patch.x, -20000, 20000, cur.x) : cur.x},
-      y        = ${patch.y        !== undefined ? num(patch.y, -20000, 20000, cur.y) : cur.y},
-      w        = ${patch.w        !== undefined ? num(patch.w, 1, 20000, cur.w) : cur.w},
-      h        = ${patch.h        !== undefined ? num(patch.h, 1, 20000, cur.h) : cur.h},
-      rotation = ${patch.rotation !== undefined ? num(patch.rotation, -360, 360, cur.rotation) : cur.rotation},
-      z_index  = ${patch.zIndex   !== undefined ? Math.round(num(patch.zIndex, -9999, 9999, cur.z_index)) : cur.z_index},
-      opacity  = ${patch.opacity  !== undefined ? num(patch.opacity, 0, 1, cur.opacity) : cur.opacity},
-      locked   = ${patch.locked   !== undefined ? Boolean(patch.locked) : cur.locked},
-      hidden   = ${patch.hidden   !== undefined ? Boolean(patch.hidden) : cur.hidden},
-      clip     = ${patch.clip     !== undefined ? (patch.clip ? String(patch.clip).slice(0, 400) : null) : cur.clip},
-      props    = ${sql.json(props as any)},
-      updated_at = now()
-    WHERE id = ${elementId} AND scene_id = ${sceneId}
+  const rows = await sql`
+    WITH up AS (
+      UPDATE scene_elements SET
+        x        = COALESCE(${opt(patch.x, -20000, 20000)}::real, x),
+        y        = COALESCE(${opt(patch.y, -20000, 20000)}::real, y),
+        w        = COALESCE(${opt(patch.w, 1, 20000)}::real, w),
+        h        = COALESCE(${opt(patch.h, 1, 20000)}::real, h),
+        rotation = COALESCE(${opt(patch.rotation, -360, 360)}::real, rotation),
+        z_index  = COALESCE(${z === null ? null : Math.round(z)}::int, z_index),
+        opacity  = COALESCE(${opt(patch.opacity, 0, 1)}::real, opacity),
+        locked   = COALESCE(${patch.locked !== undefined ? Boolean(patch.locked) : null}::boolean, locked),
+        hidden   = COALESCE(${patch.hidden !== undefined ? Boolean(patch.hidden) : null}::boolean, hidden),
+        clip     = CASE WHEN ${clipSet}::boolean THEN ${clip}::text ELSE clip END,
+        props    = CASE WHEN ${props}::jsonb IS NULL THEN props ELSE props || ${props}::jsonb END,
+        updated_at = now()
+      WHERE id = ${elementId} AND scene_id = ${sceneId}
+      RETURNING id
+    ),
+    b AS (
+      UPDATE scenes SET version = version + 1, updated_at = now()
+      WHERE id = ${sceneId} AND EXISTS (SELECT 1 FROM up)
+      RETURNING scene_key, version
+    )
+    SELECT version, pg_notify('scene_' || scene_key, json_build_object('v', version)::text) FROM b
   `;
-  return bump(sceneId);
+  return rows[0] ? Number(rows[0].version) : null;
 }
 
 export type Transform = { x: number; y: number; w: number; h: number; rotation: number };
 
-/**
- * The drag path: move one element and publish the movement, in a single
- * statement.
- *
- * `updateElement` is the general case and costs six round trips to the
- * database — read the element, merge props, write it, bump the version, then
- * the route re-reads the scene and every element to echo state back. That is
- * fine for a property edit but ruinous forty times a second, and the latency
- * it adds is what the browser source ends up rendering as stutter.
- *
- * Here the whole thing is one CTE: locate the element through its scene (which
- * is also the ownership check), write the transform, bump the version, and
- * NOTIFY with the new position inline. The scene stream can then forward that
- * payload straight to OBS without reading anything back, so a drag frame costs
- * exactly one query end to end.
- *
- * `mv` is never selected from, which is deliberate: a data-modifying CTE runs
- * whether or not anything references it.
- */
-export async function applyTransform(
-  steamId: string,
-  elementId: number,
-  t: Partial<Transform>,
-  sentAt?: unknown,
-): Promise<number | null> {
-  // Resolving the shared owner would cost a lookup, and the whole point of
-  // this path is that it is one statement. Both candidates go into the join
-  // instead — the caller's own scene and the shared one — and since element
-  // ids are unique the join simply confirms the element belongs to a scene
-  // this editor is entitled to touch. Both are on the allowlist either way.
-  const owner = studioOwner(steamId);
-  const x = num(t.x, -20000, 20000, 0);
-  const y = num(t.y, -20000, 20000, 0);
-  const w = num(t.w, 1, 20000, 1);
-  const h = num(t.h, 1, 20000, 1);
-  const r = num(t.rotation, -360, 360, 0);
-  // Opaque to us: it is the editor's own monotonic clock, meaningful only to
-  // the browser source that reads it back. Passed through as a number or not
-  // at all.
-  const ts = Number(sentAt);
-  const stamp = Number.isFinite(ts) ? Math.round(ts) : null;
+/** One element's new transform during a drag, clamped and ready to write. */
+export type Move = { id: number; x: number; y: number; w: number; h: number; r: number; ts: number | null };
 
+/** Clamp a transform from the editor; `ts` is its clock, passed through. */
+export function toMove(id: number, t: Partial<Transform> | undefined, sentAt: unknown): Move {
+  // Opaque to us: it is the editor's own monotonic clock, meaningful only to
+  // the browser source, which spaces its playback by it.
+  const ts = Number(sentAt);
+  return {
+    id,
+    x: num(t?.x, -20000, 20000, 0),
+    y: num(t?.y, -20000, 20000, 0),
+    w: num(t?.w, 1, 20000, 1),
+    h: num(t?.h, 1, 20000, 1),
+    r: num(t?.rotation, -360, 360, 0),
+    ts: Number.isFinite(ts) ? Math.round(ts) : null,
+  };
+}
+
+/**
+ * The drag path's write: move any number of elements in one scene, bump the
+ * version once and publish the movement, all in a single statement.
+ *
+ * Moving a multi-selection used to be one request and one query per element,
+ * so each element trailed the one before it. The element ids are checked
+ * against the scene here, which is also the permission check: callers pass the
+ * scene the editor is entitled to.
+ *
+ * The NOTIFY carries every movement inline (`ms`: [id, x, y, w, h, r, ts]
+ * rows), so a scene stream forwards it without reading anything back. `o`
+ * names the process that wrote it; a stream in that same process has already
+ * had the movement from memory (see lib/live.ts) and only takes the version.
+ */
+export async function writeMoves(
+  sceneId: number,
+  moves: Move[],
+  origin: string | null,
+): Promise<{ version: number; key: string } | null> {
+  if (moves.length === 0) return null;
   const rows = await sql`
-    WITH tgt AS (
-      SELECT e.id AS eid, s.id AS sid
-      FROM scene_elements e
-      JOIN scenes s ON s.id = e.scene_id
-      WHERE e.id = ${elementId} AND s.steam_id IN ${sql([steamId, owner])}
-    ),
-    mv AS (
-      UPDATE scene_elements SET
-        x = ${x}, y = ${y}, w = ${w}, h = ${h}, rotation = ${r}, updated_at = now()
-      FROM tgt WHERE scene_elements.id = tgt.eid
-      RETURNING scene_elements.id
+    WITH mv AS (
+      UPDATE scene_elements e SET
+        x = i.x, y = i.y, w = i.w, h = i.h, rotation = i.r, updated_at = now()
+      FROM json_to_recordset(${sql.json(moves as any)}::json)
+        AS i(id bigint, x double precision, y double precision, w double precision,
+             h double precision, r double precision, ts bigint)
+      WHERE e.id = i.id AND e.scene_id = ${sceneId}
+      RETURNING i.id, i.x, i.y, i.w, i.h, i.r, i.ts
     ),
     ver AS (
       UPDATE scenes SET version = version + 1, updated_at = now()
-      FROM tgt WHERE scenes.id = tgt.sid
-      RETURNING scenes.version AS v, scenes.scene_key AS skey
+      WHERE id = ${sceneId} AND EXISTS (SELECT 1 FROM mv)
+      RETURNING version, scene_key
     )
-    SELECT v AS version,
+    SELECT version, scene_key,
            pg_notify(
-             'scene_' || skey,
+             'scene_' || scene_key,
              json_build_object(
-               'v', v,
-               'ts', ${stamp}::bigint,
-               -- json_build_array takes "any", so a bare placeholder gives
-               -- Postgres nothing to infer a type from and it refuses to plan
-               -- the statement. Every one of these has to be cast.
-               'm', json_build_array(
-                 ${elementId}::bigint,
-                 ${x}::double precision,
-                 ${y}::double precision,
-                 ${w}::double precision,
-                 ${h}::double precision,
-                 ${r}::double precision
-               )
+               'v', version,
+               'o', ${origin}::text,
+               'ms', (SELECT json_agg(json_build_array(id, x, y, w, h, r, ts)) FROM mv)
              )::text
            )
     FROM ver
   `;
-  return rows[0] ? Number(rows[0].version) : null;
+  return rows[0] ? { version: Number(rows[0].version), key: rows[0].scene_key } : null;
 }
 
 /**
@@ -524,12 +551,20 @@ export async function restackElements(
   if (moving.length === 0) return;
 
   const order = to === "front" ? [...rest, ...moving] : [...moving, ...rest];
-  await sql.begin(async (tx) => {
-    for (let k = 0; k < order.length; k++) {
-      await tx`UPDATE scene_elements SET z_index = ${k} WHERE id = ${order[k].id}`;
-    }
-  });
+  await writeStack(sceneId, order.map((e) => e.id));
   await bump(sceneId);
+}
+
+/**
+ * Renumber the stack as 0..n-1 in the given order, in one statement rather
+ * than one per element — a dozen round trips to a distant database is seconds.
+ */
+async function writeStack(sceneId: number, ids: number[]): Promise<void> {
+  await sql`
+    UPDATE scene_elements e SET z_index = o.k - 1
+    FROM json_array_elements_text(${sql.json(ids)}::json) WITH ORDINALITY AS o(id, k)
+    WHERE e.id = o.id::bigint AND e.scene_id = ${sceneId}
+  `;
 }
 
 /** Move one element up or down the stack, swapping z with its neighbour. */
@@ -548,11 +583,7 @@ export async function reorderElement(
   // sizes and avoids duplicate z values drifting in over time.
   const order = [...all];
   [order[i], order[j]] = [order[j], order[i]];
-  await sql.begin(async (tx) => {
-    for (let k = 0; k < order.length; k++) {
-      await tx`UPDATE scene_elements SET z_index = ${k} WHERE id = ${order[k].id}`;
-    }
-  });
+  await writeStack(sceneId, order.map((e) => e.id));
   await bump(sceneId);
 }
 

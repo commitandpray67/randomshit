@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 import { acquireListener, releaseListener } from "@/lib/db";
 import {
   getSceneByKey,
-  getElements,
   getSceneVersion,
+  sceneWithElements,
   sceneChannel,
   isChannelSafeKey,
 } from "@/lib/scene";
+import { LIVE, ORIGIN, subscribe, withLiveMoves } from "@/lib/live";
 
 /**
  * Live scene stream for the OBS browser source (Server-Sent Events).
@@ -20,9 +21,13 @@ import {
  * stream of positions, which is most of why dragging looked choppy no matter
  * how it was eased on the far end.
  *
- * A drag NOTIFY carries the new transform inline (`m`), so those frames are
+ * A drag NOTIFY carries the new transforms inline (`ms`), so those frames are
  * forwarded without touching the database at all. Any other change sends just
  * a version, and the scene is re-read and sent whole.
+ *
+ * On the studio's own server, drags don't wait for the NOTIFY either: they
+ * arrive from memory the moment an editor sends them (lib/live.ts), and the
+ * NOTIFY that follows from this same process is used only for its version.
  *
  * Hidden elements are sent too. The renderer drops them (see ElementBox), and
  * the studio is on the other end of this same stream — filtering them out here
@@ -38,9 +43,11 @@ export const dynamic = "force-dynamic";
 
 // Vercel caps how long a function may run. The stream closes itself just under
 // the cap and EventSource reconnects on its own, so the only visible effect is
-// a brief gap roughly once a minute.
+// a brief gap roughly once a minute. A server of our own has no cap, and every
+// reconnect is a moment a drag can fall into, so there it stays open far
+// longer.
 export const maxDuration = 60;
-const CLOSE_AFTER_MS = 50_000;
+const CLOSE_AFTER_MS = LIVE ? 10 * 60_000 : 50_000;
 
 // The loop only wakes to check flags and the clock; it does no database work
 // unless something told it to.
@@ -80,6 +87,7 @@ export async function GET(
 
       let unlisten: (() => Promise<void>) | null = null;
       let holding = false;
+      let unsubscribe: (() => void) | null = null;
 
       /**
        * Drop the subscription and hand the listening connection back — once,
@@ -92,6 +100,8 @@ export async function GET(
        * connection that never closes.
        */
       const letGo = () => {
+        unsubscribe?.();
+        unsubscribe = null;
         const u = unlisten;
         unlisten = null;
         if (u) void u().catch(() => {});
@@ -129,20 +139,38 @@ export async function GET(
       let hot = false;
 
       const pushFull = async () => {
-        const fresh = await getSceneByKey(key);
+        const fresh = await sceneWithElements({ key });
         if (!fresh) {
           send("bye", { reason: "deleted" });
           finish();
           return;
         }
-        const elements = await getElements(fresh.id);
-        lastVersion = fresh.version;
+        const { scene: sc, elements } = fresh;
+        lastVersion = Math.max(lastVersion, sc.version);
         send("scene", {
-          version: fresh.version,
-          canvas: { w: fresh.canvasW, h: fresh.canvasH },
-          elements,
+          version: sc.version,
+          canvas: { w: sc.canvasW, h: sc.canvasH },
+          // Positions already sent live but not in this read yet; without them
+          // a snapshot taken mid-drag would pull elements back.
+          elements: withLiveMoves(sc.version, elements),
         });
       };
+
+      // Movements from editors on this same server, straight from memory.
+      // Subscribed before the first read, like LISTEN, so nothing falls between.
+      if (LIVE) {
+        unsubscribe = subscribe(key, (e) => {
+          if (closed) return;
+          if (e.type === "motion") {
+            send("motion", { ts: e.ts, m: e.m });
+          } else if (e.v > lastVersion) {
+            // No movement in it, just the version the database has reached, so
+            // a reconnect knows it is up to date and doesn't re-read the scene.
+            lastVersion = e.v;
+            send("motion", { v: e.v });
+          }
+        });
+      }
 
       // Subscribe before the first read, so a change landing between the two
       // is queued rather than missed.
@@ -155,8 +183,25 @@ export async function GET(
             notifications++;
             try {
               const d = JSON.parse(raw);
-              if (Array.isArray(d.m)) {
-                // A movement, complete in the payload — straight through.
+              if (LIVE && d.o === ORIGIN) {
+                // Written by this process, whose streams already had it from
+                // memory; only the version is news, and the bus brings that.
+                return;
+              }
+              if (Array.isArray(d.ms)) {
+                // Movements, complete in the payload — straight through, one
+                // frame per element. Only the last carries the version: the
+                // receiving end drops a frame whose version it has already
+                // seen, which would otherwise be all but the first of these.
+                const rows = d.ms as number[][];
+                rows.forEach((row, i) => {
+                  const frame: Record<string, unknown> = { ts: row[6] ?? null, m: row.slice(0, 6) };
+                  if (i === rows.length - 1 && typeof d.v === "number") frame.v = d.v;
+                  send("motion", frame);
+                });
+                if (typeof d.v === "number") lastVersion = Math.max(lastVersion, d.v);
+              } else if (Array.isArray(d.m)) {
+                // The single-element form, from a server not yet updated.
                 if (typeof d.v === "number") lastVersion = d.v;
                 send("motion", d);
               } else {

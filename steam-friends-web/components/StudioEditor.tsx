@@ -433,8 +433,10 @@ export default function StudioEditor({
       return;
     }
 
-    const [id, t] = pending.current.entries().next().value as [number, Transform];
-    pending.current.delete(id);
+    // Everything waiting goes in one request: a multi-selection then moves as
+    // one on every screen, instead of each element trailing the one before.
+    const moves = [...pending.current].map(([id, t]) => ({ id, t }));
+    pending.current.clear();
     inFlight.current = true;
     lastSent.current = Date.now();
 
@@ -448,16 +450,21 @@ export default function StudioEditor({
       // playback by it. Without it the overlay can only go on when each
       // position *arrived*, and renders the network's jitter as the element
       // speeding up and slowing down.
-      body: JSON.stringify({ action: "transform", id, t, ts: Math.round(performance.now()) }),
+      body: JSON.stringify({ action: "transform", moves, ts: Math.round(performance.now()) }),
     })
       .then(async (res) => {
         // Noted for the same reason a text edit is: it marks everything
         // published before this point as older than what this editor already
         // has, so a snapshot from mid-drag can't pull the element backwards.
+        // The studio's own server answers before the database has the move,
+        // so there is no version to note — and none needed: its snapshots
+        // already include every position it has published.
         try {
           const d = await res.json();
           if (typeof d?.version === "number") {
-            wroteAt.current.set(id, Math.max(wroteAt.current.get(id) ?? 0, d.version));
+            for (const { id } of moves) {
+              wroteAt.current.set(id, Math.max(wroteAt.current.get(id) ?? 0, d.version));
+            }
           }
         } catch {
           /* the move landed; only the bookkeeping is missing */

@@ -8,6 +8,8 @@
 name: studio
 
 services:
+  # Exactly one: drags are handed from editors to OBS in this process's memory
+  # (lib/live.ts), so a second replica's viewers would miss the first's drags.
   app:
     build:
       context: .

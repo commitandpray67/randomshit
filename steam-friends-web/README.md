@@ -513,7 +513,43 @@ buffering the stream — the client falls back to the original polling loop. The
 buffer doesn't care which is feeding it.
 
 The stream closes itself just under the platform's function duration cap and
-reconnects.
+reconnects (every 50s on Vercel, every 10 minutes on the studio's own server).
+
+#### On the studio's own server: drags skip the database
+
+Every editor and every OBS source is connected to the same process there, so
+`lib/live.ts` hands a movement to all of them from memory the moment it
+arrives, and writes it to the database behind it — newest position per
+element, one batch per round trip. The database is still the record; it's just
+no longer between the cursor and OBS. The pieces that keep that correct:
+
+- **Snapshots get the live positions laid over them.** A scene read from the
+  database mid-drag predates positions OBS has already shown; each position is
+  overlaid until the database has it at a version at or below the snapshot's.
+- **Every other edit waits for queued positions to land first**, so a property
+  change made just after a drag can't be overwritten by it.
+- **Streams skip the NOTIFY of their own process's writes**, which they already
+  had from memory, and take only its version.
+- **A multi-selection moves in one request and one frame**, not one per element.
+
+Measured with the database behind an artificial 130ms round trip (roughly the
+studio server in Europe, Neon in Virginia), same machine otherwise:
+
+| | Before | After |
+|---|---|---|
+| Drag: cursor to OBS | 370–700 ms | ~50 ms |
+| Drag: positions reaching OBS | 6–7/s | 30/s |
+| Text edit: save to OBS | ~1100 ms | ~360 ms |
+
+Text edits got faster by doing less, not by skipping the database: an update is
+now one statement instead of five round trips (the scene lookup is remembered,
+and the write, version bump and NOTIFY are one query), and a stream re-reads a
+scene in one query instead of two.
+
+**Run one app container.** The in-memory hand-off only reaches streams in the
+same process; a second replica would get writes its streams never hear about
+until the database catches up. On Vercel none of this runs (`LIVE` is false):
+a frozen function would strand the queue, and the database is next door anyway.
 
 On a long-running server connections don't die with the function the way they
 do on Vercel, and one that never closes keeps Neon's compute from suspending.

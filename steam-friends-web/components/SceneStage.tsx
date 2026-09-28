@@ -163,9 +163,14 @@ export default function SceneStage({
       }
     };
 
-    /** A movement, complete in the payload: [id, x, y, w, h, rotation]. */
+    /**
+     * A movement, complete in the payload: [id, x, y, w, h, rotation]. Or no
+     * movement at all, just the version the database has caught up to — the
+     * studio's own server sends movements ahead of the database, and then
+     * this, so a reconnect knows it's current.
+     */
     const applyMovement = (data: any) => {
-      if (stopped || !Array.isArray(data?.m)) return;
+      if (stopped || !data) return;
       // Versions are handed out in commit order, so one going backwards means
       // a stale frame — a reconnection replaying, most likely. Applying it
       // would drag the element back to where it used to be.
@@ -173,6 +178,7 @@ export default function SceneStage({
         if (data.v <= version.current) return;
         version.current = data.v;
       }
+      if (!Array.isArray(data.m)) return;
       const [id, x, y, w, h, rot] = data.m as number[];
       // Opacity only ever changes through the slow path, so carry the last
       // known value forward rather than resetting it.

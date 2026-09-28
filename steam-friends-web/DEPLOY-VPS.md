@@ -191,3 +191,10 @@ that spends the month's compute allowance doing nothing. The app now closes
 idle database connections after 20 seconds, and closes the `LISTEN` connection
 30 seconds after the last studio or OBS source disconnects. With nobody using
 the studio, it holds no connections at all.
+
+The other difference works in the studio's favour: with every editor and OBS
+source connected to this one server, a drag is passed straight to them from
+memory and saved to the database behind it, instead of waiting on a round trip
+to Neon first. That's why this runs **one** app container — don't scale it up;
+a second copy wouldn't hear the first one's drags. README → *On the studio's
+own server* has the details.

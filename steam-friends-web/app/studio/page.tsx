@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { isOverlayAllowed } from "@/lib/overlay";
-import { studioScene, getElements } from "@/lib/scene";
+import { sceneWithElements } from "@/lib/scene";
+import { studioSceneRef, withLiveMoves } from "@/lib/live";
 import StudioEditor from "@/components/StudioEditor";
 import { currentOrigin } from "@/lib/apphost";
 
@@ -42,8 +43,11 @@ export default async function StudioPage() {
   // from APP_URL: whoever is here needs a URL that loads for them, and the
   // canonical domain is unreachable on some connections.
   const site = await currentOrigin();
-  const scene = await studioScene(steamId);
-  const elements = await getElements(scene.id);
+  const ref = await studioSceneRef(steamId);
+  const found = await sceneWithElements({ id: ref.id });
+  if (!found) notFound();
+  const { scene } = found;
+  const elements = withLiveMoves(scene.version, found.elements);
 
   return (
     <>
