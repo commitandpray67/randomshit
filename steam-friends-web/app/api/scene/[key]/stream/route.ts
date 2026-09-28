@@ -304,6 +304,8 @@ export async function GET(
       Connection: "keep-alive",
       // Nginx-style proxies buffer streamed responses without this.
       "X-Accel-Buffering": "no",
+      // Same as the scene feed: the key is the credential, no cookie is read.
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }

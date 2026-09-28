@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/db";
+import { studioSql as sql } from "@/lib/db";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 /**
@@ -13,6 +13,10 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
  *
  * Public, like the rest of /diag, so it is rate-limited and reports nothing
  * about the database beyond timings: a connection error can name hosts.
+ *
+ * It times the database the studio uses — the one saves wait on. On a studio
+ * server with its own (STUDIO_DATABASE_URL) that's the local one, and timing it
+ * doesn't wake Neon; everywhere else it's the same database as the rest.
  */
 export const dynamic = "force-dynamic";
 

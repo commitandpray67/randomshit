@@ -9,7 +9,7 @@
  * (falling back to polling a version number).
  */
 import crypto from "node:crypto";
-import { sql } from "./db";
+import { sql as mainSql, studioSql as sql } from "./db";
 import { studioOwner } from "./overlay";
 
 export type ElementKind = "text" | "image" | "video" | "widget";
@@ -102,10 +102,16 @@ export async function ensureScene(steamId: string): Promise<Scene> {
 export async function studioScene(steamId: string): Promise<Scene> {
   const owner = studioOwner(steamId);
   if (owner && owner !== steamId) {
-    const known = await sql`SELECT 1 FROM users WHERE steam_id = ${owner}`;
+    // The shared scene, once it exists, is simply there — found without
+    // asking the main database anything, which matters when the studio's
+    // tables live apart from it (see studioSql).
+    const shared = await getSceneForUser(owner);
+    if (shared) return shared;
+    // Creating it needs the owner to have signed in at least once: scenes hang
+    // off users. Falling back rather than throwing: an allowlist naming
+    // somebody who hasn't logged in yet shouldn't lock the others out.
+    const known = await mainSql`SELECT 1 FROM users WHERE steam_id = ${owner}`;
     if (known.length) return ensureScene(owner);
-    // Falling back rather than throwing: an allowlist naming somebody who
-    // hasn't logged in yet shouldn't lock the others out of the studio.
   }
   return ensureScene(steamId);
 }

@@ -10,3 +10,6 @@ node_modules
 !.env.vps.example
 
 *.log
+
+# Database backups made on the studio server. Never part of an image.
+backups

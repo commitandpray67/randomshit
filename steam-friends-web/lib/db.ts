@@ -39,6 +39,22 @@ export const sql = postgres(dbUrl(process.env.DATABASE_URL), {
 });
 
 /**
+ * Where the studio's own tables (scenes, scene_elements) live.
+ *
+ * Normally the same database as everything else. On the studio's own server
+ * they can live in a Postgres next to the app instead (STUDIO_DATABASE_URL, see
+ * DEPLOY-VPS.md): every OBS source checks its scene about once a second, and
+ * against Neon that kept the compute awake for the whole length of a stream —
+ * about four hours of a monthly allowance per stream. Nothing but the studio
+ * reads those tables, so they can move without anything else noticing.
+ */
+export const STUDIO_DB_SEPARATE = Boolean(process.env.STUDIO_DATABASE_URL);
+
+export const studioSql = STUDIO_DB_SEPARATE
+  ? postgres(dbUrl(process.env.STUDIO_DATABASE_URL), { max: 10, idle_timeout: 20 })
+  : sql;
+
+/**
  * A second client, used only for LISTEN on the scene channels.
  *
  * A listening connection is stateful — it has to stay put on one backend for
@@ -49,9 +65,13 @@ export const sql = postgres(dbUrl(process.env.DATABASE_URL), {
  *
  * NOTIFY has no such constraint: it commits with the surrounding statement, so
  * the writers keep using the pooled `sql` above.
+ *
+ * Scene notifications are sent by the database the scenes are in, so with the
+ * studio's tables moved, that's the one to listen on.
  */
 const LISTEN_URL = dbUrl(
-  process.env.DATABASE_URL_UNPOOLED ??
+  process.env.STUDIO_DATABASE_URL ??
+    process.env.DATABASE_URL_UNPOOLED ??
     process.env.POSTGRES_URL_NON_POOLING ??
     process.env.DATABASE_URL,
 );

@@ -65,6 +65,7 @@ Fill `.env.local`:
 | `CRON_SECRET` | `openssl rand -hex 32` |
 | `DATABASE_URL_UNPOOLED` | optional; the direct (non-pooled) Postgres endpoint, for the scene stream's `LISTEN` |
 | `STUDIO_ORIGIN` | optional; where the studio lives when it isn't here, e.g. `https://studio.steamfriends.xyz`. See below |
+| `STUDIO_DATABASE_URL` | optional; a separate database for the studio's own tables (scenes, elements). Set on the studio server by `scripts/move-studio-db.sh` |
 
 > Steam's API key registration asks for a domain. For local testing you can
 > register with any domain you control (or `localhost`); the key itself works
@@ -545,6 +546,14 @@ Text edits got faster by doing less, not by skipping the database: an update is
 now one statement instead of five round trips (the scene lookup is remembered,
 and the write, version bump and NOTIFY are one query), and a stream re-reads a
 scene in one query instead of two.
+
+On the studio server the studio's two tables can also move off Neon into a
+Postgres next to the app (`STUDIO_DATABASE_URL`, set by
+`scripts/move-studio-db.sh`; DEPLOY-VPS.md has the steps). Every OBS source
+checks its scene about once a second, and against Neon that kept its compute
+running for the whole of every stream. Only `lib/scene.ts` and `lib/live.ts`
+touch those tables, through `studioSql`; everything else, logins included,
+stays on `sql` and Neon.
 
 **Run one app container.** The in-memory hand-off only reaches streams in the
 same process; a second replica would get writes its streams never hear about

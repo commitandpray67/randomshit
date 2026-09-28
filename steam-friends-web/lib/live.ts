@@ -35,7 +35,7 @@
  * publishes and the route that listens.
  */
 import crypto from "node:crypto";
-import { sql } from "./db";
+import { studioSql as sql } from "./db";
 import { studioScene, writeMoves, type Move } from "./scene";
 
 export const LIVE = !process.env.VERCEL;

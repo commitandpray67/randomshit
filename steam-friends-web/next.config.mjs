@@ -47,6 +47,13 @@ const nextConfig = {
     return [
       { source: "/studio", destination: `${studioOrigin}/studio`, permanent: false },
       { source: "/scene/:key", destination: `${studioOrigin}/scene/:key`, permanent: false },
+      // The lite source too, and the scene feed it polls: once the studio's
+      // tables live on its own server, the copy here stops changing, and a
+      // lite page loaded from this host would sit on a stale scene without
+      // any error. The feed allows cross-origin reads for exactly this case —
+      // a lite page opened before the move polls this host and is sent on.
+      { source: "/lite/:key", destination: `${studioOrigin}/lite/:key`, permanent: false },
+      { source: "/api/scene/:path*", destination: `${studioOrigin}/api/scene/:path*`, permanent: false },
     ];
   },
 

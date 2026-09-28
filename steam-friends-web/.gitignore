@@ -8,3 +8,10 @@ out/
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
+
+# The studio server's own files: backups of its database, and the copies
+# of .env its move scripts keep.
+backups/
+.env.*
+!.env.example
+!.env.vps.example

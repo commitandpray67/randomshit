@@ -30,6 +30,64 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    depends_on:
+      # Only there once the studio's tables have moved to this server; until
+      # then there's nothing to wait for.
+      db:
+        condition: service_healthy
+        required: false
+
+  # The studio's own tables — scenes and their elements — once they've moved
+  # off Neon (scripts/move-studio-db.sh, DEPLOY-VPS.md). Every OBS source checks
+  # its scene about once a second, which kept Neon's compute running for the
+  # whole of every stream; here those checks cost nothing.
+  #
+  # Off until the move: the script switches the "studio-db" profile on in .env.
+  db:
+    image: postgres:17-alpine
+    profiles: ["studio-db"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_DB: studio
+      POSTGRES_PASSWORD: ${STUDIO_DB_PASSWORD:-}
+    # Not published: only the app, and the backups below, talk to it.
+    volumes:
+      - studio_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "studio", "-d", "studio"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # A copy of the studio's tables every day, kept for two weeks, in ./backups.
+  # Neon kept history for us; nothing does here unless this does. They sit on
+  # the same disk, so download one now and then (DEPLOY-VPS.md says how).
+  backup:
+    image: postgres:17-alpine
+    profiles: ["studio-db"]
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${STUDIO_DB_PASSWORD:-}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while :; do
+          d=$$(date +%F)
+          if pg_dump -h db -U studio -Fc -f /backups/studio-$$d.dump.part studio; then
+            mv /backups/studio-$$d.dump.part /backups/studio-$$d.dump
+          else
+            rm -f /backups/studio-$$d.dump.part
+          fi
+          find /backups -name 'studio-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
 
   caddy:
     image: caddy:2-alpine
@@ -54,3 +112,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  studio_db:

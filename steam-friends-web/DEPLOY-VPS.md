@@ -221,6 +221,61 @@ and open the studio.
 Keep the old project for a week in case anything turns up missing, then delete
 it.
 
+## The studio's own database
+
+Every OBS source showing the studio checks its scene about once a second, and
+so does every open studio tab. Against Neon, that keeps its compute running for
+as long as OBS is open: about four hours of the free plan's monthly allowance
+per stream. The studio's two tables, scenes and their elements, can live in a
+small Postgres on this server instead. Nothing but the studio reads them.
+Logins, the friends tracker, the extension and everything else stay in Neon,
+and this server only talks to Neon when someone signs in.
+
+It's done once:
+
+```sh
+cd /opt/randomshit/steam-friends-web
+git pull
+docker compose up -d --build
+sh scripts/move-studio-db.sh
+```
+
+The script:
+- starts the local database, with a password it generates into `.env`;
+- stops the studio, copies the two tables from Neon, and compares every row on
+  both sides;
+- only if they all match, points the studio at the local copy, switches on the
+  nightly backups and starts it again (the old settings are kept as
+  `.env.before-studio-db`).
+
+Neon is only ever read. If anything fails, the studio goes back on Neon exactly
+as it was, and the script can simply be run again.
+
+Afterwards, row 4 on `/diag` on this host shows the local database: about a
+millisecond. Neon still holds a copy of the two tables as they were at the
+move; it's no longer used or updated, so don't edit scenes there.
+
+**Backups.** One a day in `backups/` (`studio-YYYY-MM-DD.dump`), kept for two
+weeks. They're on the same disk as the database, so if this server dies, they
+go with it — download one to your own computer now and then:
+
+```sh
+scp root@YOUR_SERVER_IP:/opt/randomshit/steam-friends-web/backups/studio-*.dump .
+```
+
+To restore one, which replaces the studio's current scenes with the backup's:
+
+```sh
+docker compose exec -T db pg_restore --clean --if-exists -U studio -d studio < backups/studio-2026-10-01.dump
+docker compose restart app
+```
+
+**Never run `docker compose down -v`.** The `-v` deletes Docker's volumes, and
+one of them is this database. (Plain `docker compose down` is fine.)
+
+**Going back.** Handing the studio back to Vercel now also means copying these
+two tables back into Neon first — Neon's copy stops at the day of the move.
+
 ## When something's wrong
 
 | Symptom | Likely cause |

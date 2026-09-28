@@ -15,7 +15,10 @@ import { withLiveMoves } from "@/lib/live";
  */
 export const dynamic = "force-dynamic";
 
-const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
+// Readable from any origin. The key is the only credential and no cookie is
+// involved, so this exposes nothing; it's what lets a lite page loaded from the
+// main site keep polling after its feed is redirected to the studio host.
+const NO_STORE = { "Cache-Control": "no-store, max-age=0", "Access-Control-Allow-Origin": "*" };
 
 export async function GET(
   req: NextRequest,
