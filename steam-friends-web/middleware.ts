@@ -52,7 +52,8 @@ export const config = {
   // language to pick, and a Set-Cookie on it would do nothing but churn.
   // `jayc` likewise: it is a static game canvas with its own text, and the
   // audio beside it is megabytes that gain nothing from a Set-Cookie.
+  // `toy` (the seating planner) has its own login and no localized text.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|studio|diag|jayc|api/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|studio|diag|jayc|toy|api/).*)",
   ],
 };

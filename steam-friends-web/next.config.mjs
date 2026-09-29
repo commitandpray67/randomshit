@@ -61,7 +61,11 @@ const nextConfig = {
   // their literal path and does not do directory indexes, so /jayc alone
   // would 404 without this.
   async rewrites() {
-    return [{ source: "/jayc", destination: "/jayc/index.html" }];
+    return [
+      { source: "/jayc", destination: "/jayc/index.html" },
+      // The wedding seating planner is a static page too (public/toy/).
+      { source: "/toy", destination: "/toy/index.html" },
+    ];
   },
 };
 
