@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Seating Plan</title>
+<style>
+:root{
+  --bg:#f6f3ee;--panel:#ffffff;--ink:#1f2328;--muted:#6b6f76;--line:#e3ddd3;--line2:#cfc6b8;
+  --accent:#8a5a2b;--accent-ink:#fff;--danger:#c0392b;--ok:#2e7d4f;--warn:#b7791f;
+  --papa:#3567b0;--mama:#c0487a;--laman:#23906a;--other:#8a6d3b;
+  --papa-t:#e3ecf8;--mama-t:#f8e3ec;--laman-t:#dff2ea;--other-t:#efe8dc;--mix-t:#eeeae3;
+  --sel:#f0a500;--radius:10px;
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-size:14px;-webkit-tap-highlight-color:transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+/* ---------- header ---------- */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0 8px 0 0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.stats{display:flex;gap:6px;flex-wrap:wrap}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
+.stat b{font-weight:650}
+.stat.bad{border-color:#e7b3ad;background:#fbeceb;color:var(--danger)}
+.spacer{flex:1}
+.search{position:relative}
+.search input{width:200px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
+.results{position:absolute;right:0;top:calc(100% + 4px);width:300px;max-height:360px;overflow:auto;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30}
+.results div{padding:7px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.results div:hover,.results div.on{background:var(--bg)}
+.results small{color:var(--muted);white-space:nowrap}
+.btn{border:1px solid var(--line2);background:#fff;border-radius:8px;padding:6px 11px;white-space:nowrap}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.danger{color:var(--danger)}
+.save{font-size:12px;color:var(--muted);white-space:nowrap;min-width:84px;text-align:right}
+.save.err{color:var(--danger)}
+.menu{position:relative}
+.menu .drop{position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:210px;z-index:30;padding:4px}
+.menu .drop button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px}
+.menu .drop button:hover{background:var(--bg)}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:14px 16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.mapwrap{padding:8px;position:relative}
+#map{width:100%;height:auto;display:block;max-height:calc(100vh - 110px);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:4px 8px 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+aside{display:flex;flex-direction:column;gap:14px;position:sticky;top:64px;max-height:calc(100vh - 80px)}
+aside .card{display:flex;flex-direction:column;min-height:0}
+.sec-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.sec-h h2{font-size:15px;margin:0;font-weight:650}
+.pill{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--bg);border:1px solid var(--line)}
+.pill.full{background:#e7f4ec;border-color:#b9dcc6;color:var(--ok)}
+.pill.over{background:#fbeceb;border-color:#e7b3ad;color:var(--danger)}
+.sec-b{overflow:auto;min-height:0}
+#tablePanel .sec-b{max-height:46vh}
+#trayPanel{flex:1}
+#trayPanel .sec-b{flex:1}
+.hint{color:var(--muted);font-size:12.5px;padding:10px 12px;line-height:1.45}
+.tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+.tools select{padding:5px 6px;border:1px solid var(--line2);border-radius:7px;background:#fff;max-width:100%}
+.grp-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:8px 12px 4px;display:flex;justify-content:space-between}
+
+/* ---------- guest rows ---------- */
+.g{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 4px;border-bottom:1px solid #f1ede6;background:#fff}
+.g:last-child{border-bottom:0}
+.g.flash{animation:flash 1.6s ease}
+@keyframes flash{0%,40%{background:#fff3cd}100%{background:#fff}}
+.handle{touch-action:none;cursor:grab;color:#b3aa9c;padding:4px 3px;font-size:15px;line-height:1;user-select:none}
+.g .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.g .nm{flex:1;min-width:0;cursor:grab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g .nm small{color:var(--muted);margin-left:5px}
+.g .nt{color:var(--warn);font-size:12px;cursor:help}
+.g select{padding:3px 2px;border:1px solid var(--line2);border-radius:6px;background:#fff;font-size:12px;width:106px;flex:none}
+.g .x{border:0;background:none;color:#b3aa9c;padding:2px 5px;font-size:15px;border-radius:5px}
+.g .x:hover{color:var(--danger);background:#fbeceb}
+.g .ed{border:0;background:none;color:#b3aa9c;padding:2px 4px;font-size:13px;border-radius:5px}
+.g .ed:hover{color:var(--ink);background:var(--bg)}
+.addrow{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line)}
+.addrow input{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line2);border-radius:7px}
+.addrow select{padding:6px;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.tray-drop.over{outline:3px dashed var(--sel);outline-offset:-6px;background:#fff9ea}
+
+/* ---------- map ---------- */
+.tbl{cursor:pointer}
+.tbl .body{stroke:#9d9384;stroke-width:1.4}
+.tbl.sel .body{stroke:var(--sel);stroke-width:4}
+.tbl.over .body{stroke:var(--danger);stroke-width:3}
+.tbl.hit .body{stroke:var(--sel);stroke-width:4;stroke-dasharray:6 4}
+.tbl.target .body{stroke:var(--accent);stroke-width:5}
+.tbl .lab{font-size:15px;font-weight:700;fill:#2a2623;text-anchor:middle;pointer-events:none}
+.tbl .cnt{font-size:12px;fill:#5d574f;text-anchor:middle;pointer-events:none}
+.tbl.over .cnt{fill:var(--danger);font-weight:700}
+.chair{stroke:#a79d8e;stroke-width:1;fill:#fff}
+.deco{fill:none;stroke:#b9ac98}
+.venue-t{font-size:22px;fill:#5a4a3a;text-anchor:middle;font-weight:600}
+.venue-s{font-size:16px;fill:#7a6a5a;text-anchor:middle}
+
+/* ---------- drag ghost ---------- */
+#ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:100;background:#fff;border:1px solid var(--line2);border-radius:8px;padding:6px 10px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-weight:600;transform:translate(-50%,-130%);white-space:nowrap}
+#ghost small{font-weight:400;color:var(--muted);margin-left:6px}
+body.dragging,body.dragging *{cursor:grabbing!important}
+
+/* ---------- dialogs ---------- */
+.scrim{position:fixed;inset:0;background:rgba(31,35,40,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.dlg{background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.dlg h3{margin:0;padding:16px 18px 6px;font-size:17px}
+.dlg .in{padding:6px 18px 12px;line-height:1.5}
+.dlg .row{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px 16px;border-top:1px solid var(--line)}
+.dlg label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
+.dlg input,.dlg select,.dlg textarea{width:100%;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
+.hist{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.hist small{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2a2623;color:#fff;padding:10px 16px;border-radius:10px;z-index:120;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:92vw}
+
+/* ---------- login / empty ---------- */
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.login{width:100%;max-width:360px;padding:26px}
+.login h1{margin:0 0 4px;font-size:21px}
+.login p{color:var(--muted);margin:0 0 16px}
+.login input{width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;margin-bottom:10px;font-size:15px}
+.login .err{color:var(--danger);min-height:20px;font-size:13px}
+.empty{max-width:520px;margin:40px auto;padding:26px;text-align:center}
+.empty h2{margin:0 0 6px}
+.empty p{color:var(--muted)}
+
+/* ---------- phone ---------- */
+@media (max-width:980px){
+  main{grid-template-columns:1fr;padding:10px}
+  aside{position:static;max-height:none}
+  #tablePanel .sec-b{max-height:none}
+  #trayPanel .sec-b{max-height:60vh}
+  #map{max-height:none}
+  .search input{width:150px}
+  header{position:static}
+}
+@media (max-width:560px){
+  header h1{width:100%}
+  .search{flex:1 1 100%;order:10}.search input{width:100%}
+  .results{left:0;right:auto;width:100%}
+}
+
+/* ---------- print ---------- */
+#print{display:none}
+@media print{
+  body{background:#fff}
+  #app,.scrim,.toast,#ghost{display:none!important}
+  #print{display:block;font-size:11pt}
+  #print h1{font-size:16pt;margin:0 0 10px}
+  #print .pt{break-inside:avoid;border:1px solid #999;border-radius:6px;padding:6px 8px;margin:0 0 8px}
+  #print .pt h4{margin:0 0 4px;font-size:11.5pt}
+  #print .cols{column-count:3;column-gap:10px}
+  #print ol{margin:0;padding-left:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- login -->
+<div id="loginView" class="center hidden">
+  <form class="card login" id="loginForm" autocomplete="on">
+    <h1>Seating plan</h1>
+    <p>Enter the password to open the plan.</p>
+    <input type="password" id="pw" name="password" placeholder="Password" autocomplete="current-password" required>
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary" style="width:100%;padding:10px" type="submit">Open</button>
+  </form>
+</div>
+
+<!-- app -->
+<div id="app" class="hidden">
+  <header>
+    <h1>Ləman's wedding · seating</h1>
+    <div class="stats" id="stats"></div>
+    <div class="spacer"></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Find a guest…" autocomplete="off">
+      <div class="results hidden" id="results"></div>
+    </div>
+    <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+    <div class="menu">
+      <button class="btn" id="moreBtn">More ▾</button>
+      <div class="drop hidden" id="moreMenu">
+        <button data-act="import">Import spreadsheet…</button>
+        <button data-act="xlsx">Download Excel</button>
+        <button data-act="print">Print table lists</button>
+        <button data-act="json">Download backup (.json)</button>
+        <button data-act="history">History / restore…</button>
+        <button data-act="logout">Log out</button>
+      </div>
+    </div>
+    <span class="save" id="save"></span>
+  </header>
+
+  <div id="emptyView" class="card empty hidden">
+    <h2>No guest list yet</h2>
+    <p>Import the guest spreadsheet (the “Planner import” sheet of <b>Wedding_Guest_List.xlsx</b>). A .csv or a backup .json works too.</p>
+    <button class="btn primary" id="emptyImport">Import spreadsheet…</button>
+  </div>
+
+  <main id="mainView" class="hidden">
+    <section class="card mapwrap">
+      <svg id="map" viewBox="100 44 850 1326" role="img" aria-label="Hall layout"></svg>
+      <div class="legend">
+        <span><i style="background:var(--papa)"></i>Papa</span>
+        <span><i style="background:var(--mama)"></i>Mama</span>
+        <span><i style="background:var(--laman)"></i>Ləman</span>
+        <span><i style="background:var(--other)"></i>Other</span>
+        <span>Click a table to see who sits there. Drag names onto tables to move them.</span>
+      </div>
+    </section>
+    <aside>
+      <section class="card" id="tablePanel"></section>
+      <section class="card tray-drop" id="trayPanel" data-drop="none"></section>
+    </aside>
+  </main>
+</div>
+
+<div id="print"></div>
+<input type="file" id="file" accept=".xlsx,.xls,.csv,.json" class="hidden">
+
+<script>
+"use strict";
+/* =====================================================================
+   Hall layout — traced from the printed plan. N1–N11 and N30–N37 are the
+   rectangular outer tables (10 seats), N12–N29 the round inner ones (12).
+   ===================================================================== */
+const SIDES = {
+  PAPA:  {label:"Papa",  c:"var(--papa)",  t:"var(--papa-t)",  s:"P"},
+  MAMA:  {label:"Mama",  c:"var(--mama)",  t:"var(--mama-t)",  s:"M"},
+  LAMAN: {label:"Ləman", c:"var(--laman)", t:"var(--laman-t)", s:"L"},
+  OTHER: {label:"Other", c:"var(--other)", t:"var(--other-t)", s:"O"},
+};
+const CX = 525, CY = 742, RX = 368, RY = 392;
+function outerSlot(k){ // k = 1 (bottom) … 11 (top) on the left arc
+  const th = (116 + (k - 1) * 12.8) * Math.PI / 180;
+  const x = CX + RX * Math.cos(th), y = CY + RY * Math.sin(th);
+  // Long side points at the middle of the hall (chairs face along the arc), as on the printed plan.
+  const rot = Math.atan2(RY * Math.cos(th), -RX * Math.sin(th)) * 180 / Math.PI + 90;
+  return {x, y, rot};
+}
+const TABLES = [];
+for (let k = 1; k <= 11; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, x:s.x, y:s.y, rot:s.rot}); }
+[[12,306,932],[13,270,847],[14,256,727],[15,258,640],[16,287,548],[17,376,888],[18,340,812],[19,340,712],[20,352,622],
+ [21,667,876],[22,694,773],[23,690,660],[24,641,578],[25,716,935],[26,766,826],[27,771,736],[28,756,628],[29,713,533]]
+  .forEach(([n,x,y]) => TABLES.push({n, kind:"round", seats:12, x, y, rot:0}));
+for (let n = 30; n <= 37; n++) { const s = outerSlot(40 - n); TABLES.push({n, kind:"rect", seats:10, x:2*CX - s.x, y:s.y, rot:-s.rot}); }
+const MUSIC = (() => { const s = outerSlot(2); return {x:2*CX - s.x, y:s.y, rot:-s.rot}; })();
+const TBL = Object.fromEntries(TABLES.map(t => [t.n, t]));
+
+/* =====================================================================
+   State
+   ===================================================================== */
+let plan = null;          // {guests:[{id,name,side,group,table,note,status,no}], meta:{}}
+let version = 0;
+let pending = [];         // ops not yet confirmed by the server, replayed after a conflict
+let saving = false, saveTimer = null, lastNote = "";
+let undoStack = [];
+let selected = null;      // selected table number
+let flashId = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const active = () => plan.guests.filter(g => g.status !== "removed");
+// Who sits where, rebuilt lazily after any change (render asks for it hundreds of times).
+let seatCache = null;
+function at(n){
+  if (!seatCache) {
+    seatCache = new Map();
+    for (const g of active()) if (g.table != null) { if (!seatCache.has(g.table)) seatCache.set(g.table, []); seatCache.get(g.table).push(g); }
+    for (const list of seatCache.values()) list.sort(byOrder);
+  }
+  return (seatCache.get(n) || []).slice();
+}
+const sideOf = g => SIDES[g.side] ? g.side : "OTHER";
+function byOrder(a, b){
+  const so = ["PAPA","MAMA","LAMAN","OTHER"];
+  return so.indexOf(sideOf(a)) - so.indexOf(sideOf(b)) ||
+    (a.group ?? 99) - (b.group ?? 99) || (a.no ?? 9999) - (b.no ?? 9999) || a.name.localeCompare(b.name);
+}
+function tag(g){
+  const s = SIDES[sideOf(g)];
+  return s.label + (g.group != null && g.group !== "" ? " · " + g.group : "");
+}
+
+/* =====================================================================
+   Operations — every change goes through here so it can be saved,
+   undone, and replayed on top of someone else's save.
+   ===================================================================== */
+function applyOp(p, op){
+  seatCache = null;
+  const find = id => p.guests.find(g => g.id === id);
+  switch (op.t) {
+    case "move":   op.moves.forEach(([id, table]) => { const g = find(id); if (g) g.table = table; }); break;
+    case "add":    if (!find(op.guest.id)) p.guests.push(clone(op.guest)); break;
+    case "edit":   { const g = find(op.id); if (g) Object.assign(g, op.fields); } break;
+    case "remove": { const g = find(op.id); if (g) { g.status = "removed"; g.table = null; } } break;
+    case "restore":{ const g = find(op.id); if (g) g.status = "active"; } break;
+    case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
+  }
+}
+function commit(op, note){
+  undoStack.push(clone(plan)); if (undoStack.length > 60) undoStack.shift();
+  applyOp(plan, op);
+  pending.push(op);
+  lastNote = note || lastNote;
+  render();
+  scheduleSave();
+}
+function undo(){
+  if (!undoStack.length) return;
+  const prev = undoStack.pop();
+  const op = {t:"replace", data:prev};
+  applyOp(plan, op); pending.push(op); lastNote = "Undo";
+  render(); scheduleSave();
+}
+function moveGuests(ids, table, note){
+  const moves = ids.map(id => [id, table]).filter(([id]) => plan.guests.find(g => g.id === id)?.table !== table);
+  if (!moves.length) return;
+  commit({t:"move", moves}, note);
+  if (table != null && at(table).length > TBL[table].seats) toast(`N${table} is now over capacity (${at(table).length}/${TBL[table].seats}).`);
+}
+
+/* =====================================================================
+   Server
+   ===================================================================== */
+async function api(path, opts = {}){
+  const r = await fetch(path, {credentials:"same-origin", headers:{"Content-Type":"application/json"}, ...opts});
+  let body = null; try { body = await r.json(); } catch {}
+  return {status:r.status, body};
+}
+function setSave(text, err){ const el = $("#save"); el.textContent = text; el.classList.toggle("err", !!err); }
+function scheduleSave(){ clearTimeout(saveTimer); setSave("Saving…"); saveTimer = setTimeout(save, 500); }
+async function save(){
+  if (saving) { scheduleSave(); return; }
+  if (!pending.length) return;
+  saving = true;
+  const sending = pending.slice();
+  try {
+    const r = await api("/api/toy/state", {method:"PUT", body:JSON.stringify({data:plan, baseVersion:version, note:lastNote})});
+    if (r.status === 200) {
+      version = r.body.version;
+      pending = pending.slice(sending.length);
+      setSave("Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+    } else if (r.status === 409) {
+      // Someone else saved first: take theirs, put our unsaved changes back on top.
+      const fresh = r.body.data ? clone(r.body.data) : {guests:[], meta:{}};
+      pending.forEach(op => applyOp(fresh, op));
+      plan = fresh; version = r.body.version; undoStack = [];
+      render();
+      toast("Someone else changed the plan at the same time — merged their changes with yours.");
+      saving = false; return save();
+    } else if (r.status === 401) {
+      setSave("Signed out", true); showLogin();
+    } else {
+      setSave("Not saved — retrying", true);
+      setTimeout(scheduleSave, 4000);
+    }
+  } catch {
+    setSave("Offline — retrying", true);
+    setTimeout(scheduleSave, 4000);
+  } finally { saving = false; }
+  if (pending.length) scheduleSave();
+}
+async function poll(){
+  if (document.hidden || saving || pending.length || !plan) return;
+  const r = await api("/api/toy/state").catch(() => null);
+  if (r && r.status === 200 && r.body.version > version && !pending.length) {
+    plan = r.body.data; version = r.body.version; undoStack = [];
+    render(); toast("Updated with changes from another device.");
+  }
+}
+setInterval(poll, 15000);
+document.addEventListener("visibilitychange", poll);
+window.addEventListener("beforeunload", e => { if (pending.length) { e.preventDefault(); e.returnValue = ""; } });
+
+/* =====================================================================
+   Rendering — map
+   ===================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(name, attrs = {}, parent){
+  const e = document.createElementNS(SVGNS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function chairsFor(t){
+  const pts = [];
+  if (t.kind === "rect") {
+    for (const y of [-33, 33]) for (const x of [-44, -22, 0, 22, 44]) pts.push({x, y, w:15, h:9});
+  } else {
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 - Math.PI / 2; pts.push({x:Math.cos(a) * 41, y:Math.sin(a) * 41, r:6}); }
+  }
+  return pts;
+}
+function drawStatic(svg){
+  svg.innerHTML = "";
+  const d = el("g", {}, svg);
+  el("rect", {x:110, y:54, width:830, height:1306, rx:18, fill:"#fffdf9", stroke:"#d8cbb6", "stroke-width":2}, d);
+  // head table
+  el("rect", {x:380, y:128, width:260, height:54, rx:10, fill:"#f7efe2", stroke:"#b9ac98", "stroke-width":1.5}, d);
+  const ht = el("text", {x:510, y:164, class:"venue-t"}, d); ht.textContent = "Bəy · Gəlin";
+  // mandala
+  for (const [r, w] of [[92,1.2],[74,1],[56,1],[36,1.2],[16,1]]) el("circle", {cx:CX, cy:CY, r, class:"deco", "stroke-width":w}, d);
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    el("ellipse", {cx:CX + Math.cos(a) * 64, cy:CY + Math.sin(a) * 64, rx:16, ry:7, class:"deco", transform:`rotate(${a * 180 / Math.PI} ${CX + Math.cos(a) * 64} ${CY + Math.sin(a) * 64})`}, d);
+  }
+  // stage + entrance
+  el("rect", {x:440, y:1190, width:240, height:96, rx:8, fill:"#efe6f0", stroke:"#b9a6bb", "stroke-width":1.5}, d);
+  const st = el("text", {x:560, y:1246, class:"venue-t"}, d); st.textContent = "Səhnə";
+  const en = el("text", {x:370, y:1330, class:"venue-s"}, d); en.textContent = "↑ Giriş";
+  // music
+  const m = el("g", {transform:`translate(${MUSIC.x} ${MUSIC.y}) rotate(${MUSIC.rot})`}, d);
+  el("rect", {x:-56, y:-24, width:112, height:48, rx:6, fill:"#fbf3f3", stroke:"#c9a4a4", "stroke-dasharray":"5 4"}, m);
+  const mt = el("text", {x:0, y:6, class:"venue-s", transform:`rotate(${-MUSIC.rot})`}, m); mt.textContent = "Musiqi";
+
+  const layer = el("g", {id:"tables"}, svg);
+  for (const t of TABLES) {
+    const g = el("g", {class:"tbl", "data-table":t.n, "data-drop":t.n, transform:`translate(${t.x.toFixed(1)} ${t.y.toFixed(1)}) rotate(${t.rot.toFixed(1)})`}, layer);
+    el("title", {}, g);
+    const chairs = el("g", {class:"chairs"}, g);
+    for (const c of chairsFor(t)) {
+      if (c.r) el("circle", {cx:c.x.toFixed(1), cy:c.y.toFixed(1), r:c.r, class:"chair"}, chairs);
+      else el("rect", {x:c.x - c.w / 2, y:c.y - c.h / 2, width:c.w, height:c.h, rx:2.5, class:"chair"}, chairs);
+    }
+    if (t.kind === "rect") el("rect", {x:-56, y:-24, width:112, height:48, rx:6, class:"body", fill:"#fff"}, g);
+    else el("circle", {r:31, class:"body", fill:"#fff"}, g);
+    const lab = el("g", {transform:`rotate(${-t.rot.toFixed(1)})`}, g);
+    el("text", {y:-2, class:"lab"}, lab);
+    el("text", {y:13, class:"cnt"}, lab);
+  }
+}
+function tint(guests){
+  if (!guests.length) return "#fff";
+  const count = {}; guests.forEach(g => count[sideOf(g)] = (count[sideOf(g)] || 0) + 1);
+  const [top, n] = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  return n / guests.length >= 0.75 ? SIDES[top].t : "var(--mix-t)";
+}
+function renderMap(){
+  const q = $("#q").value.trim().toLocaleLowerCase();
+  for (const t of TABLES) {
+    const g = document.querySelector(`#tables [data-table="${t.n}"]`);
+    const gs = at(t.n);
+    g.querySelector(".body").setAttribute("fill", tint(gs));
+    const texts = g.querySelectorAll("text");
+    texts[0].textContent = "N" + t.n;
+    texts[1].textContent = `${gs.length}/${t.seats}`;
+    g.classList.toggle("over", gs.length > t.seats);
+    g.classList.toggle("sel", selected === t.n);
+    g.classList.toggle("hit", !!q && gs.some(x => x.name.toLocaleLowerCase().includes(q)));
+    const chairs = g.querySelectorAll(".chair");
+    chairs.forEach((c, i) => c.style.fill = gs[i] ? SIDES[sideOf(gs[i])].c : "#fff");
+    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
+  }
+}
+
+/* =====================================================================
+   Rendering — header, table panel, tray
+   ===================================================================== */
+function tableOptions(current){
+  let h = `<option value="">— none —</option>`;
+  for (const t of TABLES) {
+    const n = at(t.n).length;
+    h += `<option value="${t.n}"${t.n === current ? " selected" : ""}>N${t.n} (${n}/${t.seats})</option>`;
+  }
+  return h;
+}
+function guestRow(g){
+  const s = SIDES[sideOf(g)];
+  return `<div class="g${flashId === g.id ? " flash" : ""}" data-id="${esc(g.id)}">
+    <span class="handle" title="Drag">⋮⋮</span>
+    <span class="dot" style="background:${s.c}"></span>
+    <span class="nm" title="${esc(g.name)} — ${esc(tag(g))}">${esc(g.name)}<small>${esc(tag(g))}</small></span>
+    ${g.note ? `<span class="nt" title="${esc(g.note)}">ⓘ</span>` : ""}
+    <select class="mv" aria-label="Move to table">${tableOptions(g.table)}</select>
+    <button class="ed" title="Edit">✎</button>
+  </div>`;
+}
+function renderStats(){
+  const a = active(), seated = a.filter(g => g.table != null).length;
+  const over = TABLES.filter(t => at(t.n).length > t.seats).length;
+  const seats = TABLES.reduce((s, t) => s + t.seats, 0);
+  $("#stats").innerHTML =
+    `<span class="stat"><b>${a.length}</b> guests</span>` +
+    `<span class="stat"><b>${seated}</b> seated</span>` +
+    `<span class="stat${a.length - seated ? " bad" : ""}"><b>${a.length - seated}</b> not seated</span>` +
+    (over ? `<span class="stat bad"><b>${over}</b> over-full</span>` : "") +
+    `<span class="stat">${seats - seated} free seats</span>`;
+  $("#undoBtn").disabled = !undoStack.length;
+}
+function renderTable(){
+  const p = $("#tablePanel");
+  if (selected == null) {
+    p.innerHTML = `<div class="sec-h"><h2>Tables</h2></div>
+      <div class="hint">Click a table on the plan to see and change who sits there.<br>
+      Drag a name (⋮⋮) onto another table to move them, or onto “Not seated” to take them off a table.
+      You can also pick a table from the menu next to each name.</div>`;
+    return;
+  }
+  const t = TBL[selected], gs = at(selected);
+  const cls = gs.length > t.seats ? "over" : gs.length === t.seats ? "full" : "";
+  let swap = `<option value="">Swap all guests with…</option>`;
+  for (const o of TABLES) if (o.n !== t.n) swap += `<option value="${o.n}">N${o.n} (${at(o.n).length}/${o.seats})</option>`;
+  let moveAll = `<option value="">Move everyone to…</option><option value="none">— not seated —</option>`;
+  for (const o of TABLES) if (o.n !== t.n) moveAll += `<option value="${o.n}">N${o.n} (${at(o.n).length}/${o.seats})</option>`;
+  p.innerHTML = `<div class="sec-h" data-drop="${t.n}"><h2>N${t.n}</h2>
+      <span class="pill ${cls}">${gs.length}/${t.seats}</span>
+      <span style="color:var(--muted);font-size:12.5px">${t.kind === "round" ? "round · inner" : "long · outer"}</span>
+      <span class="spacer"></span><button class="btn" id="closeTbl" title="Close">✕</button></div>
+    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>` : ""}
+    <div class="sec-b tray-drop" data-drop="${t.n}">${gs.length ? gs.map(guestRow).join("") :
+      `<div class="hint">Nobody here yet. Drag names from “Not seated” onto this table on the plan, or here.</div>`}</div>
+    <form class="addrow" id="addHere"><input placeholder="Add a new guest to N${t.n}…" id="addName">
+      <select id="addSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+      <button class="btn">Add</button></form>`;
+}
+function renderTray(){
+  const q = $("#q").value.trim().toLocaleLowerCase();
+  const un = active().filter(g => g.table == null).sort(byOrder);
+  const removed = plan.guests.filter(g => g.status === "removed").sort(byOrder);
+  let h = `<div class="sec-h" data-drop="none"><h2>Not seated</h2><span class="pill ${un.length ? "over" : "full"}">${un.length}</span>
+    <span class="spacer"></span><button class="btn" id="addUnseated">+ Guest</button></div><div class="sec-b" data-drop="none">`;
+  if (!un.length) h += `<div class="hint">Everyone has a table. Drop a name here to take them off their table.</div>`;
+  let last = null;
+  for (const g of un) {
+    if (sideOf(g) !== last) { last = sideOf(g); h += `<div class="grp-h"><span>${SIDES[last].label}</span><span>${un.filter(x => sideOf(x) === last).length}</span></div>`; }
+    h += guestRow(g);
+  }
+  if (removed.length) {
+    h += `<details style="border-top:1px solid var(--line)"><summary class="grp-h" style="cursor:pointer">Removed from the list (${removed.length})</summary>`;
+    for (const g of removed) h += `<div class="g" data-rid="${esc(g.id)}"><span class="dot" style="background:${SIDES[sideOf(g)].c}"></span>
+      <span class="nm" style="text-decoration:line-through;color:var(--muted)">${esc(g.name)}<small>${esc(tag(g))}</small></span>
+      <button class="btn restore">Restore</button></div>`;
+    h += `</details>`;
+  }
+  $("#trayPanel").innerHTML = h + `</div>`;
+}
+function render(){
+  if (!plan) return;
+  seatCache = null;
+  const has = plan.guests.length > 0;
+  $("#emptyView").classList.toggle("hidden", has);
+  $("#mainView").classList.toggle("hidden", !has);
+  if (!has) { renderStats(); return; }
+  renderStats(); renderMap(); renderTable(); renderTray();
+  flashId = null;
+}
+
+/* =====================================================================
+   Interaction
+   ===================================================================== */
+function selectTable(n){ selected = n; render(); if (window.innerWidth <= 980 && n != null) $("#tablePanel").scrollIntoView({behavior:"smooth", block:"start"}); }
+$("#map").addEventListener("click", e => {
+  const g = e.target.closest(".tbl"); if (!g) return;
+  const n = +g.dataset.table; selectTable(selected === n ? null : n);
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.classList.contains("mv")) {
+    const id = t.closest(".g").dataset.id, g = plan.guests.find(x => x.id === id);
+    const to = t.value === "" ? null : +t.value;
+    moveGuests([id], to, `${g.name} → ${to == null ? "not seated" : "N" + to}`);
+  } else if (t.id === "swapSel" && t.value) {
+    const a = selected, b = +t.value;
+    const moves = [...at(a).map(g => [g.id, b]), ...at(b).map(g => [g.id, a])];
+    commit({t:"move", moves}, `Swapped N${a} and N${b}`); selected = b; render();
+  } else if (t.id === "allSel" && t.value) {
+    const to = t.value === "none" ? null : +t.value, from = selected;
+    moveGuests(at(from).map(g => g.id), to, `Everyone at N${from} → ${to == null ? "not seated" : "N" + to}`);
+  }
+});
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.id === "closeTbl") selectTable(null);
+  else if (t.classList.contains("ed")) editGuest(t.closest(".g").dataset.id);
+  else if (t.classList.contains("restore")) { const id = t.closest(".g").dataset.rid; const g = plan.guests.find(x => x.id === id); commit({t:"restore", id}, `Restored ${g.name}`); }
+  else if (t.id === "addUnseated") editGuest(null);
+  if (!t.closest(".menu")) $("#moreMenu").classList.add("hidden");
+  if (!t.closest(".search")) $("#results").classList.add("hidden");
+});
+document.addEventListener("submit", e => {
+  if (e.target.id !== "addHere") return;
+  e.preventDefault();
+  const name = $("#addName").value.trim(); if (!name) return;
+  const guest = {id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, side:$("#addSide").value, group:null, table:selected, note:"Added on the website", status:"active", no:null};
+  commit({t:"add", guest}, `Added ${name}`);
+});
+$("#undoBtn").onclick = undo;
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); }
+  if (e.key === "Escape") { closeDlg(); $("#results").classList.add("hidden"); }
+});
+
+/* ---------- search ---------- */
+$("#q").addEventListener("input", () => {
+  const q = $("#q").value.trim().toLocaleLowerCase(), box = $("#results");
+  renderMap(); renderTray();
+  if (!q) { box.classList.add("hidden"); return; }
+  const hits = plan.guests.filter(g => g.name.toLocaleLowerCase().includes(q)).sort(byOrder).slice(0, 40);
+  box.innerHTML = hits.length ? hits.map(g => `<div data-id="${esc(g.id)}"><span>${esc(g.name)}</span><small>${g.status === "removed" ? "removed" : g.table == null ? "not seated" : "N" + g.table} · ${esc(tag(g))}</small></div>`).join("")
+    : `<div style="color:var(--muted);cursor:default">No match</div>`;
+  box.classList.remove("hidden");
+});
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") $("#results [data-id]")?.click(); });
+$("#results").addEventListener("click", e => {
+  const d = e.target.closest("[data-id]"); if (!d) return;
+  const g = plan.guests.find(x => x.id === d.dataset.id);
+  $("#results").classList.add("hidden");
+  flashId = g.id;
+  if (g.table != null) selectTable(g.table); else render();
+  setTimeout(() => document.querySelector(`.g[data-id="${CSS.escape(g.id)}"]`)?.scrollIntoView({block:"nearest"}), 50);
+});
+
+/* ---------- drag & drop (pointer events: works with mouse and touch) ---------- */
+let drag = null;
+document.addEventListener("pointerdown", e => {
+  const row = e.target.closest(".g[data-id]"); if (!row) return;
+  const fromHandle = e.target.classList.contains("handle");
+  const fromName = e.target.closest(".nm") && e.pointerType === "mouse";
+  if (!fromHandle && !fromName) return;
+  e.preventDefault();
+  drag = {id:row.dataset.id, x:e.clientX, y:e.clientY, started:false, target:undefined};
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    drag.started = true;
+    const g = plan.guests.find(x => x.id === drag.id);
+    const gh = document.createElement("div"); gh.id = "ghost";
+    gh.innerHTML = `${esc(g.name)}<small>${g.table == null ? "not seated" : "N" + g.table}</small>`;
+    document.body.appendChild(gh); document.body.classList.add("dragging");
+  }
+  const gh = $("#ghost"); gh.style.left = e.clientX + "px"; gh.style.top = e.clientY + "px";
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const dz = under && under.closest("[data-drop]");
+  const target = dz ? (dz.dataset.drop === "none" ? null : +dz.dataset.drop) : undefined;
+  if (target !== drag.target) {
+    document.querySelectorAll(".tbl.target").forEach(x => x.classList.remove("target"));
+    document.querySelectorAll(".tray-drop.over").forEach(x => x.classList.remove("over"));
+    if (target != null) {
+      document.querySelector(`#tables [data-table="${target}"]`)?.classList.add("target");
+      const t = TBL[target], n = at(target).length;
+      gh.querySelector("small").textContent = `→ N${target} (${n}/${t.seats})`;
+    } else if (target === null) {
+      dz.closest(".tray-drop")?.classList.add("over");
+      gh.querySelector("small").textContent = "→ not seated";
+    }
+    drag.target = target;
+  }
+});
+function endDrag(e, cancel){
+  if (!drag) return;
+  const d = drag; drag = null;
+  $("#ghost")?.remove(); document.body.classList.remove("dragging");
+  document.querySelectorAll(".tbl.target").forEach(x => x.classList.remove("target"));
+  document.querySelectorAll(".tray-drop.over").forEach(x => x.classList.remove("over"));
+  if (!d.started || cancel || d.target === undefined) return;
+  const g = plan.guests.find(x => x.id === d.id);
+  flashId = d.id;
+  moveGuests([d.id], d.target, `${g.name} → ${d.target == null ? "not seated" : "N" + d.target}`);
+}
+document.addEventListener("pointerup", e => endDrag(e, false));
+document.addEventListener("pointercancel", e => endDrag(e, true));
+
+/* =====================================================================
+   Dialogs
+   ===================================================================== */
+function dlg(html){
+  closeDlg();
+  const s = document.createElement("div"); s.className = "scrim"; s.id = "scrim";
+  s.innerHTML = `<div class="dlg" role="dialog" aria-modal="true">${html}</div>`;
+  s.addEventListener("click", e => { if (e.target === s) closeDlg(); });
+  document.body.appendChild(s);
+  return s;
+}
+function closeDlg(){ $("#scrim")?.remove(); }
+function toast(msg){
+  document.querySelectorAll(".toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 4200);
+}
+function editGuest(id){
+  const g = id ? plan.guests.find(x => x.id === id) : {name:"", side:"PAPA", group:null, note:"", table:null};
+  const s = dlg(`<h3>${id ? "Edit guest" : "Add a guest"}</h3><form class="in" id="gForm">
+    <label>Name</label><input id="gName" value="${esc(g.name)}" required>
+    <label>Whose guest</label><select id="gSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${sideOf(g) === k ? " selected" : ""}>${v.label}</option>`).join("")}</select>
+    <label>Group number (optional)</label><input id="gGroup" inputmode="numeric" value="${esc(g.group ?? "")}">
+    <label>Table</label><select id="gTable">${tableOptions(g.table)}</select>
+    <label>Note</label><textarea id="gNote" rows="2">${esc(g.note || "")}</textarea></form>
+    <div class="row">${id ? `<button class="btn danger" id="gDel" style="margin-right:auto">Remove from list</button>` : ""}
+      <button class="btn" id="gCancel">Cancel</button><button class="btn primary" id="gOk">${id ? "Save" : "Add"}</button></div>`);
+  s.querySelector("#gName").focus();
+  s.querySelector("#gCancel").onclick = closeDlg;
+  const ok = () => {
+    const name = s.querySelector("#gName").value.trim(); if (!name) return;
+    const grp = s.querySelector("#gGroup").value.trim();
+    const fields = {name, side:s.querySelector("#gSide").value, group:grp === "" ? null : (isNaN(+grp) ? grp : +grp),
+      table:s.querySelector("#gTable").value === "" ? null : +s.querySelector("#gTable").value, note:s.querySelector("#gNote").value.trim()};
+    closeDlg();
+    if (id) commit({t:"edit", id, fields}, `Edited ${name}`);
+    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields}}, `Added ${name}`);
+  };
+  s.querySelector("#gOk").onclick = ok;
+  s.querySelector("#gForm").onsubmit = e => { e.preventDefault(); ok(); };
+  if (id) s.querySelector("#gDel").onclick = () => { closeDlg(); commit({t:"remove", id}, `Removed ${g.name}`); toast(`${g.name} removed — restore from “Removed from the list”.`); };
+}
+
+/* =====================================================================
+   Import / export
+   ===================================================================== */
+let xlsxLoading = null;
+function loadXLSX(){
+  if (window.XLSX) return Promise.resolve();
+  return xlsxLoading ||= new Promise((ok, bad) => {
+    const s = document.createElement("script"); s.src = "/toy/xlsx.full.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Could not load the Excel reader."));
+    document.head.appendChild(s);
+  });
+}
+const SIDE_ALIASES = {papa:"PAPA", ata:"PAPA", father:"PAPA", mama:"MAMA", ana:"MAMA", mother:"MAMA", laman:"LAMAN", "ləman":"LAMAN", bride:"LAMAN"};
+function rowsToPlan(rows){
+  const key = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [String(k).trim().toLowerCase(), v]));
+  const guests = [], seen = new Set();
+  rows.map(key).forEach((r, i) => {
+    const name = String(r.name ?? r["ad"] ?? "").trim(); if (!name) return;
+    const side = SIDE_ALIASES[String(r.side ?? "").trim().toLowerCase()] || (SIDES[String(r.side ?? "").trim().toUpperCase()] ? String(r.side).trim().toUpperCase() : "OTHER");
+    const no = r.no === "" || r.no == null ? null : +r.no;
+    let id = no != null && !isNaN(no) ? `${SIDES[side].s}-${no}` : `R-${i + 1}`;
+    while (seen.has(id)) id += "b"; seen.add(id);
+    const status = /del|remov|sil/i.test(String(r.status ?? "")) ? "removed" : "active";
+    const tbl = r.table === "" || r.table == null ? null : parseInt(String(r.table).replace(/\D/g, ""), 10);
+    const group = r.group === "" || r.group == null ? null : (isNaN(+r.group) ? String(r.group) : +r.group);
+    guests.push({id, no, name, side, group, table:status === "active" && TBL[tbl] ? tbl : null, note:String(r.note ?? "").trim(), status});
+  });
+  return {guests, meta:{importedAt:new Date().toISOString()}};
+}
+async function readFile(f){
+  const ext = f.name.split(".").pop().toLowerCase();
+  if (ext === "json") {
+    const j = JSON.parse(await f.text());
+    const g = Array.isArray(j) ? j : j.guests;
+    if (!Array.isArray(g)) throw new Error("This .json is not a seating backup.");
+    return g[0] && "status" in g[0] && "id" in g[0] ? {guests:g, meta:j.meta || {}} : rowsToPlan(g);
+  }
+  await loadXLSX();
+  const wb = ext === "csv" ? XLSX.read(await f.text(), {type:"string"}) : XLSX.read(await f.arrayBuffer(), {type:"array"});
+  const pick = wb.SheetNames.find(n => /planner import/i.test(n)) ||
+    wb.SheetNames.find(n => { const r = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1})[0] || []; const h = r.map(x => String(x).toLowerCase()); return h.includes("name") && h.includes("side"); });
+  if (!pick) throw new Error("No sheet with “Side” and “Name” columns — use the “Planner import” sheet.");
+  return rowsToPlan(XLSX.utils.sheet_to_json(wb.Sheets[pick], {defval:""}));
+}
+$("#file").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  let data;
+  try { data = await readFile(f); } catch (err) { toast(err.message || "Could not read that file."); return; }
+  const a = data.guests.filter(g => g.status !== "removed"), seated = a.filter(g => g.table != null).length;
+  const had = plan && plan.guests.length;
+  const s = dlg(`<h3>Import ${esc(f.name)}</h3><div class="in">
+      <p><b>${a.length}</b> guests (${seated} with a table, ${a.length - seated} without)${data.guests.length - a.length ? `, plus ${data.guests.length - a.length} marked deleted` : ""}.</p>
+      ${had ? `<p>This <b>replaces</b> the current plan. The current plan stays in History, so you can go back.</p>` : ""}</div>
+      <div class="row"><button class="btn" id="iNo">Cancel</button><button class="btn primary" id="iOk">${had ? "Replace plan" : "Import"}</button></div>`);
+  s.querySelector("#iNo").onclick = closeDlg;
+  s.querySelector("#iOk").onclick = () => { closeDlg(); selected = null; commit({t:"replace", data}, `Imported ${f.name}`); };
+});
+function download(name, blob){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`; };
+async function exportXlsx(){
+  await loadXLSX();
+  const byTable = [];
+  for (const t of TABLES) { const gs = at(t.n); gs.forEach((g, i) => byTable.push({Table:"N" + t.n, Seats:t.seats, "#":i + 1, Name:g.name, Side:SIDES[sideOf(g)].label, Group:g.group ?? "", Note:g.note || ""})); }
+  active().filter(g => g.table == null).sort(byOrder).forEach(g => byTable.push({Table:"Not seated", Seats:"", "#":"", Name:g.name, Side:SIDES[sideOf(g)].label, Group:g.group ?? "", Note:g.note || ""}));
+  const tables = TABLES.map(t => ({Table:"N" + t.n, Seats:t.seats, Seated:at(t.n).length, Free:t.seats - at(t.n).length}));
+  const imp = plan.guests.slice().sort(byOrder).map(g => ({Side:sideOf(g), No:g.no ?? "", Name:g.name, Group:g.group ?? "", Table:g.table ?? "", Status:g.status === "removed" ? "Deleted" : "Attending", Note:g.note || ""}));
+  const wb = XLSX.utils.book_new();
+  const add = (rows, name, widths) => { const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"] = widths.map(w => ({wch:w})); XLSX.utils.book_append_sheet(wb, ws, name); };
+  add(byTable, "By table", [11, 6, 4, 30, 8, 7, 50]);
+  add(tables, "Tables", [8, 7, 8, 6]);
+  add(imp, "Planner import", [8, 5, 30, 7, 7, 10, 50]);
+  XLSX.writeFile(wb, `seating-${stamp()}.xlsx`);
+}
+function printLists(){
+  let h = `<h1>Seating plan — ${new Date().toLocaleDateString()}</h1><div class="cols">`;
+  for (const t of TABLES) { const gs = at(t.n); if (!gs.length) continue;
+    h += `<div class="pt"><h4>N${t.n} — ${gs.length}/${t.seats}</h4><ol>${gs.map(g => `<li>${esc(g.name)}</li>`).join("")}</ol></div>`; }
+  const un = active().filter(g => g.table == null);
+  if (un.length) h += `<div class="pt"><h4>Not seated — ${un.length}</h4><ol>${un.sort(byOrder).map(g => `<li>${esc(g.name)}</li>`).join("")}</ol></div>`;
+  $("#print").innerHTML = h + `</div>`;
+  window.print();
+}
+async function showHistory(){
+  const r = await api("/api/toy/history");
+  if (r.status !== 200) { toast("Could not load history."); return; }
+  const items = r.body.items;
+  const s = dlg(`<h3>History</h3><div class="in">${items.length ? items.map((it, i) => `<div class="hist"><div>${esc(it.note || "Saved")}<br>
+      <small>${new Date(it.savedAt).toLocaleString()} · ${it.seated}/${it.guests} seated</small></div>
+      ${i === 0 ? `<small>current</small>` : `<button class="btn" data-h="${it.id}">Restore</button>`}</div>`).join("") : "<p>No saves yet.</p>"}</div>
+      <div class="row"><button class="btn" id="hClose">Close</button></div>`);
+  s.querySelector("#hClose").onclick = closeDlg;
+  s.querySelectorAll("[data-h]").forEach(b => b.onclick = async () => {
+    const x = await api("/api/toy/history?id=" + b.dataset.h);
+    if (x.status !== 200) { toast("Could not load that version."); return; }
+    closeDlg(); selected = null;
+    commit({t:"replace", data:x.body.data}, `Restored the version from ${new Date(x.body.savedAt).toLocaleString()}`);
+    toast("Restored. Undo brings the previous plan back.");
+  });
+}
+$("#moreBtn").onclick = () => $("#moreMenu").classList.toggle("hidden");
+$("#moreMenu").addEventListener("click", async e => {
+  const a = e.target.dataset.act; if (!a) return;
+  $("#moreMenu").classList.add("hidden");
+  if (a === "import") $("#file").click();
+  if (a === "xlsx") exportXlsx().catch(err => toast(err.message));
+  if (a === "json") download(`seating-backup-${stamp()}.json`, new Blob([JSON.stringify(plan, null, 1)], {type:"application/json"}));
+  if (a === "print") printLists();
+  if (a === "history") showHistory();
+  if (a === "logout") { await api("/api/toy/logout", {method:"POST"}); location.reload(); }
+});
+$("#emptyImport").onclick = () => $("#file").click();
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+function showLogin(msg){
+  $("#app").classList.add("hidden"); $("#loginView").classList.remove("hidden");
+  $("#loginErr").textContent = msg || ""; setTimeout(() => $("#pw").focus(), 30);
+}
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const r = await api("/api/toy/login", {method:"POST", body:JSON.stringify({password:$("#pw").value})}).catch(() => ({status:0, body:null}));
+  if (r.status === 200) { $("#pw").value = ""; boot(); }
+  else $("#loginErr").textContent = (r.body && r.body.error) || "Could not sign in.";
+});
+async function boot(){
+  const r = await api("/api/toy/state").catch(() => ({status:0}));
+  if (r.status === 401) return showLogin();
+  if (r.status === 503) return showLogin("The planner isn't switched on yet (TOY_PASSWORD is not set).");
+  if (r.status !== 200) return showLogin("Could not reach the server. Try again in a moment.");
+  plan = r.body.data || {guests:[], meta:{}};
+  plan.guests ||= [];
+  version = r.body.version;
+  $("#loginView").classList.add("hidden"); $("#app").classList.remove("hidden");
+  drawStatic($("#map"));
+  render();
+  if (r.body.updatedAt) setSave("Saved " + new Date(r.body.updatedAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
+}
+boot();
+</script>
+</body>
+</html>
