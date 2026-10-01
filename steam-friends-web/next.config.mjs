@@ -46,6 +46,7 @@ const nextConfig = {
     // anyone re-pasting a URL.
     return [
       { source: "/studio", destination: `${studioOrigin}/studio`, permanent: false },
+      { source: "/studio/:slug", destination: `${studioOrigin}/studio/:slug`, permanent: false },
       { source: "/scene/:key", destination: `${studioOrigin}/scene/:key`, permanent: false },
       // The lite source too, and the scene feed it polls: once the studio's
       // tables live on its own server, the copy here stops changing, and a

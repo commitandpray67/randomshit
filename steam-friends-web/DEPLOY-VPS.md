@@ -169,6 +169,29 @@ Everything goes back to how it was; the VPS can keep running or be stopped with
 
 **Restarts** are automatic — after a crash, or after the server reboots.
 
+## Studios for more streamers
+
+Each streamer gets their own studio at `studio.steamfriends.xyz/studio/<channel>`,
+with its own canvas and OBS link. Admins open every studio and manage them;
+set yours in `.env`:
+
+```sh
+echo 'STUDIO_ADMIN_STEAM_IDS=YOUR_STEAMID64' >> .env
+docker compose up -d
+```
+
+Then, in any studio, the **Studio** panel at the top right has:
+- a switcher between studios;
+- **New studio**: a Twitch channel and a display name. It starts empty, and
+  only admins can open it;
+- the people who can edit the current studio: **Add** takes a SteamID or a
+  Steam profile link, **Remove** takes effect at once.
+
+The first time the new version starts, the studio that already existed
+becomes the first of these, keeping its canvas, its OBS link and everyone who
+could edit it (`POGLY_ALLOWED_STEAM_IDS`). After that, studio access is
+managed in the panel, not in `.env`.
+
 ## Moving the database closer
 
 Neon's project was created in the US (AWS us-east-1, Virginia), an ocean from a

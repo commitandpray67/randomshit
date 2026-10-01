@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { isOverlayAllowed } from "@/lib/overlay";
+import { studioFor, forgetStudios, isStudioSlug } from "@/lib/studios";
 import { rateLimit } from "@/lib/ratelimit";
 import {
   KINDS,
@@ -21,14 +21,7 @@ import {
   writeMoves,
   type Move,
 } from "@/lib/scene";
-import {
-  LIVE,
-  studioSceneRef,
-  forgetSceneRefs,
-  noteElements,
-  moveLive,
-  motionSettled,
-} from "@/lib/live";
+import { LIVE, noteElements, moveLive, motionSettled } from "@/lib/live";
 
 /**
  * Editor mutations. A JSON endpoint rather than server actions because
@@ -41,8 +34,10 @@ import {
  * or in the one query that writes it on Vercel. Everything else takes the
  * slow, general route.
  *
- * Gated by the same POGLY_ALLOWED_STEAM_IDS allowlist as the studio page, and
- * re-checked here — the page render is not the gate.
+ * Every request names its studio (`studio`, the slug in /studio/<slug>), and
+ * is checked against who may edit it (lib/studios.ts) — the page render is not
+ * the gate. A request naming none goes to the first studio the editor may
+ * open, which is what an editor page opened before studios existed sends.
  */
 export const dynamic = "force-dynamic";
 
@@ -50,7 +45,7 @@ const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
 
 export async function POST(req: NextRequest) {
   const steamId = await getSession();
-  if (!steamId || !isOverlayAllowed(steamId)) {
+  if (!steamId) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: NO_STORE });
   }
 
@@ -77,6 +72,14 @@ export async function POST(req: NextRequest) {
 
   const action = String(body?.action ?? "");
 
+  // Which canvas, and whether this editor may touch it. One answer for both:
+  // a studio they can't open and one that doesn't exist look the same.
+  const studio = await studioFor(steamId, isStudioSlug(body?.studio) ? body.studio : null);
+  if (!studio || (body?.studio != null && !isStudioSlug(body.studio))) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: NO_STORE });
+  }
+  const scene = { id: studio.sceneId, key: studio.sceneKey };
+
   // The drag fast path returns before any of the work below. Every other
   // action ends by re-reading the scene and echoing all of its elements, which
   // is the right trade for an edit you make once and a disaster for one the
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (byId.size === 0) {
       return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400, headers: NO_STORE });
     }
-    const ref = await studioSceneRef(steamId);
+    const ref = scene;
     const moves = [...byId.values()];
 
     if (LIVE) {
@@ -118,10 +121,6 @@ export async function POST(req: NextRequest) {
   // Positions still on their way to the database land first, so this edit
   // can't be overwritten by a drag that finished before it was made.
   if (LIVE) await motionSettled();
-
-  // Everyone on the allowlist edits the same canvas; see studioOwner.
-  const scene = await studioSceneRef(steamId);
-  const owner = scene.steamId;
 
   // Elements this request removed or created, echoed back: the editor needs the
   // removed ones to offer an undo, and the created ones to select them.
@@ -217,12 +216,13 @@ export async function POST(req: NextRequest) {
     }
 
     case "canvas":
-      await setCanvasSize(owner, body.w, body.h);
+      await setCanvasSize(scene.id, body.w, body.h);
       break;
 
     case "rotate_key":
-      await rotateSceneKey(owner);
-      forgetSceneRefs();
+      await rotateSceneKey(scene.id);
+      // The remembered studios carry the old key, which must stop working now.
+      forgetStudios();
       break;
 
     default:

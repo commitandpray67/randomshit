@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { isOverlayAllowed } from "@/lib/overlay";
+import { studiosFor } from "@/lib/studios";
 import { rateLimit } from "@/lib/ratelimit";
 import { emotesFromSet, findEmoteSet, pickSearchedUserId, type Emote } from "@/lib/seventv";
 
@@ -70,7 +70,8 @@ async function getJson(url: string, init?: RequestInit): Promise<any | null> {
 
 export async function GET(req: NextRequest) {
   const steamId = await getSession();
-  if (!steamId || !isOverlayAllowed(steamId)) {
+  // Anyone who can edit a studio — the picker is part of the studio.
+  if (!steamId || (await studiosFor(steamId)).length === 0) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: NO_STORE });
   }
 

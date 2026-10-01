@@ -109,6 +109,37 @@ export async function getPlayerSummaries(
   return out;
 }
 
+/** A SteamID64: 17 digits, and every individual account's starts like this. */
+const STEAMID64 = /^7656119\d{10}$/;
+
+/**
+ * Turn whatever someone pasted into a SteamID64, or null.
+ *
+ * Takes the ID itself, a profile link (`steamcommunity.com/profiles/<id>`), or
+ * a custom one (`steamcommunity.com/id/<name>`, or just `<name>`), which only
+ * Steam can map to an ID. People copy whichever their browser shows, and
+ * asking them to dig out the number is how the wrong account gets added.
+ */
+export async function resolveSteamId(input: string): Promise<string | null> {
+  const raw = input.trim().replace(/\/+$/, "");
+  if (!raw || raw.length > 200) return null;
+  if (STEAMID64.test(raw)) return raw;
+
+  const profiles = raw.match(/steamcommunity\.com\/profiles\/(\d+)/i);
+  if (profiles) return STEAMID64.test(profiles[1]) ? profiles[1] : null;
+
+  const custom = raw.match(/steamcommunity\.com\/id\/([^/?#]+)/i);
+  const vanity = custom ? custom[1] : raw;
+  if (!/^[\w-]{2,64}$/.test(vanity)) return null;
+
+  const key = requireApiKey();
+  const data = await fetchJson(
+    `${API_BASE}/ISteamUser/ResolveVanityURL/v1/?key=${key}&vanityurl=${encodeURIComponent(vanity)}`,
+  );
+  const id = data?.response?.success === 1 ? String(data.response.steamid ?? "") : "";
+  return STEAMID64.test(id) ? id : null;
+}
+
 export type FriendRef = { steamid: string; friendSince: number };
 
 /**

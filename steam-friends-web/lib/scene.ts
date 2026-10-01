@@ -9,8 +9,7 @@
  * (falling back to polling a version number).
  */
 import crypto from "node:crypto";
-import { sql as mainSql, studioSql as sql } from "./db";
-import { studioOwner } from "./overlay";
+import { studioSql as sql } from "./db";
 
 export type ElementKind = "text" | "image" | "video" | "widget";
 
@@ -77,43 +76,24 @@ function toElement(row: any): SceneElement {
 }
 
 /**
- * The user's scene, created on first visit to the studio.
+ * A fresh, empty scene for a studio (see lib/studios.ts).
  *
- * Select-then-insert rather than ON CONFLICT: steam_id is deliberately not
- * unique here (room for multiple scenes later, the way Pogly has layouts), and
- * ON CONFLICT needs a matching constraint to target.
+ * `steamId` is whoever caused it to exist. Scenes have always hung off a user,
+ * and where the studio's tables share Neon with everything else that's still
+ * a foreign key, so it has to be someone who has signed in — which whoever is
+ * looking at the studio has.
  */
-export async function ensureScene(steamId: string): Promise<Scene> {
-  const existing = await sql`
-    SELECT * FROM scenes WHERE steam_id = ${steamId} ORDER BY id ASC LIMIT 1
-  `;
-  if (existing[0]) return toScene(existing[0]);
-
+export async function createStudioScene(studioId: number, steamId: string): Promise<Scene> {
   const rows = await sql`
-    INSERT INTO scenes (steam_id, scene_key) VALUES (${steamId}, ${newKey()}) RETURNING *
+    INSERT INTO scenes (steam_id, scene_key, studio_id)
+    VALUES (${steamId}, ${newKey()}, ${studioId})
+    ON CONFLICT (studio_id) WHERE studio_id IS NOT NULL DO NOTHING
+    RETURNING *
   `;
-  return toScene(rows[0]);
-}
-
-/**
- * The scene an editor should be working on: the shared one, or their own if
- * the owner has never signed in and so has no row to hang a scene off.
- */
-export async function studioScene(steamId: string): Promise<Scene> {
-  const owner = studioOwner(steamId);
-  if (owner && owner !== steamId) {
-    // The shared scene, once it exists, is simply there — found without
-    // asking the main database anything, which matters when the studio's
-    // tables live apart from it (see studioSql).
-    const shared = await getSceneForUser(owner);
-    if (shared) return shared;
-    // Creating it needs the owner to have signed in at least once: scenes hang
-    // off users. Falling back rather than throwing: an allowlist naming
-    // somebody who hasn't logged in yet shouldn't lock the others out.
-    const known = await mainSql`SELECT 1 FROM users WHERE steam_id = ${owner}`;
-    if (known.length) return ensureScene(owner);
-  }
-  return ensureScene(steamId);
+  if (rows[0]) return toScene(rows[0]);
+  // Someone else created it a moment ago.
+  const existing = await sql`SELECT * FROM scenes WHERE studio_id = ${studioId}`;
+  return toScene(existing[0]);
 }
 
 export async function getSceneByKey(key: string): Promise<Scene | null> {
@@ -129,10 +109,10 @@ export async function getSceneForUser(steamId: string): Promise<Scene | null> {
   return rows[0] ? toScene(rows[0]) : null;
 }
 
-export async function rotateSceneKey(steamId: string): Promise<void> {
+export async function rotateSceneKey(sceneId: number): Promise<void> {
   await sql`
     UPDATE scenes SET scene_key = ${newKey()}, version = version + 1, updated_at = now()
-    WHERE steam_id = ${steamId}
+    WHERE id = ${sceneId}
   `;
 }
 
@@ -594,7 +574,7 @@ export async function reorderElement(
 }
 
 export async function setCanvasSize(
-  steamId: string,
+  sceneId: number,
   w: unknown,
   h: unknown,
 ): Promise<void> {
@@ -605,7 +585,7 @@ export async function setCanvasSize(
         canvas_h = ${Math.round(num(h, 16, 4320, 1080))},
         version = version + 1,
         updated_at = now()
-      WHERE steam_id = ${steamId}
+      WHERE id = ${sceneId}
       RETURNING scene_key, version
     )
     SELECT pg_notify('scene_' || scene_key, json_build_object('v', version)::text) FROM c

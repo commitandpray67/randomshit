@@ -36,7 +36,7 @@
  */
 import crypto from "node:crypto";
 import { studioSql as sql } from "./db";
-import { studioScene, writeMoves, type Move } from "./scene";
+import { writeMoves, type Move } from "./scene";
 
 export const LIVE = !process.env.VERCEL;
 
@@ -51,12 +51,12 @@ type Listener = (e: LiveEvent) => void;
 /** The newest position shown live for an element; `v` once it is written. */
 type Pending = { x: number; y: number; w: number; h: number; r: number; v: number | null; at: number };
 type Queued = Move & { sceneId: number; gen: number; pend: Pending };
-export type SceneRef = { id: number; key: string; steamId: string };
+/** The canvas being edited: its id, and the key its streams listen under. */
+export type SceneRef = { id: number; key: string };
 
 type State = {
   origin: string;
   subs: Map<string, Set<Listener>>;
-  refs: Map<string, { ref: SceneRef; at: number; refreshing: boolean }>;
   members: Map<number, { ids: Set<number>; at: number }>;
   pending: Map<number, Pending>;
   queue: Map<number, Queued>;
@@ -70,7 +70,6 @@ const G = globalThis as typeof globalThis & { __studioLive?: State };
 const S: State = (G.__studioLive ??= {
   origin: crypto.randomBytes(6).toString("hex"),
   subs: new Map(),
-  refs: new Map(),
   members: new Map(),
   pending: new Map(),
   queue: new Map(),
@@ -105,46 +104,6 @@ function publish(key: string, e: LiveEvent): void {
       /* one broken stream must not stop the rest */
     }
   }
-}
-
-// ---- which scene an editor is working on -----------------------------------
-
-/**
- * How long a looked-up scene is trusted before it is re-checked. Re-checked in
- * the background: the stale answer is served meanwhile, because looking it up
- * costs two round trips and doing that inline would stall a drag.
- */
-const REF_FRESH_MS = 60_000;
-
-/**
- * The shared studio scene for an editor, remembered.
- *
- * Every request used to look it up again — two round trips before any actual
- * work. The id never changes; the key changes only on a rotation, which
- * forgets it (see forgetSceneRefs).
- */
-export async function studioSceneRef(steamId: string): Promise<SceneRef> {
-  const hit = S.refs.get(steamId);
-  if (!hit) return loadRef(steamId);
-  if (Date.now() - hit.at > REF_FRESH_MS && !hit.refreshing) {
-    hit.refreshing = true;
-    loadRef(steamId).catch(() => {
-      hit.refreshing = false;
-    });
-  }
-  return hit.ref;
-}
-
-async function loadRef(steamId: string): Promise<SceneRef> {
-  const s = await studioScene(steamId);
-  const ref = { id: s.id, key: s.sceneKey, steamId: s.steamId };
-  S.refs.set(steamId, { ref, at: Date.now(), refreshing: false });
-  return ref;
-}
-
-/** After a key rotation: the old key must stop receiving anything at once. */
-export function forgetSceneRefs(): void {
-  S.refs.clear();
 }
 
 // ---- which elements a scene has --------------------------------------------

@@ -1,17 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { isOverlayAllowed } from "@/lib/overlay";
-import { sceneWithElements } from "@/lib/scene";
-import { studioSceneRef, withLiveMoves } from "@/lib/live";
-import StudioEditor from "@/components/StudioEditor";
-import { currentOrigin } from "@/lib/apphost";
+import { studiosFor, isStudioAdmin } from "@/lib/studios";
+import StudioAdmin from "@/components/StudioAdmin";
 
 /**
- * Overlay studio — the canvas editor.
+ * /studio on its own: straight on to the first studio this person may edit
+ * (see lib/studios.ts). Everything else lives at /studio/<slug>.
  *
- * Same gate as the alert overlay: restricted to POGLY_ALLOWED_STEAM_IDS, and
- * anyone else gets a 404 rather than a "forbidden", so it isn't advertised to
- * people who can't use it. Not in the sitemap, the footer, or locale routing.
+ * Anyone with no studio gets a 404 rather than a "forbidden", so the studio
+ * isn't advertised to people who can't use it — except an admin, who gets the
+ * form to create the first one. Not in the sitemap, the footer, or locale
+ * routing.
  */
 export const dynamic = "force-dynamic";
 
@@ -20,46 +19,21 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-// The channel the canvas shows behind the elements while you arrange them, so
-// you're positioning against the actual stream rather than against nothing.
-const PREVIEW_CHANNEL =
-  process.env.STUDIO_PREVIEW_CHANNEL || process.env.SEVENTV_DEFAULT_CHANNEL || "juntella";
-
-// The editor wants the full window, so the site's centred `main` column and the
-// footer are suppressed here. Server-rendered, no :has(), same as the overlay.
-const RESET = `
-  body { display: block !important; }
-  .site-footer { display: none !important; }
-`;
-
-export default async function StudioPage() {
+export default async function StudioHome() {
   const steamId = await getSession();
   // Straight to Steam and back here, rather than to the home page: on the
   // studio's own host there is nothing on the home page you came for.
   if (!steamId) redirect("/api/auth/steam?to=studio");
-  if (!isOverlayAllowed(steamId)) notFound();
 
-  // Browser-source URLs are built from the host this page was reached on, not
-  // from APP_URL: whoever is here needs a URL that loads for them, and the
-  // canonical domain is unreachable on some connections.
-  const site = await currentOrigin();
-  const ref = await studioSceneRef(steamId);
-  const found = await sceneWithElements({ id: ref.id });
-  if (!found) notFound();
-  const { scene } = found;
-  const elements = withLiveMoves(scene.version, found.elements);
+  const studios = await studiosFor(steamId);
+  if (studios.length > 0) redirect(`/studio/${studios[0].slug}`);
+  if (!isStudioAdmin(steamId)) notFound();
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: RESET }} />
-      <StudioEditor
-        initialSceneKey={scene.sceneKey}
-        initialCanvas={{ w: scene.canvasW, h: scene.canvasH }}
-        initialElements={elements as any}
-        initialVersion={scene.version}
-        siteUrl={site}
-        previewChannel={PREVIEW_CHANNEL}
-      />
-    </>
+    <main style={{ maxWidth: 520, margin: "3rem auto", padding: "0 16px" }}>
+      <h1>Overlay studio</h1>
+      <p className="st-hint">No studios yet. Create the first one.</p>
+      <StudioAdmin studio={null} />
+    </main>
   );
 }

@@ -18,9 +18,12 @@ type Emote = { id: string; name: string; url: string };
 export default function EmotePicker({
   onPick,
   onClose,
+  defaultChannel,
 }: {
   onPick: (url: string, name: string) => void;
   onClose: () => void;
+  /** The studio's streamer, whose set it opens on. The server's default otherwise. */
+  defaultChannel?: string;
 }) {
   const [channel, setChannel] = useState("");
   /** The channel currently on screen, as the server resolved it. */
@@ -73,10 +76,10 @@ export default function EmotePicker({
     }
   }, []);
 
-  // Open onto the default set.
+  // Open onto the studio's streamer's set.
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(defaultChannel);
+  }, [load, defaultChannel]);
 
   const shown = (emotes ?? []).filter((e) =>
     filter ? e.name.toLowerCase().includes(filter.toLowerCase()) : true,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ElementView, type RElement } from "./SceneRenderer";
 import EmotePicker from "./EmotePicker";
+import StudioAdmin from "./StudioAdmin";
 import { isEmbeddable, videoPaused } from "@/lib/embed";
 import StreamBackdrop from "./StreamBackdrop";
 import { imageCandidates } from "@/lib/imagesrc";
@@ -56,15 +57,23 @@ export default function StudioEditor({
   initialElements,
   initialVersion,
   siteUrl,
-  previewChannel,
+  studio,
+  studios,
+  isAdmin,
 }: {
   initialSceneKey: string;
   initialCanvas: Canvas;
   initialElements: RElement[];
   initialVersion: number;
   siteUrl: string;
-  previewChannel: string;
+  /** The studio being edited: whose canvas, and whose stream and emotes. */
+  studio: { slug: string; name: string; channel: string | null };
+  /** Every studio this editor may open, for switching between them. */
+  studios: { slug: string; name: string }[];
+  isAdmin: boolean;
 }) {
+  // The stream shown behind the canvas, and whose 7TV emotes the picker opens on.
+  const previewChannel = studio.channel ?? "";
   const [sceneKey, setSceneKey] = useState(initialSceneKey);
   const [canvas, setCanvas] = useState<Canvas>(initialCanvas);
   const [elements, setElements] = useState<RElement[]>(initialElements);
@@ -155,13 +164,15 @@ export default function StudioEditor({
   // is remembered per browser rather than pushed at the other editors.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("studio:preview");
+      // Per studio: a channel picked while working on one streamer's canvas
+      // means nothing on another's.
+      const saved = localStorage.getItem(`studio:preview:${studio.slug}`);
       setPreview(saved === null ? previewChannel : saved);
       setPreviewLive(localStorage.getItem("studio:preview-live") !== "0");
     } catch {
       setPreview(previewChannel);
     }
-  }, [previewChannel]);
+  }, [previewChannel, studio.slug]);
 
   const setPreviewLivePref = (live: boolean) => {
     setPreviewLive(live);
@@ -175,7 +186,7 @@ export default function StudioEditor({
   const setPreviewChannel = (name: string) => {
     setPreview(name);
     try {
-      localStorage.setItem("studio:preview", name);
+      localStorage.setItem(`studio:preview:${studio.slug}`, name);
     } catch {
       /* private mode; the preview just won't be remembered */
     }
@@ -253,7 +264,7 @@ export default function StudioEditor({
     void fetch("/api/studio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update", id, patch }),
+      body: JSON.stringify({ action: "update", id, patch, studio: studio.slug }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -349,7 +360,7 @@ export default function StudioEditor({
       const res = await fetch("/api/studio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, studio: studio.slug }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -450,7 +461,7 @@ export default function StudioEditor({
       // playback by it. Without it the overlay can only go on when each
       // position *arrived*, and renders the network's jitter as the element
       // speeding up and slowing down.
-      body: JSON.stringify({ action: "transform", moves, ts: Math.round(performance.now()) }),
+      body: JSON.stringify({ action: "transform", moves, ts: Math.round(performance.now()), studio: studio.slug }),
     })
       .then(async (res) => {
         // Noted for the same reason a text edit is: it marks everything
@@ -1013,7 +1024,7 @@ export default function StudioEditor({
         {selectedIds.length === 0 && (
           <p className="st-credit">
             made with <span className="st-heart" role="img" aria-label="love">♥</span>,
-            for Juntella, by mochi
+            for {studio.name}, by mochi
           </p>
         )}
         <div className="st-add">
@@ -1204,6 +1215,33 @@ export default function StudioEditor({
         {/* ----------------------------- right rail */}
         <aside className="st-rail">
           <section className="st-panel">
+            <h3>Studio</h3>
+            {studios.length > 1 ? (
+              <label className="st-row">
+                <span>Editing</span>
+                {/* A full navigation, not a client-side one: each studio is its
+                    own canvas, stream and set of editors, and the page is
+                    built for one at a time. */}
+                <select
+                  value={studio.slug}
+                  onChange={(e) => {
+                    window.location.href = `/studio/${e.target.value}`;
+                  }}
+                >
+                  {studios.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="st-hint">Editing {studio.name}&apos;s overlay.</p>
+            )}
+            {isAdmin && <StudioAdmin studio={{ slug: studio.slug, name: studio.name }} />}
+          </section>
+
+          <section className="st-panel">
             <h3>Browser source</h3>
             <div className="st-url-row">
               <input className="st-url" readOnly value={sceneUrl} onFocus={(e) => e.target.select()} />
@@ -1211,8 +1249,8 @@ export default function StudioEditor({
             </div>
             <p className="st-hint">
               Size the OBS source to your canvas. Keep this URL private — rotating it
-              breaks the old one immediately. Everyone on the allowlist edits this
-              same canvas and shares this URL.
+              breaks the old one immediately. Everyone who can edit this studio
+              edits this same canvas and shares this URL.
             </p>
 
             <h3 style={{ marginTop: "1rem" }}>Lite URL</h3>
@@ -1490,6 +1528,7 @@ export default function StudioEditor({
 
       {showEmotes && (
         <EmotePicker
+          defaultChannel={studio.channel ?? undefined}
           onClose={() => setShowEmotes(false)}
           onPick={(url, name) => {
             setShowEmotes(false);

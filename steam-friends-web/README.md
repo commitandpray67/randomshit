@@ -65,6 +65,7 @@ Fill `.env.local`:
 | `CRON_SECRET` | `openssl rand -hex 32` |
 | `DATABASE_URL_UNPOOLED` | optional; the direct (non-pooled) Postgres endpoint, for the scene stream's `LISTEN` |
 | `STUDIO_ORIGIN` | optional; where the studio lives when it isn't here, e.g. `https://studio.steamfriends.xyz`. See below |
+| `STUDIO_ADMIN_STEAM_IDS` | SteamID64s who can open every studio, create studios and manage who edits them |
 | `STUDIO_DATABASE_URL` | optional; a separate database for the studio's own tables (scenes, elements). Set on the studio server by `scripts/move-studio-db.sh` |
 
 > Steam's API key registration asks for a domain. For local testing you can
@@ -252,17 +253,32 @@ A Pogly-style overlay editor: place text, images, videos and browser widgets on
 a canvas, arrange them, and render the result in an OBS browser source. Nothing
 to do with the Steam friends tracker — it just lives in the same app.
 
-- **Editor** — `/studio`, gated by `POGLY_ALLOWED_STEAM_IDS` (same allowlist as
-  the alert overlay; anyone else gets a 404).
+- **Editor** — `/studio/<streamer>`, one studio per streamer, open to that
+  studio's members and to admins; anyone else gets a 404. `/studio` alone goes
+  to the first studio you can open.
 - **Browser source** — `/scene/<key>`, reachable only via its unguessable key.
 
-### One canvas, several editors
+### Studios: one canvas per streamer
 
-Everyone on the allowlist edits the same scene and shares one browser-source
-URL. The first SteamID in `POGLY_ALLOWED_STEAM_IDS` owns it, so the order of
-that list is meaningful — put the owner first. (If that account has never
-signed in there is no row to hang a scene off, and each editor falls back to
-their own rather than the studio 500ing.)
+Each studio (`lib/studios.ts`) has its own canvas, so its own browser-source
+URL, a Twitch channel (the stream preview behind the canvas, and whose 7TV
+emotes the picker opens on), and members who may edit it. Everyone in a studio
+edits the same canvas.
+
+- **Admins** (`STUDIO_ADMIN_STEAM_IDS`) can open every studio. In the studio's
+  side panel they switch between them, create new ones (a Twitch channel and a
+  display name), and add or remove members by SteamID or Steam profile link.
+- **Members** see only their own studios, with a switcher if they have more
+  than one. Any other studio address is a 404, so which streamers have a
+  studio isn't advertised.
+
+The tables (`studios`, `studio_members`, `scenes.studio_id`) live with the
+scenes and create themselves on first use. That first use also turns the
+original single studio into the first of these: the canvas owned by the first
+SteamID in `POGLY_ALLOWED_STEAM_IDS`, named after `STUDIO_PREVIEW_CHANNEL`,
+with that list as its members, so nobody's OBS link or access changed. From
+then on studio access is managed in the panel; `POGLY_ALLOWED_STEAM_IDS` still
+gates the alert overlay.
 
 The editor holds the same SSE stream the browser source does, so an add, a
 drag or a keystroke shows up in everybody's canvas as it happens. Adopting
@@ -551,8 +567,8 @@ On the studio server the studio's two tables can also move off Neon into a
 Postgres next to the app (`STUDIO_DATABASE_URL`, set by
 `scripts/move-studio-db.sh`; DEPLOY-VPS.md has the steps). Every OBS source
 checks its scene about once a second, and against Neon that kept its compute
-running for the whole of every stream. Only `lib/scene.ts` and `lib/live.ts`
-touch those tables, through `studioSql`; everything else, logins included,
+running for the whole of every stream. Only `lib/scene.ts`, `lib/live.ts` and
+`lib/studios.ts` touch those tables, through `studioSql`; everything else, logins included,
 stays on `sql` and Neon.
 
 **Run one app container.** The in-memory hand-off only reaches streams in the
