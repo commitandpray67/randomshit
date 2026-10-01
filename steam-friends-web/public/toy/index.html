@@ -74,7 +74,9 @@ aside .card{display:flex;flex-direction:column;min-height:0}
 .pill.full{background:#e7f4ec;border-color:#b9dcc6;color:var(--ok)}
 .pill.over{background:#fbeceb;border-color:#e7b3ad;color:var(--danger)}
 .sec-b{overflow:auto;min-height:0}
-#tablePanel .sec-b{max-height:46vh}
+#tablePanel{flex:0 1 auto;max-height:62%;min-height:0}
+#tablePanel .sec-b{max-height:none;flex:1 1 auto}
+#trayPanel{min-height:180px}
 #trayPanel{flex:1}
 #trayPanel .sec-b{flex:1}
 .hint{color:var(--muted);font-size:12.5px;padding:10px 12px;line-height:1.45}
