@@ -66,22 +66,26 @@ main > *{min-width:0}
 body.picking .tbl .body{stroke:var(--accent);stroke-width:2.5}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:4px 8px 6px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-aside{display:flex;flex-direction:column;gap:14px;position:sticky;top:64px;max-height:calc(100vh - 80px)}
-aside .card{display:flex;flex-direction:column;min-height:0}
+/* The side column is exactly one screen tall. The selected table gets the
+   larger share and the "not seated" list the rest; each scrolls inside its
+   own card, so a long list can never squeeze the table's guests out of view. */
+aside{display:flex;flex-direction:column;gap:14px;position:sticky;top:84px;height:calc(100vh - 150px);height:calc(100dvh - 150px);min-height:520px}
+aside .card{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .sec-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
 .sec-h h2{font-size:15px;margin:0;font-weight:650}
 .pill{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--bg);border:1px solid var(--line)}
 .pill.full{background:#e7f4ec;border-color:#b9dcc6;color:var(--ok)}
 .pill.over{background:#fbeceb;border-color:#e7b3ad;color:var(--danger)}
+.sec-h,.tools,.addrow{flex:none}
 .sec-b{overflow:auto;min-height:0}
-#tablePanel{flex:0 1 auto;max-height:62%;min-height:0}
-#tablePanel .sec-b{max-height:none;flex:1 1 auto}
-#trayPanel{min-height:180px}
-#trayPanel{flex:1}
-#trayPanel .sec-b{flex:1}
+#tablePanel{flex:0 0 auto}
+#tablePanel:not(.closed){flex:4 1 0;min-height:260px}
+#tablePanel .sec-b{flex:1 1 0}
+#trayPanel{flex:2 1 0;min-height:150px}
+#trayPanel .sec-b{flex:1 1 0}
 .hint{color:var(--muted);font-size:12.5px;padding:10px 12px;line-height:1.45}
-.tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
-.tools select{padding:5px 6px;border:1px solid var(--line2);border-radius:7px;background:#fff;max-width:100%}
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.tools select{padding:5px 6px;border:1px solid var(--line2);border-radius:7px;background:#fff;width:100%;min-width:0}
 .grp-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:8px 12px 4px;display:flex;justify-content:space-between}
 
 /* ---------- view tabs + guest list editor ---------- */
@@ -181,7 +185,10 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   aside{position:static;max-height:none}
   .mapwrap{padding:4px}
   .mapview{height:62vh;height:62dvh;min-height:0}
-  #trayPanel .sec-b{max-height:none}
+  aside{height:auto}
+  aside .card{overflow:visible}
+  #trayPanel{flex:none;min-height:0}
+  #trayPanel .sec-b{max-height:none;flex:none}
   header{position:static;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
   .legend span:last-child{display:none}
   /* the selected table opens as a sheet from the bottom of the screen */
@@ -189,7 +196,8 @@ body.dragging,body.dragging *{cursor:grabbing!important}
     box-shadow:0 -10px 40px rgba(0,0,0,.18);padding-bottom:env(safe-area-inset-bottom);transition:transform .22s ease;border-bottom:0}
   #tablePanel.closed{transform:translateY(110%)}
   #tablePanel::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:#d6cec2;margin:8px auto 0}
-  #tablePanel .sec-b{max-height:none;flex:1}
+  #tablePanel:not(.closed){min-height:0}
+  #tablePanel .sec-b{max-height:none;flex:1 1 auto}
   body.picking #tablePanel{transform:translateY(110%)}
   /* bigger touch targets; 16px text stops iOS zooming into fields */
   input,select,textarea{font-size:16px!important}
