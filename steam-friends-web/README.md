@@ -72,6 +72,25 @@ Fill `.env.local`:
 > register with any domain you control (or `localhost`); the key itself works
 > from anywhere — the domain is just metadata.
 
+## Wedding seating planner (`/toy`)
+
+A password-protected page for arranging guests on the hall plan: click a
+table to see who sits there, drag names between tables (or pick a table from
+the menu next to each name), add/remove guests, undo, search, print table
+lists and download an Excel copy.
+
+- Page: `public/toy/index.html` (static, like `/jayc`); API: `app/api/toy/*`;
+  helpers: `lib/toy.ts`.
+- Set `TOY_PASSWORD` in Vercel. Unset, the planner stays locked for everyone.
+  Changing it signs everyone out.
+- Nothing about the guests is in this repo. The list is imported on the page
+  from the spreadsheet's “Planner import” sheet and stored in Postgres
+  (`toy_plans`, one JSON row). The tables are created on first use;
+  `db/neon-toy.sql` has the same statements.
+- Every save is kept in `toy_plan_history` (latest 200), and **More → History**
+  restores any of them. Two people editing at once don't overwrite each other:
+  a stale save gets a 409, and the page replays its own changes on top.
+
 ## Deploy (Vercel)
 
 1. Push this folder to a repo and import it in Vercel.

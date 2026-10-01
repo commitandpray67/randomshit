@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f3ee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex, nofollow">
+<title>Рассадка гостей</title>
+<style>
+:root{
+  --bg:#f6f3ee;--panel:#ffffff;--ink:#1f2328;--muted:#6b6f76;--line:#e3ddd3;--line2:#cfc6b8;
+  --accent:#8a5a2b;--accent-ink:#fff;--danger:#c0392b;--ok:#2e7d4f;--warn:#b7791f;
+  --papa:#3567b0;--mama:#c0487a;--laman:#23906a;--other:#8a6d3b;
+  --papa-t:#e3ecf8;--mama-t:#f8e3ec;--laman-t:#dff2ea;--other-t:#efe8dc;--mix-t:#eeeae3;
+  --sel:#f0a500;--radius:10px;
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-size:14px;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+/* ---------- header ---------- */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0 8px 0 0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.stats{display:flex;gap:6px;flex-wrap:wrap}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
+.stat b{font-weight:650}
+.stat.bad{border-color:#e7b3ad;background:#fbeceb;color:var(--danger)}
+.spacer{flex:1}
+.search{position:relative}
+.search input{width:200px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
+.results{position:absolute;right:0;top:calc(100% + 4px);width:300px;max-height:360px;overflow:auto;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30}
+.results div{padding:7px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.results div:hover,.results div.on{background:var(--bg)}
+.results small{color:var(--muted);white-space:nowrap}
+.btn{border:1px solid var(--line2);background:#fff;border-radius:8px;padding:6px 11px;white-space:nowrap}
+.btn:hover{background:var(--bg)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.danger{color:var(--danger)}
+.save{font-size:12px;color:var(--muted);white-space:nowrap;min-width:84px;text-align:right}
+.save.err{color:var(--danger)}
+.menu{position:relative}
+.menu .drop{position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:210px;z-index:30;padding:4px}
+.menu .drop button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px}
+.menu .drop button:hover{background:var(--bg)}
+
+/* ---------- layout ---------- */
+main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:14px 16px;align-items:start}
+main > *{min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.mapwrap{padding:8px;position:relative;min-width:0;overflow:hidden}
+.mapview{overflow:auto;height:calc(100vh - 210px);height:calc(100dvh - 210px);min-height:420px;border-radius:8px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#map{display:block;height:auto;margin:0 auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.zoom{position:absolute;right:16px;top:16px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.zoom button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line2);background:rgba(255,255,255,.95);font-size:20px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.pickbar{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;background:#2a2623;color:#fff;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:calc(100vw - 20px)}
+.pickbar b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickbar button{border:0;border-radius:8px;padding:8px 10px;background:#fff;color:#2a2623;white-space:nowrap}
+.pickbar button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+body.picking .tbl .body{stroke:var(--accent);stroke-width:2.5}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:4px 8px 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+aside{display:flex;flex-direction:column;gap:14px;position:sticky;top:64px;max-height:calc(100vh - 80px)}
+aside .card{display:flex;flex-direction:column;min-height:0}
+.sec-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.sec-h h2{font-size:15px;margin:0;font-weight:650}
+.pill{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--bg);border:1px solid var(--line)}
+.pill.full{background:#e7f4ec;border-color:#b9dcc6;color:var(--ok)}
+.pill.over{background:#fbeceb;border-color:#e7b3ad;color:var(--danger)}
+.sec-b{overflow:auto;min-height:0}
+#tablePanel .sec-b{max-height:46vh}
+#trayPanel{flex:1}
+#trayPanel .sec-b{flex:1}
+.hint{color:var(--muted);font-size:12.5px;padding:10px 12px;line-height:1.45}
+.tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+.tools select{padding:5px 6px;border:1px solid var(--line2);border-radius:7px;background:#fff;max-width:100%}
+.grp-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:8px 12px 4px;display:flex;justify-content:space-between}
+
+/* ---------- view tabs + guest list editor ---------- */
+.tabs{display:flex;gap:4px;padding:10px 16px 0;max-width:100%}
+.tabs button{border:1px solid var(--line);border-bottom:0;background:transparent;border-radius:10px 10px 0 0;padding:9px 16px;font-weight:600;color:var(--muted)}
+.tabs button.on{background:var(--panel);color:var(--ink);border-color:var(--line)}
+#listView{margin:0 16px 16px;padding:0;overflow:hidden}
+.lt-bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-bottom:1px solid var(--line);align-items:center}
+.lt-bar input,.lt-bar select{padding:7px 9px;border:1px solid var(--line2);border-radius:8px;background:#fff}
+.lt-bar .grow{flex:1;min-width:160px}
+.lt-add{background:#fbf8f3}
+.lt-add b{font-size:13px;color:var(--muted);margin-right:2px}
+.lt-count{font-size:12.5px;color:var(--muted);padding:8px 12px}
+.lt-wrap{overflow:auto;max-height:calc(100dvh - 300px)}
+table.lt{border-collapse:collapse;width:100%;font-size:13.5px}
+.lt th{position:sticky;top:0;background:#f4efe7;text-align:left;font-weight:600;padding:8px 8px;border-bottom:1px solid var(--line2);white-space:nowrap;cursor:pointer;user-select:none;z-index:1}
+.lt th.nosort{cursor:default}
+.lt td{padding:4px 8px;border-bottom:1px solid #f1ede6;vertical-align:middle}
+.lt tr.removed td{background:#fbf3f2}
+.lt tr.removed .f-name{text-decoration:line-through;color:var(--muted)}
+.lt input,.lt select{width:100%;padding:6px 7px;border:1px solid transparent;border-radius:6px;background:transparent}
+.lt input:hover,.lt select:hover{border-color:var(--line2);background:#fff}
+.lt input:focus,.lt select:focus{border-color:var(--accent);background:#fff;outline:none}
+.lt .c-no{width:46px;color:var(--muted);text-align:right}
+.lt .c-side{width:110px}.lt .c-grp{width:70px}.lt .c-tbl{width:130px}.lt .c-act{width:92px;text-align:right;white-space:nowrap}
+.lt .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.lt .del{border:1px solid transparent;background:none;color:var(--danger);border-radius:6px;padding:5px 8px}
+.lt .del:hover{border-color:#e7b3ad;background:#fbeceb}
+.lt tr.flash td{animation:flash 1.6s ease}
+
+/* ---------- guest rows ---------- */
+.g{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 4px;border-bottom:1px solid #f1ede6;background:#fff}
+.g:last-child{border-bottom:0}
+.g.flash{animation:flash 1.6s ease}
+@keyframes flash{0%,40%{background:#fff3cd}100%{background:#fff}}
+.handle{touch-action:none;cursor:grab;color:#b3aa9c;padding:4px 3px;font-size:15px;line-height:1;user-select:none}
+.g .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.g .nm{flex:1;min-width:0;cursor:grab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g .nm small{color:var(--muted);margin-left:5px}
+.g .nt{color:var(--warn);font-size:12px;cursor:help}
+.g select{padding:3px 2px;border:1px solid var(--line2);border-radius:6px;background:#fff;font-size:12px;width:106px;flex:none}
+.g .x{border:0;background:none;color:#b3aa9c;padding:2px 5px;font-size:15px;border-radius:5px}
+.g .x:hover{color:var(--danger);background:#fbeceb}
+.g .ed{border:0;background:none;color:#b3aa9c;padding:2px 4px;font-size:13px;border-radius:5px}
+.g .ed:hover{color:var(--ink);background:var(--bg)}
+.addrow{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line)}
+.addrow input{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line2);border-radius:7px}
+.addrow select{padding:6px;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.tray-drop.over{outline:3px dashed var(--sel);outline-offset:-6px;background:#fff9ea}
+
+/* ---------- map ---------- */
+.tbl{cursor:pointer}
+.tbl .body{stroke:#9d9384;stroke-width:1.4}
+.tbl.sel .body{stroke:var(--sel);stroke-width:4}
+.tbl.over .body{stroke:var(--danger);stroke-width:3}
+.tbl.hit .body{stroke:var(--sel);stroke-width:4;stroke-dasharray:6 4}
+.tbl.target .body{stroke:var(--accent);stroke-width:5}
+.tbl .lab{font-size:21px;font-weight:700;fill:#2a2623;text-anchor:middle;pointer-events:none}
+.tbl .cnt{font-size:15px;fill:#5d574f;text-anchor:middle;pointer-events:none}
+.tbl.over .cnt{fill:var(--danger);font-weight:700}
+.chair{stroke:#a79d8e;stroke-width:1;fill:#fff}
+.deco{fill:none;stroke:#b9ac98}
+.venue-t{font-size:22px;fill:#5a4a3a;text-anchor:middle;font-weight:600}
+.venue-s{font-size:16px;fill:#7a6a5a;text-anchor:middle}
+
+/* ---------- drag ghost ---------- */
+#ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:100;background:#fff;border:1px solid var(--line2);border-radius:8px;padding:6px 10px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-weight:600;transform:translate(-50%,-130%);white-space:nowrap}
+#ghost small{font-weight:400;color:var(--muted);margin-left:6px}
+body.dragging,body.dragging *{cursor:grabbing!important}
+
+/* ---------- dialogs ---------- */
+.scrim{position:fixed;inset:0;background:rgba(31,35,40,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.dlg{background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.dlg h3{margin:0;padding:16px 18px 6px;font-size:17px}
+.dlg .in{padding:6px 18px 12px;line-height:1.5}
+.dlg .row{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px 16px;border-top:1px solid var(--line)}
+.dlg label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
+.dlg input,.dlg select,.dlg textarea{width:100%;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
+.hist{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.hist small{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2a2623;color:#fff;padding:10px 16px;border-radius:10px;z-index:120;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:92vw}
+
+/* ---------- login / empty ---------- */
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.login{width:100%;max-width:360px;padding:26px}
+.login h1{margin:0 0 4px;font-size:21px}
+.login p{color:var(--muted);margin:0 0 16px}
+.login input{width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;margin-bottom:10px;font-size:15px}
+.login .err{color:var(--danger);min-height:20px;font-size:13px}
+.empty{max-width:520px;margin:40px auto;padding:26px;text-align:center}
+.empty h2{margin:0 0 6px}
+.empty p{color:var(--muted)}
+
+/* ---------- phone ---------- */
+@media (max-width:980px){
+  main{grid-template-columns:1fr;padding:8px 8px calc(16px + env(safe-area-inset-bottom))}
+  aside{position:static;max-height:none}
+  .mapwrap{padding:4px}
+  .mapview{height:62vh;height:62dvh;min-height:0}
+  #trayPanel .sec-b{max-height:none}
+  header{position:static;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+  .legend span:last-child{display:none}
+  /* the selected table opens as a sheet from the bottom of the screen */
+  #tablePanel{position:fixed;left:0;right:0;bottom:0;z-index:40;border-radius:16px 16px 0 0;max-height:62vh;max-height:62dvh;
+    box-shadow:0 -10px 40px rgba(0,0,0,.18);padding-bottom:env(safe-area-inset-bottom);transition:transform .22s ease;border-bottom:0}
+  #tablePanel.closed{transform:translateY(110%)}
+  #tablePanel::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:#d6cec2;margin:8px auto 0}
+  #tablePanel .sec-b{max-height:none;flex:1}
+  body.picking #tablePanel{transform:translateY(110%)}
+  /* bigger touch targets; 16px text stops iOS zooming into fields */
+  input,select,textarea{font-size:16px!important}
+  .btn{padding:9px 12px;min-height:40px}
+  .g{min-height:48px;padding:6px 8px 6px 2px}
+  .handle{padding:12px 10px;font-size:18px}
+  .g .ed{padding:10px 8px;font-size:16px}
+  .g select{width:118px;padding:6px 4px}
+  .tools select{flex:1;min-width:0;padding:8px 6px}
+  .addrow input,.addrow select{padding:9px 8px}
+  .results div{padding:12px 12px}
+}
+@media (max-width:760px){
+  .tabs{padding:8px 8px 0}.tabs button{flex:1;padding:10px 8px}
+  #listView{margin:0 8px 16px}
+  .lt-wrap{max-height:none}
+  table.lt,.lt tbody{display:block}
+  .lt thead{display:none}
+  .lt tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .lt td{display:block;padding:0;border:0;width:auto!important}
+  .lt td.c-no{display:none}
+  .lt td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted);margin:0 0 2px 2px}
+  .lt td.c-name{grid-column:1 / -1}
+  .lt td.c-note{grid-column:1 / -1}
+  .lt td.c-act{grid-column:1 / -1;text-align:left}
+  .lt input,.lt select{border-color:var(--line2);background:#fff;padding:9px 8px}
+  .lt .del{border-color:#e7b3ad;padding:9px 12px}
+  .lt-bar .grow{flex:1 1 100%}
+  .lt-bar select,.lt-bar input,.lt-bar button{flex:1 1 40%}
+}
+@media (max-width:640px){
+  header{gap:8px}
+  header h1{font-size:16px;flex:1;margin:0}
+  .save{order:2;min-width:0}
+  .stats{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:0 12px}
+  .stats::-webkit-scrollbar{display:none}
+  .search{order:4;flex:1 1 100%}.search input{width:100%}
+  .results{left:0;right:auto;width:100%;max-height:50vh}
+  #undoBtn,#xlsxBtn,.menu{order:5}
+  .spacer{display:none}
+  .scrim{align-items:flex-end;padding:0}
+  .dlg{border-radius:16px 16px 0 0;max-height:88dvh;padding-bottom:env(safe-area-inset-bottom)}
+  .toast{bottom:calc(16px + env(safe-area-inset-bottom))}
+}
+
+/* ---------- print ---------- */
+#print{display:none}
+@media print{
+  body{background:#fff}
+  #app,.scrim,.toast,#ghost{display:none!important}
+  #print{display:block;font-size:11pt}
+  #print h1{font-size:16pt;margin:0 0 10px}
+  #print .pt{break-inside:avoid;border:1px solid #999;border-radius:6px;padding:6px 8px;margin:0 0 8px}
+  #print .pt h4{margin:0 0 4px;font-size:11.5pt}
+  #print .cols{column-count:3;column-gap:10px}
+  #print ol{margin:0;padding-left:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- login -->
+<div id="loginView" class="center hidden">
+  <form class="card login" id="loginForm" autocomplete="on">
+    <h1>Рассадка гостей</h1>
+    <p>Введите пароль, чтобы открыть план.</p>
+    <input type="password" id="pw" name="password" placeholder="Пароль" autocomplete="current-password" required>
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary" style="width:100%;padding:10px" type="submit">Открыть</button>
+  </form>
+</div>
+
+<!-- app -->
+<div id="app" class="hidden">
+  <header>
+    <h1>Свадьба Ляман · рассадка</h1>
+    <div class="stats" id="stats"></div>
+    <div class="spacer"></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Найти гостя…" autocomplete="off">
+      <div class="results hidden" id="results"></div>
+    </div>
+    <button class="btn" id="undoBtn" title="Отменить (Ctrl+Z)" disabled>↶ Отменить</button>
+    <button class="btn" id="xlsxBtn" title="Скачать текущий план в Excel">⬇ Excel</button>
+    <div class="menu">
+      <button class="btn" id="moreBtn">Ещё ▾</button>
+      <div class="drop hidden" id="moreMenu">
+        <button data-act="import">Импорт таблицы…</button>
+        <button data-act="xlsx">Скачать Excel (.xlsx)</button>
+        <button data-act="print">Печать списков по столам</button>
+        <button data-act="json">Скачать резервную копию (.json)</button>
+        <button data-act="history">История / восстановить…</button>
+        <button data-act="logout">Выйти</button>
+      </div>
+    </div>
+    <span class="save" id="save"></span>
+  </header>
+
+  <div id="emptyView" class="card empty hidden">
+    <h2>Список гостей ещё не загружен</h2>
+    <p>Загрузите таблицу гостей (лист «Planner import» / «Для импорта» из <b>Wedding_Guest_List.xlsx</b>). Подойдёт и .csv или резервная копия .json.</p>
+    <button class="btn primary" id="emptyImport">Импорт таблицы…</button>
+  </div>
+
+  <nav class="tabs hidden" id="tabs">
+    <button data-view="map" class="on">План зала</button>
+    <button data-view="list">Список гостей</button>
+  </nav>
+  <section class="card hidden" id="listView"></section>
+  <main id="mainView" class="hidden">
+    <section class="card mapwrap">
+      <div class="mapview" id="mapview"><svg id="map" viewBox="0 80 1280 1480" role="img" aria-label="План зала"></svg></div>
+      <div class="zoom"><button id="zIn" title="Приблизить" aria-label="Приблизить">+</button><button id="zOut" title="Отдалить" aria-label="Отдалить">−</button><button id="zFit" title="Весь зал" aria-label="Показать весь зал" style="font-size:16px">⤢</button></div>
+      <div class="legend">
+        <span><i style="background:var(--papa)"></i>Папа</span>
+        <span><i style="background:var(--mama)"></i>Мама</span>
+        <span><i style="background:var(--laman)"></i>Ляман</span>
+        <span><i style="background:var(--other)"></i>Другие</span>
+        <span>Нажмите на стол, чтобы увидеть, кто за ним сидит. Перетащите имя за ⋮⋮ на другой стол или нажмите ⋮⋮, а затем стол.</span>
+      </div>
+    </section>
+    <aside>
+      <section class="card" id="tablePanel"></section>
+      <section class="card tray-drop" id="trayPanel" data-drop="none"></section>
+    </aside>
+  </main>
+</div>
+
+<div id="print"></div>
+<input type="file" id="file" accept=".xlsx,.xls,.csv,.json" class="hidden">
+
+<script>
+"use strict";
+/* =====================================================================
+   Hall layout — traced from the printed plan. N1–N11 and N30–N37 are the
+   rectangular outer tables (10 seats), N12–N29 the round inner ones (12).
+   ===================================================================== */
+const SIDES = {
+  PAPA:  {label:"Папа",  c:"var(--papa)",  t:"var(--papa-t)",  s:"P"},
+  MAMA:  {label:"Мама",  c:"var(--mama)",  t:"var(--mama-t)",  s:"M"},
+  LAMAN: {label:"Ляман", c:"var(--laman)", t:"var(--laman-t)", s:"L"},
+  OTHER: {label:"Другие", c:"var(--other)", t:"var(--other-t)", s:"O"},
+};
+// Same arrangement as the printed plan, spread out so no two tables (or
+// their chairs) touch: outer tables on an arc of radius R, the round tables
+// on two rings inside it, the dance-floor mandala in the middle.
+const CX = 640, CY = 800, R = 545, RING_A = 390, RING_B = 265;
+const rad = d => d * Math.PI / 180;
+function outerSlot(k){ // k = 1 (bottom) … 11 (top) on the left arc
+  const th = rad(116 + (k - 1) * 12.8);
+  // Long side points at the middle of the hall, chairs along the arc.
+  return {x:CX + R * Math.cos(th), y:CY + R * Math.sin(th), rot:th * 180 / Math.PI};
+}
+function ringSlot(r, deg){ return {x:CX + r * Math.cos(rad(deg)), y:CY + r * Math.sin(rad(deg))}; }
+const mirror = p => ({x:2 * CX - p.x, y:p.y, rot:p.rot == null ? 0 : 180 - p.rot});
+const TABLES = [];
+for (let k = 1; k <= 11; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, ...s}); }
+// Left inner tables: outer ring N12–N16 (bottom → top), inner ring N17–N20.
+const LEFT_ROUND = {12:[RING_A,139],13:[RING_A,159],14:[RING_A,179],15:[RING_A,199],16:[RING_A,219],
+                    17:[RING_B,136],18:[RING_B,162],19:[RING_B,188],20:[RING_B,214]};
+for (const [n, [r, d]] of Object.entries(LEFT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...ringSlot(r, d), rot:0});
+// Right inner tables mirror the left: N25–N29 outer ring, N21–N24 inner ring.
+const RIGHT_ROUND = {25:[RING_A,139],26:[RING_A,159],27:[RING_A,179],28:[RING_A,199],29:[RING_A,219],
+                     21:[RING_B,136],22:[RING_B,162],23:[RING_B,188],24:[RING_B,214]};
+for (const [n, [r, d]] of Object.entries(RIGHT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...mirror(ringSlot(r, d)), rot:0});
+for (let n = 30; n <= 37; n++) TABLES.push({n, kind:"rect", seats:10, ...mirror(outerSlot(40 - n))});
+const MUSIC = mirror(outerSlot(2));
+const TBL = Object.fromEntries(TABLES.map(t => [t.n, t]));
+
+/* =====================================================================
+   State
+   ===================================================================== */
+let plan = null;          // {guests:[{id,name,side,group,table,note,status,no}], meta:{}}
+let version = 0;
+let pending = [];         // ops not yet confirmed by the server, replayed after a conflict
+let saving = false, saveTimer = null, lastNote = "";
+let undoStack = [];
+let selected = null;      // selected table number
+let flashId = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const active = () => plan.guests.filter(g => g.status !== "removed");
+// Who sits where, rebuilt lazily after any change (render asks for it hundreds of times).
+let seatCache = null;
+function at(n){
+  if (!seatCache) {
+    seatCache = new Map();
+    for (const g of active()) if (g.table != null) { if (!seatCache.has(g.table)) seatCache.set(g.table, []); seatCache.get(g.table).push(g); }
+    for (const list of seatCache.values()) list.sort(byOrder);
+  }
+  return (seatCache.get(n) || []).slice();
+}
+const sideOf = g => SIDES[g.side] ? g.side : "OTHER";
+function byOrder(a, b){
+  const so = ["PAPA","MAMA","LAMAN","OTHER"];
+  return so.indexOf(sideOf(a)) - so.indexOf(sideOf(b)) ||
+    (a.group ?? 99) - (b.group ?? 99) || (a.no ?? 9999) - (b.no ?? 9999) || a.name.localeCompare(b.name);
+}
+// Notes written when the list was typed up from the paper were in English; show them in Russian.
+const NOTE_RU = [
+  [/^Red mark(?: on paper)?: (.)\.\s*/, "Красная отметка на бумаге: $1. "],
+  [/^Struck out$/, "Зачёркнут(а) на бумаге"],
+  [/No number on paper – placed with Jalə \(group 2\)/, "На бумаге без номера — посажена с Jalə (группа 2)"],
+  [/Bracketed 'Nara' – seated with Nara \(MAMA group 1\)/, "Скобка «Nara» — сидит с Nara (Мама, группа 1)"],
+  [/Struck in red but re-written in pen with group 3 – kept/, "Зачёркнут красным, но вписан ручкой с группой 3 — оставлен"],
+  [/Arrow → on paper – seated with Xatirə\/Adilə\/Zema \(MAMA, arrows ←\)/, "Стрелка → на бумаге — сидит с Xatirə/Adilə/Zema (Мама, стрелки ←)"],
+  [/Arrow ← on paper – seated with Fuad & Nurlana \(PAPA, arrows →\)/, "Стрелка ← на бумаге — сидит с Fuad и Nurlana (Папа, стрелки →)"],
+  [/Arrow ← on paper \(meaning unclear\)/, "Стрелка ← на бумаге (смысл неясен)"],
+  [/'\?' printed, no number – placed with AHİK \(group 7\)/, "Напечатан «?», без номера — посажен с AHİK (группа 7)"],
+  [/^No number on paper$/, "На бумаге без номера"],
+  [/'(\d) \?' on paper/, "На бумаге «$1 ?»"],
+  [/^Added in pen$/, "Дописан(а) ручкой"],
+  [/^New on this list$/, "Новый в этом списке"],
+  [/^Small pen mark after name$/, "Небольшая отметка ручкой после имени"],
+  [/^Added on the website$/, "Добавлен на сайте"],
+];
+function noteRu(n){
+  const tr = x => NOTE_RU.reduce((acc, [re, ru]) => acc.replace(re, ru), x);
+  // "Red mark: +. Struck out" — translate the prefix, then the rest on its own.
+  const m = String(n || "").match(/^(Red mark(?: on paper)?: .\.)\s*(.*)$/);
+  return (m ? tr(m[1] + " ") + tr(m[2]) : tr(String(n || ""))).trim();
+}
+function tag(g){
+  const s = SIDES[sideOf(g)];
+  return s.label + (g.group != null && g.group !== "" ? " · " + g.group : "");
+}
+
+/* =====================================================================
+   Operations — every change goes through here so it can be saved,
+   undone, and replayed on top of someone else's save.
+   ===================================================================== */
+function applyOp(p, op){
+  seatCache = null;
+  const find = id => p.guests.find(g => g.id === id);
+  switch (op.t) {
+    case "move":   op.moves.forEach(([id, table]) => { const g = find(id); if (g) g.table = table; }); break;
+    case "add":    if (!find(op.guest.id)) p.guests.push(clone(op.guest)); break;
+    case "edit":   { const g = find(op.id); if (g) Object.assign(g, op.fields); } break;
+    case "remove": { const g = find(op.id); if (g) { g.status = "removed"; g.table = null; } } break;
+    case "restore":{ const g = find(op.id); if (g) g.status = "active"; } break;
+    case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
+  }
+}
+function commit(op, note){
+  undoStack.push(clone(plan)); if (undoStack.length > 60) undoStack.shift();
+  applyOp(plan, op);
+  pending.push(op);
+  lastNote = note || lastNote;
+  render();
+  scheduleSave();
+}
+function undo(){
+  if (!undoStack.length) return;
+  const prev = undoStack.pop();
+  const op = {t:"replace", data:prev};
+  applyOp(plan, op); pending.push(op); lastNote = "Отмена";
+  render(); scheduleSave();
+}
+function moveGuests(ids, table, note){
+  const moves = ids.map(id => [id, table]).filter(([id]) => plan.guests.find(g => g.id === id)?.table !== table);
+  if (!moves.length) return;
+  commit({t:"move", moves}, note);
+  if (table != null && at(table).length > TBL[table].seats) toast(`За столом N${table} теперь больше мест, чем есть (${at(table).length}/${TBL[table].seats}).`);
+}
+
+/* =====================================================================
+   Server
+   ===================================================================== */
+async function api(path, opts = {}){
+  const r = await fetch(path, {credentials:"same-origin", headers:{"Content-Type":"application/json"}, ...opts});
+  let body = null; try { body = await r.json(); } catch {}
+  return {status:r.status, body};
+}
+function setSave(text, err){ const el = $("#save"); el.textContent = text; el.classList.toggle("err", !!err); }
+function scheduleSave(){ clearTimeout(saveTimer); setSave("Сохранение…"); saveTimer = setTimeout(save, 500); }
+async function save(){
+  if (saving) { scheduleSave(); return; }
+  if (!pending.length) return;
+  saving = true;
+  const sending = pending.slice();
+  try {
+    const r = await api("/api/toy/state", {method:"PUT", body:JSON.stringify({data:plan, baseVersion:version, note:lastNote})});
+    if (r.status === 200) {
+      version = r.body.version;
+      pending = pending.slice(sending.length);
+      setSave("Сохранено " + new Date().toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}));
+    } else if (r.status === 409) {
+      // Someone else saved first: take theirs, put our unsaved changes back on top.
+      const fresh = r.body.data ? clone(r.body.data) : {guests:[], meta:{}};
+      pending.forEach(op => applyOp(fresh, op));
+      plan = fresh; version = r.body.version; undoStack = [];
+      render();
+      toast("Кто-то одновременно изменил план — его изменения объединены с вашими.");
+      saving = false; return save();
+    } else if (r.status === 401) {
+      setSave("Вы вышли", true); showLogin();
+    } else {
+      setSave("Не сохранено — повтор…", true);
+      setTimeout(scheduleSave, 4000);
+    }
+  } catch {
+    setSave("Нет сети — повтор…", true);
+    setTimeout(scheduleSave, 4000);
+  } finally { saving = false; }
+  if (pending.length) scheduleSave();
+}
+async function poll(){
+  if (document.hidden || saving || pending.length || !plan) return;
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#listView") && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  const r = await api("/api/toy/state").catch(() => null);
+  if (r && r.status === 200 && r.body.version > version && !pending.length) {
+    plan = r.body.data; version = r.body.version; undoStack = [];
+    render(); toast("План обновлён: изменения с другого устройства.");
+  }
+}
+setInterval(poll, 8000);
+window.addEventListener("focus", poll);
+document.addEventListener("visibilitychange", poll);
+window.addEventListener("beforeunload", e => { if (pending.length) { e.preventDefault(); e.returnValue = ""; } });
+
+/* =====================================================================
+   Rendering — map
+   ===================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(name, attrs = {}, parent){
+  const e = document.createElementNS(SVGNS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function chairsFor(t){
+  const pts = [];
+  if (t.kind === "rect") {
+    for (const y of [-33, 33]) for (const x of [-44, -22, 0, 22, 44]) pts.push({x, y, w:15, h:9});
+  } else {
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 - Math.PI / 2; pts.push({x:Math.cos(a) * 41, y:Math.sin(a) * 41, r:6}); }
+  }
+  return pts;
+}
+function drawStatic(svg){
+  svg.innerHTML = "";
+  const d = el("g", {}, svg);
+  el("rect", {x:10, y:90, width:1260, height:1460, rx:24, fill:"#fffdf9", stroke:"#d8cbb6", "stroke-width":2}, d);
+  // head table
+  el("rect", {x:CX - 140, y:120, width:280, height:60, rx:10, fill:"#f7efe2", stroke:"#b9ac98", "stroke-width":1.5}, d);
+  const ht = el("text", {x:CX, y:158, class:"venue-t"}, d); ht.textContent = "Жених · Невеста";
+  // mandala
+  for (const [r, w] of [[92,1.2],[74,1],[56,1],[36,1.2],[16,1]]) el("circle", {cx:CX, cy:CY, r, class:"deco", "stroke-width":w}, d);
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2;
+    el("ellipse", {cx:CX + Math.cos(a) * 64, cy:CY + Math.sin(a) * 64, rx:16, ry:7, class:"deco", transform:`rotate(${a * 180 / Math.PI} ${CX + Math.cos(a) * 64} ${CY + Math.sin(a) * 64})`}, d);
+  }
+  // stage + entrance
+  el("rect", {x:CX - 130, y:1400, width:260, height:100, rx:8, fill:"#efe6f0", stroke:"#b9a6bb", "stroke-width":1.5}, d);
+  const st = el("text", {x:CX, y:1458, class:"venue-t"}, d); st.textContent = "Сцена";
+  const en = el("text", {x:CX - 210, y:1530, class:"venue-s"}, d); en.textContent = "↑ Вход";
+  // music
+  const m = el("g", {transform:`translate(${MUSIC.x} ${MUSIC.y}) rotate(${MUSIC.rot})`}, d);
+  el("rect", {x:-56, y:-24, width:112, height:48, rx:6, fill:"#fbf3f3", stroke:"#c9a4a4", "stroke-dasharray":"5 4"}, m);
+  const mt = el("text", {x:0, y:6, class:"venue-s", transform:`rotate(${-MUSIC.rot})`}, m); mt.textContent = "Музыка";
+
+  const layer = el("g", {id:"tables"}, svg);
+  for (const t of TABLES) {
+    const g = el("g", {class:"tbl", "data-table":t.n, "data-drop":t.n, transform:`translate(${t.x.toFixed(1)} ${t.y.toFixed(1)}) rotate(${t.rot.toFixed(1)})`}, layer);
+    el("title", {}, g);
+    const chairs = el("g", {class:"chairs"}, g);
+    for (const c of chairsFor(t)) {
+      if (c.r) el("circle", {cx:c.x.toFixed(1), cy:c.y.toFixed(1), r:c.r, class:"chair"}, chairs);
+      else el("rect", {x:c.x - c.w / 2, y:c.y - c.h / 2, width:c.w, height:c.h, rx:2.5, class:"chair"}, chairs);
+    }
+    if (t.kind === "rect") el("rect", {x:-56, y:-24, width:112, height:48, rx:6, class:"body", fill:"#fff"}, g);
+    else el("circle", {r:31, class:"body", fill:"#fff"}, g);
+    const lab = el("g", {transform:`rotate(${-t.rot.toFixed(1)})`}, g);
+    el("text", {y:2, class:"lab"}, lab);
+    el("text", {y:19, class:"cnt"}, lab);
+  }
+}
+function tint(guests){
+  if (!guests.length) return "#fff";
+  const count = {}; guests.forEach(g => count[sideOf(g)] = (count[sideOf(g)] || 0) + 1);
+  const [top, n] = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  return n / guests.length >= 0.75 ? SIDES[top].t : "var(--mix-t)";
+}
+function renderMap(){
+  const q = $("#q").value.trim().toLocaleLowerCase();
+  for (const t of TABLES) {
+    const g = document.querySelector(`#tables [data-table="${t.n}"]`);
+    const gs = at(t.n);
+    g.querySelector(".body").setAttribute("fill", tint(gs));
+    const texts = g.querySelectorAll("text");
+    texts[0].textContent = "N" + t.n;
+    texts[1].textContent = `${gs.length}/${t.seats}`;
+    g.classList.toggle("over", gs.length > t.seats);
+    g.classList.toggle("sel", selected === t.n);
+    g.classList.toggle("hit", !!q && gs.some(x => x.name.toLocaleLowerCase().includes(q)));
+    const chairs = g.querySelectorAll(".chair");
+    chairs.forEach((c, i) => c.style.fill = gs[i] ? SIDES[sideOf(gs[i])].c : "#fff");
+    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
+  }
+}
+
+/* =====================================================================
+   Rendering — header, table panel, tray
+   ===================================================================== */
+function tableOptions(current){
+  let h = `<option value="">— без стола —</option>`;
+  for (const t of TABLES) {
+    const n = at(t.n).length;
+    h += `<option value="${t.n}"${t.n === current ? " selected" : ""}>N${t.n} · ${n}/${t.seats}</option>`;
+  }
+  return h;
+}
+function guestRow(g){
+  const s = SIDES[sideOf(g)];
+  return `<div class="g${flashId === g.id ? " flash" : ""}" data-id="${esc(g.id)}">
+    <span class="handle" title="Перетащить или нажать">⋮⋮</span>
+    <span class="dot" style="background:${s.c}"></span>
+    <span class="nm" title="${esc(g.name)} — ${esc(tag(g))}">${esc(g.name)}<small>${esc(tag(g))}</small></span>
+    ${g.note ? `<span class="nt" title="${esc(noteRu(g.note))}">ⓘ</span>` : ""}
+    <select class="mv" aria-label="Пересадить за стол">${tableOptions(g.table)}</select>
+    <button class="ed" title="Изменить">✎</button>
+  </div>`;
+}
+function renderStats(){
+  const a = active(), seated = a.filter(g => g.table != null).length;
+  const over = TABLES.filter(t => at(t.n).length > t.seats).length;
+  const seats = TABLES.reduce((s, t) => s + t.seats, 0);
+  $("#stats").innerHTML =
+    `<span class="stat"><b>${a.length}</b> гостей</span>` +
+    `<span class="stat"><b>${seated}</b> рассажено</span>` +
+    `<span class="stat${a.length - seated ? " bad" : ""}"><b>${a.length - seated}</b> без стола</span>` +
+    (over ? `<span class="stat bad"><b>${over}</b> переполнено</span>` : "") +
+    `<span class="stat">${seats - seated} свободных мест</span>`;
+  $("#undoBtn").disabled = !undoStack.length;
+}
+function renderTable(){
+  const p = $("#tablePanel");
+  p.classList.toggle("closed", selected == null);
+  if (selected == null) {
+    p.innerHTML = `<div class="sec-h"><h2>Столы</h2></div>
+      <div class="hint">Нажмите на стол на плане, чтобы увидеть и изменить, кто за ним сидит.<br>
+      Перетащите имя за ⋮⋮ на другой стол или нажмите ⋮⋮, а затем нужный стол.
+      Перетащите в «Без стола», чтобы убрать гостя со стола. Можно также выбрать стол в меню рядом с именем.</div>`;
+    return;
+  }
+  const t = TBL[selected], gs = at(selected);
+  const cls = gs.length > t.seats ? "over" : gs.length === t.seats ? "full" : "";
+  let swap = `<option value="">Поменять местами с…</option>`;
+  for (const o of TABLES) if (o.n !== t.n) swap += `<option value="${o.n}">N${o.n} (${at(o.n).length}/${o.seats})</option>`;
+  let moveAll = `<option value="">Пересадить всех за…</option><option value="none">— без стола —</option>`;
+  for (const o of TABLES) if (o.n !== t.n) moveAll += `<option value="${o.n}">N${o.n} (${at(o.n).length}/${o.seats})</option>`;
+  p.innerHTML = `<div class="sec-h" data-drop="${t.n}"><h2>N${t.n}</h2>
+      <span class="pill ${cls}">${gs.length}/${t.seats}</span>
+      <span style="color:var(--muted);font-size:12.5px">${t.kind === "round" ? "круглый · внутренний" : "длинный · внешний"}</span>
+      <span class="spacer"></span><button class="btn" id="closeTbl" title="Закрыть" style="margin-left:auto">✕</button></div>
+    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>` : ""}
+    <div class="sec-b tray-drop" data-drop="${t.n}">${gs.length ? gs.map(guestRow).join("") :
+      `<div class="hint">Здесь пока никого нет. Перетащите имена из «Без стола» на этот стол на плане или сюда.</div>`}</div>
+    <form class="addrow" id="addHere"><input placeholder="Новый гость за стол N${t.n}…" id="addName">
+      <select id="addSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+      <button class="btn">Добавить</button></form>`;
+}
+function renderTray(){
+  const q = $("#q").value.trim().toLocaleLowerCase();
+  const un = active().filter(g => g.table == null).sort(byOrder);
+  const removed = plan.guests.filter(g => g.status === "removed").sort(byOrder);
+  let h = `<div class="sec-h" data-drop="none"><h2>Без стола</h2><span class="pill ${un.length ? "over" : "full"}">${un.length}</span>
+    <span class="spacer"></span><button class="btn" id="addUnseated">+ Гость</button></div><div class="sec-b" data-drop="none">`;
+  if (!un.length) h += `<div class="hint">У всех есть стол. Перетащите имя сюда, чтобы убрать гостя со стола.</div>`;
+  let last = null;
+  for (const g of un) {
+    if (sideOf(g) !== last) { last = sideOf(g); h += `<div class="grp-h"><span>${SIDES[last].label}</span><span>${un.filter(x => sideOf(x) === last).length}</span></div>`; }
+    h += guestRow(g);
+  }
+  if (removed.length) {
+    h += `<details style="border-top:1px solid var(--line)"><summary class="grp-h" style="cursor:pointer">Удалены из списка (${removed.length})</summary>`;
+    for (const g of removed) h += `<div class="g" data-rid="${esc(g.id)}"><span class="dot" style="background:${SIDES[sideOf(g)].c}"></span>
+      <span class="nm" style="text-decoration:line-through;color:var(--muted)">${esc(g.name)}<small>${esc(tag(g))}</small></span>
+      <button class="btn restore">Вернуть</button></div>`;
+    h += `</details>`;
+  }
+  $("#trayPanel").innerHTML = h + `</div>`;
+}
+function render(){
+  if (!plan) return;
+  seatCache = null;
+  const has = plan.guests.length > 0;
+  $("#emptyView").classList.toggle("hidden", has);
+  $("#tabs").classList.toggle("hidden", !has);
+  $("#mainView").classList.toggle("hidden", !has || view !== "map");
+  $("#listView").classList.toggle("hidden", !has || view !== "list");
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+  if (!has) { renderStats(); return; }
+  renderStats();
+  if (view === "list") { renderList(); flashId = null; return; }
+  renderMap(); renderTable(); renderTray();
+  if (!$("#map").style.width) requestAnimationFrame(() => applyZoom(false));
+  flashId = null;
+}
+
+/* =====================================================================
+   Interaction
+   ===================================================================== */
+function selectTable(n){ selected = n; render(); }
+$("#map").addEventListener("click", e => {
+  const g = e.target.closest(".tbl"); if (!g) return;
+  const n = +g.dataset.table;
+  if (pick) { finishPick(n); return; }
+  selectTable(selected === n ? null : n);
+});
+
+/* =====================================================================
+   Guest list editor — the same plan as a table: add, remove, rename and
+   seat anyone. Every edit is an ordinary change, so the hall plan, other
+   devices and the history all follow it.
+   ===================================================================== */
+let view = /list/.test(location.hash) ? "list" : "map";
+const lf = {q:"", side:"", table:"", removed:false, sort:"side", dir:1};
+function setView(v){
+  view = v; history.replaceState(null, "", v === "list" ? "#list" : "#plan");
+  endPick(); render();
+  if (v === "map") requestAnimationFrame(() => applyZoom(true));
+}
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (b) setView(b.dataset.view); });
+function sideSelect(cur, cls){
+  return `<select class="${cls}">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${k === cur ? " selected" : ""}>${v.label}</option>`).join("")}</select>`;
+}
+function listRows(){
+  const q = lf.q.trim().toLocaleLowerCase();
+  let rows = plan.guests.filter(g => (lf.removed ? true : g.status !== "removed") &&
+    (!q || g.name.toLocaleLowerCase().includes(q) || noteRu(g.note).toLocaleLowerCase().includes(q)) &&
+    (!lf.side || sideOf(g) === lf.side) &&
+    (lf.table === "" ? true : lf.table === "none" ? g.table == null && g.status !== "removed" : g.table === +lf.table));
+  const key = {
+    name:g => g.name.toLocaleLowerCase(),
+    side:null,
+    group:g => g.group ?? 999,
+    table:g => g.table ?? 999,
+  }[lf.sort];
+  rows.sort((a, b) => key ? ((key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * lf.dir || byOrder(a, b)) : byOrder(a, b) * lf.dir);
+  return rows;
+}
+function renderList(){
+  const box = $("#listView");
+  const focusId = document.activeElement?.closest?.("#lq") ? "lq" : null;
+  const rows = listRows();
+  const tblFilter = `<option value="">Все столы</option><option value="none"${lf.table === "none" ? " selected" : ""}>Без стола</option>` +
+    TABLES.map(t => `<option value="${t.n}"${String(t.n) === lf.table ? " selected" : ""}>N${t.n} · ${at(t.n).length}/${t.seats}</option>`).join("");
+  const arrow = k => lf.sort === k ? (lf.dir > 0 ? " ▲" : " ▼") : "";
+  const total = active().length;
+  box.innerHTML = `
+    <form class="lt-bar lt-add" id="ltAdd"><b>Добавить гостя:</b>
+      <input class="grow" id="ltName" placeholder="Имя и фамилия" autocomplete="off">
+      ${sideSelect(lf.side || "PAPA", "").replace("<select", '<select id="ltSide"')}
+      <select id="ltTable">${tableOptions(lf.table && lf.table !== "none" ? +lf.table : null)}</select>
+      <button class="btn primary">Добавить</button></form>
+    <div class="lt-bar">
+      <input class="grow" id="lq" type="search" placeholder="Поиск по имени или примечанию…" value="${esc(lf.q)}">
+      <select id="lSide"><option value="">Все стороны</option>${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${lf.side === k ? " selected" : ""}>${v.label}</option>`).join("")}</select>
+      <select id="lTable">${tblFilter}</select>
+      <label style="font-size:13px;white-space:nowrap"><input type="checkbox" id="lRemoved"${lf.removed ? " checked" : ""}> удалённые</label>
+    </div>
+    <div class="lt-count">Показано ${rows.length} · всего гостей ${total}, без стола ${active().filter(g => g.table == null).length}</div>
+    <div class="lt-wrap"><table class="lt"><thead><tr>
+      <th class="c-no nosort">№</th>
+      <th data-sort="name">Имя${arrow("name")}</th>
+      <th class="c-side" data-sort="side">Чей гость${arrow("side")}</th>
+      <th class="c-grp" data-sort="group">Группа${arrow("group")}</th>
+      <th class="c-tbl" data-sort="table">Стол${arrow("table")}</th>
+      <th class="nosort">Примечание</th>
+      <th class="c-act nosort"></th></tr></thead><tbody>
+      ${rows.map((g, i) => `<tr data-id="${esc(g.id)}" class="${g.status === "removed" ? "removed" : ""}${flashId === g.id ? " flash" : ""}">
+        <td class="c-no">${i + 1}</td>
+        <td class="c-name"><input class="f-name" value="${esc(g.name)}" aria-label="Имя"></td>
+        <td class="c-side" data-l="Чей гость">${sideSelect(sideOf(g), "f-side")}</td>
+        <td class="c-grp" data-l="Группа"><input class="f-group" value="${esc(g.group ?? "")}" placeholder="—" inputmode="numeric" aria-label="Группа"></td>
+        <td class="c-tbl" data-l="Стол">${g.status === "removed" ? `<span style="color:var(--muted)">удалён</span>` : `<select class="f-table" aria-label="Стол">${tableOptions(g.table)}</select>`}</td>
+        <td class="c-note" data-l="Примечание"><input class="f-note" value="${esc(noteRu(g.note))}" placeholder="—" aria-label="Примечание"></td>
+        <td class="c-act">${g.status === "removed" ? `<button class="btn f-restore">Вернуть</button>` : `<button class="del f-del" title="Удалить из списка">Удалить</button>`}</td>
+      </tr>`).join("")}
+    </tbody></table>${rows.length ? "" : `<div class="hint">Никого не найдено.</div>`}</div>`;
+  if (focusId) { const el = $("#" + focusId); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+$("#listView").addEventListener("input", e => {
+  if (e.target.id === "lq") { lf.q = e.target.value; renderList(); }
+});
+$("#listView").addEventListener("change", e => {
+  const t = e.target, tr = t.closest("tr[data-id]");
+  if (t.id === "lSide") { lf.side = t.value; renderList(); return; }
+  if (t.id === "lTable") { lf.table = t.value; renderList(); return; }
+  if (t.id === "lRemoved") { lf.removed = t.checked; renderList(); return; }
+  if (!tr) return;
+  const id = tr.dataset.id, g = plan.guests.find(x => x.id === id); if (!g) return;
+  if (t.classList.contains("f-table")) {
+    const to = t.value === "" ? null : +t.value; flashId = id;
+    moveGuests([id], to, `${g.name} → ${to == null ? "без стола" : "N" + to}`);
+  } else if (t.classList.contains("f-name")) {
+    const name = t.value.trim(); if (!name) { t.value = g.name; return; }
+    if (name !== g.name) commit({t:"edit", id, fields:{name}}, `Переименован: ${g.name} → ${name}`);
+  } else if (t.classList.contains("f-side")) {
+    commit({t:"edit", id, fields:{side:t.value}}, `${g.name}: ${SIDES[t.value].label}`);
+  } else if (t.classList.contains("f-group")) {
+    const v = t.value.trim(); commit({t:"edit", id, fields:{group:v === "" ? null : (isNaN(+v) ? v : +v)}}, `${g.name}: группа ${v || "—"}`);
+  } else if (t.classList.contains("f-note")) {
+    if (t.value.trim() !== noteRu(g.note)) commit({t:"edit", id, fields:{note:t.value.trim()}}, `${g.name}: примечание`);
+  }
+});
+$("#listView").addEventListener("click", e => {
+  const t = e.target;
+  const th = t.closest("th[data-sort]");
+  if (th) { const k = th.dataset.sort; lf.dir = lf.sort === k ? -lf.dir : 1; lf.sort = k; renderList(); return; }
+  const tr = t.closest("tr[data-id]"); if (!tr) return;
+  const id = tr.dataset.id, g = plan.guests.find(x => x.id === id);
+  if (t.classList.contains("f-del")) { commit({t:"remove", id}, `Удалён: ${g.name}`); toast(`${g.name} удалён(а) из списка. «Отменить» вернёт.`); }
+  if (t.classList.contains("f-restore")) commit({t:"restore", id}, `Возвращён: ${g.name}`);
+});
+$("#listView").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches(".lt input")) e.target.blur(); });
+$("#listView").addEventListener("submit", e => {
+  if (e.target.id !== "ltAdd") return;
+  e.preventDefault();
+  const name = $("#ltName").value.trim(); if (!name) { $("#ltName").focus(); return; }
+  const tv = $("#ltTable").value;
+  const guest = {id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, side:$("#ltSide").value, group:null,
+    table:tv === "" ? null : +tv, note:"Добавлен на сайте", status:"active", no:null};
+  flashId = guest.id;
+  commit({t:"add", guest}, `Добавлен: ${name}`);
+  toast(`${name} добавлен(а)${guest.table ? " за стол N" + guest.table : ""}.`);
+  setTimeout(() => $("#ltName")?.focus(), 0);
+});
+
+/* ---------- tap-to-move: tap ⋮⋮, then tap a table (easiest on a phone) ---------- */
+let pick = null;
+function startPick(id){
+  const g = plan.guests.find(x => x.id === id); if (!g) return;
+  pick = {id};
+  document.body.classList.add("picking");
+  document.querySelector(".pickbar")?.remove();
+  const bar = document.createElement("div"); bar.className = "pickbar";
+  bar.innerHTML = `<span>Выберите стол для <b>${esc(g.name)}</b></span>` +
+    (g.table != null ? `<button data-pk="none">Без стола</button>` : "") + `<button class="ghost" data-pk="cancel">Отмена</button>`;
+  bar.addEventListener("click", e => { const k = e.target.dataset.pk; if (k === "none") finishPick(null); else if (k === "cancel") endPick(); });
+  document.body.appendChild(bar);
+}
+function endPick(){ pick = null; document.body.classList.remove("picking"); document.querySelector(".pickbar")?.remove(); }
+function finishPick(table){
+  const id = pick.id, g = plan.guests.find(x => x.id === id); endPick();
+  flashId = id;
+  moveGuests([id], table, `${g.name} → ${table == null ? "без стола" : "N" + table}`);
+  if (table != null) selectTable(table);
+}
+
+/* ---------- zoom ---------- */
+const MAP_W = 1280, MAP_H = 1480;
+let zoom = window.matchMedia("(max-width:980px)").matches ? 2.4 : 1;
+function applyZoom(keepCenter){
+  const box = $("#mapview"), svg = $("#map"); if (!box.clientWidth) return;
+  const cx = (box.scrollLeft + box.clientWidth / 2) / (box.scrollWidth || 1);
+  const cy = (box.scrollTop + box.clientHeight / 2) / (box.scrollHeight || 1);
+  const fit = Math.min(box.clientWidth, box.clientHeight * MAP_W / MAP_H);
+  svg.style.width = Math.round(fit * zoom) + "px";
+  if (keepCenter) { box.scrollLeft = cx * box.scrollWidth - box.clientWidth / 2; box.scrollTop = cy * box.scrollHeight - box.clientHeight / 2; }
+}
+function setZoom(z){ zoom = Math.max(1, Math.min(4, z)); applyZoom(true); }
+$("#zIn").onclick = () => setZoom(zoom * 1.35);
+$("#zOut").onclick = () => setZoom(zoom / 1.35);
+$("#zFit").onclick = () => setZoom(1);
+window.addEventListener("resize", () => applyZoom(true));
+function showTableOnMap(n){
+  const box = $("#mapview"), t = TBL[n], svgW = $("#map").clientWidth, k = svgW / MAP_W;
+  box.scrollTo({left:t.x * k - box.clientWidth / 2, top:(t.y - 80) * k - box.clientHeight / 2, behavior:"smooth"});
+}
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.classList.contains("mv")) {
+    const id = t.closest(".g").dataset.id, g = plan.guests.find(x => x.id === id);
+    const to = t.value === "" ? null : +t.value;
+    moveGuests([id], to, `${g.name} → ${to == null ? "без стола" : "N" + to}`);
+  } else if (t.id === "swapSel" && t.value) {
+    const a = selected, b = +t.value;
+    const moves = [...at(a).map(g => [g.id, b]), ...at(b).map(g => [g.id, a])];
+    commit({t:"move", moves}, `Столы N${a} и N${b} поменяны местами`); selected = b; render();
+  } else if (t.id === "allSel" && t.value) {
+    const to = t.value === "none" ? null : +t.value, from = selected;
+    moveGuests(at(from).map(g => g.id), to, `Все со стола N${from} → ${to == null ? "без стола" : "N" + to}`);
+  }
+});
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.id === "closeTbl") selectTable(null);
+  else if (t.classList.contains("ed")) editGuest(t.closest(".g").dataset.id);
+  else if (t.classList.contains("restore")) { const id = t.closest(".g").dataset.rid; const g = plan.guests.find(x => x.id === id); commit({t:"restore", id}, `Возвращён: ${g.name}`); }
+  else if (t.id === "addUnseated") editGuest(null);
+  if (!t.closest(".menu")) $("#moreMenu").classList.add("hidden");
+  if (!t.closest(".search")) $("#results").classList.add("hidden");
+});
+document.addEventListener("submit", e => {
+  if (e.target.id !== "addHere") return;
+  e.preventDefault();
+  const name = $("#addName").value.trim(); if (!name) return;
+  const guest = {id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, side:$("#addSide").value, group:null, table:selected, note:"Добавлен на сайте", status:"active", no:null};
+  commit({t:"add", guest}, `Добавлен: ${name}`);
+});
+$("#undoBtn").onclick = undo;
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); }
+  if (e.key === "Escape") { closeDlg(); endPick(); $("#results").classList.add("hidden"); }
+});
+
+/* ---------- search ---------- */
+$("#q").addEventListener("input", () => {
+  const q = $("#q").value.trim().toLocaleLowerCase(), box = $("#results");
+  renderMap(); renderTray();
+  if (!q) { box.classList.add("hidden"); return; }
+  const hits = plan.guests.filter(g => g.name.toLocaleLowerCase().includes(q)).sort(byOrder).slice(0, 40);
+  box.innerHTML = hits.length ? hits.map(g => `<div data-id="${esc(g.id)}"><span>${esc(g.name)}</span><small>${g.status === "removed" ? "удалён" : g.table == null ? "без стола" : "N" + g.table} · ${esc(tag(g))}</small></div>`).join("")
+    : `<div style="color:var(--muted);cursor:default">Ничего не найдено</div>`;
+  box.classList.remove("hidden");
+});
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") $("#results [data-id]")?.click(); });
+$("#results").addEventListener("click", e => {
+  const d = e.target.closest("[data-id]"); if (!d) return;
+  const g = plan.guests.find(x => x.id === d.dataset.id);
+  $("#results").classList.add("hidden");
+  if (view === "list") { view = "map"; history.replaceState(null, "", "#plan"); requestAnimationFrame(() => applyZoom(true)); }
+  flashId = g.id;
+  if (g.table != null) { selectTable(g.table); showTableOnMap(g.table); } else render();
+  setTimeout(() => document.querySelector(`.g[data-id="${CSS.escape(g.id)}"]`)?.scrollIntoView({block:"nearest"}), 50);
+});
+
+/* ---------- drag & drop (pointer events: works with mouse and touch) ---------- */
+let drag = null;
+document.addEventListener("pointerdown", e => {
+  const row = e.target.closest(".g[data-id]"); if (!row) return;
+  const fromHandle = e.target.classList.contains("handle");
+  const fromName = e.target.closest(".nm") && e.pointerType === "mouse";
+  if (!fromHandle && !fromName) return;
+  e.preventDefault();
+  drag = {id:row.dataset.id, x:e.clientX, y:e.clientY, started:false, target:undefined, handle:fromHandle};
+});
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6) return;
+    drag.started = true;
+    const g = plan.guests.find(x => x.id === drag.id);
+    const gh = document.createElement("div"); gh.id = "ghost";
+    gh.innerHTML = `${esc(g.name)}<small>${g.table == null ? "без стола" : "N" + g.table}</small>`;
+    document.body.appendChild(gh); document.body.classList.add("dragging");
+  }
+  const gh = $("#ghost"); gh.style.left = e.clientX + "px"; gh.style.top = e.clientY + "px";
+  autoScroll(e.clientX, e.clientY);
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const dz = under && under.closest("[data-drop]");
+  const target = dz ? (dz.dataset.drop === "none" ? null : +dz.dataset.drop) : undefined;
+  if (target !== drag.target) {
+    document.querySelectorAll(".tbl.target").forEach(x => x.classList.remove("target"));
+    document.querySelectorAll(".tray-drop.over").forEach(x => x.classList.remove("over"));
+    if (target != null) {
+      document.querySelector(`#tables [data-table="${target}"]`)?.classList.add("target");
+      const t = TBL[target], n = at(target).length;
+      gh.querySelector("small").textContent = `→ N${target} (${n}/${t.seats})`;
+    } else if (target === null) {
+      dz.closest(".tray-drop")?.classList.add("over");
+      gh.querySelector("small").textContent = "→ без стола";
+    }
+    drag.target = target;
+  }
+});
+// While dragging near the edge of the zoomed-in plan, scroll it so far tables can be reached.
+function autoScroll(x, y){
+  const box = $("#mapview"), r = box.getBoundingClientRect(), edge = 44, step = 14;
+  if (x < r.left || x > r.right || y < r.top || y > r.bottom) return;
+  if (x < r.left + edge) box.scrollLeft -= step; else if (x > r.right - edge) box.scrollLeft += step;
+  if (y < r.top + edge) box.scrollTop -= step; else if (y > r.bottom - edge) box.scrollTop += step;
+}
+function endDrag(e, cancel){
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.started && !cancel && d.handle) { startPick(d.id); return; }
+  $("#ghost")?.remove(); document.body.classList.remove("dragging");
+  document.querySelectorAll(".tbl.target").forEach(x => x.classList.remove("target"));
+  document.querySelectorAll(".tray-drop.over").forEach(x => x.classList.remove("over"));
+  if (!d.started || cancel || d.target === undefined) return;
+  const g = plan.guests.find(x => x.id === d.id);
+  flashId = d.id;
+  moveGuests([d.id], d.target, `${g.name} → ${d.target == null ? "без стола" : "N" + d.target}`);
+}
+document.addEventListener("pointerup", e => endDrag(e, false));
+document.addEventListener("pointercancel", e => endDrag(e, true));
+
+/* =====================================================================
+   Dialogs
+   ===================================================================== */
+function dlg(html){
+  closeDlg();
+  const s = document.createElement("div"); s.className = "scrim"; s.id = "scrim";
+  s.innerHTML = `<div class="dlg" role="dialog" aria-modal="true">${html}</div>`;
+  s.addEventListener("click", e => { if (e.target === s) closeDlg(); });
+  document.body.appendChild(s);
+  return s;
+}
+function closeDlg(){ $("#scrim")?.remove(); }
+function toast(msg){
+  document.querySelectorAll(".toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 4200);
+}
+function editGuest(id){
+  const g = id ? plan.guests.find(x => x.id === id) : {name:"", side:"PAPA", group:null, note:"", table:null};
+  const s = dlg(`<h3>${id ? "Изменить гостя" : "Добавить гостя"}</h3><form class="in" id="gForm">
+    <label>Имя</label><input id="gName" value="${esc(g.name)}" required>
+    <label>Чей гость</label><select id="gSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${sideOf(g) === k ? " selected" : ""}>${v.label}</option>`).join("")}</select>
+    <label>Номер группы (необязательно)</label><input id="gGroup" inputmode="numeric" value="${esc(g.group ?? "")}">
+    <label>Стол</label><select id="gTable">${tableOptions(g.table)}</select>
+    <label>Примечание</label><textarea id="gNote" rows="2">${esc(noteRu(g.note || ""))}</textarea></form>
+    <div class="row">${id ? `<button class="btn danger" id="gDel" style="margin-right:auto">Удалить из списка</button>` : ""}
+      <button class="btn" id="gCancel">Отмена</button><button class="btn primary" id="gOk">${id ? "Сохранить" : "Добавить"}</button></div>`);
+  s.querySelector("#gName").focus();
+  s.querySelector("#gCancel").onclick = closeDlg;
+  const ok = () => {
+    const name = s.querySelector("#gName").value.trim(); if (!name) return;
+    const grp = s.querySelector("#gGroup").value.trim();
+    const fields = {name, side:s.querySelector("#gSide").value, group:grp === "" ? null : (isNaN(+grp) ? grp : +grp),
+      table:s.querySelector("#gTable").value === "" ? null : +s.querySelector("#gTable").value, note:s.querySelector("#gNote").value.trim()};
+    closeDlg();
+    if (id) commit({t:"edit", id, fields}, `Изменён: ${name}`);
+    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields}}, `Добавлен: ${name}`);
+  };
+  s.querySelector("#gOk").onclick = ok;
+  s.querySelector("#gForm").onsubmit = e => { e.preventDefault(); ok(); };
+  if (id) s.querySelector("#gDel").onclick = () => { closeDlg(); commit({t:"remove", id}, `Удалён: ${g.name}`); toast(`${g.name} удалён(а) — вернуть можно в «Удалены из списка».`); };
+}
+
+/* =====================================================================
+   Import / export
+   ===================================================================== */
+let xlsxLoading = null;
+function loadXLSX(){
+  if (window.XLSX) return Promise.resolve();
+  return xlsxLoading ||= new Promise((ok, bad) => {
+    const s = document.createElement("script"); s.src = "/toy/xlsx.full.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Не удалось загрузить модуль Excel."));
+    document.head.appendChild(s);
+  });
+}
+const SIDE_ALIASES = {"папа":"PAPA", "мама":"MAMA", "ляман":"LAMAN", "другие":"OTHER", papa:"PAPA", ata:"PAPA", father:"PAPA", mama:"MAMA", ana:"MAMA", mother:"MAMA", laman:"LAMAN", "ləman":"LAMAN", bride:"LAMAN"};
+function rowsToPlan(rows){
+  const key = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [String(k).trim().toLowerCase(), v]));
+  const guests = [], seen = new Set();
+  rows.map(key).forEach((r, i) => {
+    for (const [ru, en] of [["сторона","side"],["№","no"],["имя","name"],["группа","group"],["стол","table"],["статус","status"],["примечание","note"]]) if (r[ru] !== undefined && r[en] === undefined) r[en] = r[ru];
+    const name = String(r.name ?? r["ad"] ?? "").trim(); if (!name) return;
+    const side = SIDE_ALIASES[String(r.side ?? "").trim().toLowerCase()] || (SIDES[String(r.side ?? "").trim().toUpperCase()] ? String(r.side).trim().toUpperCase() : "OTHER");
+    const no = r.no === "" || r.no == null ? null : +r.no;
+    let id = no != null && !isNaN(no) ? `${SIDES[side].s}-${no}` : `R-${i + 1}`;
+    while (seen.has(id)) id += "b"; seen.add(id);
+    const status = /del|remov|sil|удал/i.test(String(r.status ?? "")) ? "removed" : "active";
+    const tbl = r.table === "" || r.table == null ? null : parseInt(String(r.table).replace(/\D/g, ""), 10);
+    const group = r.group === "" || r.group == null ? null : (isNaN(+r.group) ? String(r.group) : +r.group);
+    guests.push({id, no, name, side, group, table:status === "active" && TBL[tbl] ? tbl : null, note:String(r.note ?? "").trim(), status});
+  });
+  return {guests, meta:{importedAt:new Date().toISOString()}};
+}
+async function readFile(f){
+  const ext = f.name.split(".").pop().toLowerCase();
+  if (ext === "json") {
+    const j = JSON.parse(await f.text());
+    const g = Array.isArray(j) ? j : j.guests;
+    if (!Array.isArray(g)) throw new Error("Этот .json не является резервной копией рассадки.");
+    return g[0] && "status" in g[0] && "id" in g[0] ? {guests:g, meta:j.meta || {}} : rowsToPlan(g);
+  }
+  await loadXLSX();
+  const wb = ext === "csv" ? XLSX.read(await f.text(), {type:"string"}) : XLSX.read(await f.arrayBuffer(), {type:"array"});
+  const pick = wb.SheetNames.find(n => /planner import|для импорта/i.test(n)) ||
+    wb.SheetNames.find(n => { const r = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1})[0] || []; const h = r.map(x => String(x).toLowerCase()); return (h.includes("name") || h.includes("имя")) && (h.includes("side") || h.includes("сторона")); });
+  if (!pick) throw new Error("Не найден лист со столбцами «Side/Сторона» и «Name/Имя» — используйте лист «Planner import».");
+  return rowsToPlan(XLSX.utils.sheet_to_json(wb.Sheets[pick], {defval:""}));
+}
+$("#file").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  let data;
+  try { data = await readFile(f); } catch (err) { toast(err.message || "Не удалось прочитать файл."); return; }
+  const a = data.guests.filter(g => g.status !== "removed"), seated = a.filter(g => g.table != null).length;
+  const had = plan && plan.guests.length;
+  const s = dlg(`<h3>Импорт: ${esc(f.name)}</h3><div class="in">
+      <p><b>${a.length}</b> гостей (${seated} со столом, ${a.length - seated} без стола)${data.guests.length - a.length ? `, ещё ${data.guests.length - a.length} отмечены как удалённые` : ""}.</p>
+      ${had ? `<p>Это <b>заменит</b> текущий план. Текущий план останется в «Истории», к нему можно вернуться.</p>` : ""}</div>
+      <div class="row"><button class="btn" id="iNo">Отмена</button><button class="btn primary" id="iOk">${had ? "Заменить план" : "Импортировать"}</button></div>`);
+  s.querySelector("#iNo").onclick = closeDlg;
+  s.querySelector("#iOk").onclick = () => { closeDlg(); selected = null; commit({t:"replace", data}, `Импорт: ${f.name}`); };
+});
+function download(name, blob){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const stamp = () => { const d = new Date(), z = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`; };
+async function exportXlsx(){
+  await loadXLSX();
+  const wb = XLSX.utils.book_new();
+  const sheet = (rows, name, widths, aoa) => {
+    const ws = aoa ? XLSX.utils.aoa_to_sheet(rows) : XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = widths.map(w => ({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  // 1. The familiar three-column list, with each guest's current table.
+  const cols = {PAPA:[], MAMA:[], LAMAN:[]};
+  for (const side of Object.keys(cols)) {
+    const list = plan.guests.filter(g => sideOf(g) === side);
+    const numbered = list.filter(g => g.no != null).sort((x, y) => x.no - y.no);
+    let next = numbered.length ? numbered[numbered.length - 1].no : 0;
+    for (const g of numbered) cols[side][g.no - 1] = g;
+    for (const g of list.filter(g => g.no == null).sort(byOrder)) cols[side][next++] = g;
+  }
+  const others = plan.guests.filter(g => sideOf(g) === "OTHER").sort(byOrder);
+  const rowsN = Math.max(cols.PAPA.length, cols.MAMA.length, cols.LAMAN.length, others.length);
+  const cell = g => g ? [g.status === "removed" ? g.name + "  [УДАЛЁН]" : g.name, g.status === "removed" || g.table == null ? "" : "N" + g.table] : ["", ""];
+  const aoa = [["№", "ПАПА", "Стол", "МАМА", "Стол", "ЛЯМАН", "Стол", ...(others.length ? ["ДРУГИЕ", "Стол"] : [])]];
+  for (let i = 0; i < rowsN; i++) aoa.push([i + 1, ...cell(cols.PAPA[i]), ...cell(cols.MAMA[i]), ...cell(cols.LAMAN[i]), ...(others.length ? cell(others[i]) : [])]);
+  const act = active(), seatedN = act.filter(g => g.table != null).length;
+  aoa.push([], ["Гостей", act.length], ["Рассажено", seatedN], ["Без стола", act.length - seatedN], ["Выгружено", new Date().toLocaleString("ru-RU")]);
+  sheet(aoa, "Список гостей", [11, 28, 7, 28, 7, 28, 7, 24, 7], true);
+  // 2. Table by table, in seat order — what the hall staff need.
+  const byTable = [];
+  const row = (tbl, seats, i, g) => ({"Стол":tbl, "Мест":seats, "№":i, "Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", "Примечание":noteRu(g.note)});
+  for (const t of TABLES) at(t.n).forEach((g, i) => byTable.push(row("N" + t.n, t.seats, i + 1, g)));
+  act.filter(g => g.table == null).sort(byOrder).forEach(g => byTable.push(row("Без стола", "", "", g)));
+  sheet(byTable, "По столам", [11, 6, 4, 30, 8, 7, 50]);
+  // 3. Occupancy of every table.
+  sheet(TABLES.map(t => ({"Стол":"N" + t.n, "Тип":t.kind === "round" ? "Круглый (внутр.)" : "Длинный (внешн.)", "Мест":t.seats, "Занято":at(t.n).length, "Свободно":t.seats - at(t.n).length})), "Столы", [8, 18, 7, 8, 9]);
+  // 4. Re-importable copy (More → Import reads this sheet).
+  sheet(plan.guests.slice().sort(byOrder).map(g => ({"Сторона":sideOf(g), "№":g.no ?? "", "Имя":g.name, "Группа":g.group ?? "", "Стол":g.table ?? "", "Статус":g.status === "removed" ? "Удалён" : "Придёт", "Примечание":noteRu(g.note)})), "Для импорта", [8, 5, 30, 7, 7, 10, 50]);
+  XLSX.writeFile(wb, `rassadka-${stamp()}.xlsx`);
+}
+function printLists(){
+  let h = `<h1>Рассадка гостей — ${new Date().toLocaleDateString("ru-RU")}</h1><div class="cols">`;
+  for (const t of TABLES) { const gs = at(t.n); if (!gs.length) continue;
+    h += `<div class="pt"><h4>N${t.n} — ${gs.length}/${t.seats}</h4><ol>${gs.map(g => `<li>${esc(g.name)}</li>`).join("")}</ol></div>`; }
+  const un = active().filter(g => g.table == null);
+  if (un.length) h += `<div class="pt"><h4>Без стола — ${un.length}</h4><ol>${un.sort(byOrder).map(g => `<li>${esc(g.name)}</li>`).join("")}</ol></div>`;
+  $("#print").innerHTML = h + `</div>`;
+  window.print();
+}
+async function showHistory(){
+  const r = await api("/api/toy/history");
+  if (r.status !== 200) { toast("Не удалось загрузить историю."); return; }
+  const items = r.body.items;
+  const s = dlg(`<h3>История</h3><div class="in">${items.length ? items.map((it, i) => `<div class="hist"><div>${esc(it.note || "Сохранено")}<br>
+      <small>${new Date(it.savedAt).toLocaleString("ru-RU")} · рассажено ${it.seated}/${it.guests}</small></div>
+      ${i === 0 ? `<small>текущая</small>` : `<button class="btn" data-h="${it.id}">Восстановить</button>`}</div>`).join("") : "<p>Сохранений пока нет.</p>"}</div>
+      <div class="row"><button class="btn" id="hClose">Закрыть</button></div>`);
+  s.querySelector("#hClose").onclick = closeDlg;
+  s.querySelectorAll("[data-h]").forEach(b => b.onclick = async () => {
+    const x = await api("/api/toy/history?id=" + b.dataset.h);
+    if (x.status !== 200) { toast("Не удалось загрузить эту версию."); return; }
+    closeDlg(); selected = null;
+    commit({t:"replace", data:x.body.data}, `Восстановлена версия от ${new Date(x.body.savedAt).toLocaleString("ru-RU")}`);
+    toast("Восстановлено. «Отменить» вернёт предыдущий план.");
+  });
+}
+$("#moreBtn").onclick = () => $("#moreMenu").classList.toggle("hidden");
+$("#moreMenu").addEventListener("click", async e => {
+  const a = e.target.dataset.act; if (!a) return;
+  $("#moreMenu").classList.add("hidden");
+  if (a === "import") $("#file").click();
+  if (a === "xlsx") exportXlsx().catch(err => toast(err.message));
+  if (a === "json") download(`rassadka-kopiya-${stamp()}.json`, new Blob([JSON.stringify(plan, null, 1)], {type:"application/json"}));
+  if (a === "print") printLists();
+  if (a === "history") showHistory();
+  if (a === "logout") { await api("/api/toy/logout", {method:"POST"}); location.reload(); }
+});
+$("#emptyImport").onclick = () => $("#file").click();
+$("#xlsxBtn").onclick = () => exportXlsx().catch(err => toast(err.message));
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+function showLogin(msg){
+  $("#app").classList.add("hidden"); $("#loginView").classList.remove("hidden");
+  $("#loginErr").textContent = msg || ""; setTimeout(() => $("#pw").focus(), 30);
+}
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const r = await api("/api/toy/login", {method:"POST", body:JSON.stringify({password:$("#pw").value})}).catch(() => ({status:0, body:null}));
+  if (r.status === 200) { $("#pw").value = ""; boot(); }
+  else $("#loginErr").textContent = (r.body && r.body.error) || "Не удалось войти.";
+});
+async function boot(){
+  const r = await api("/api/toy/state").catch(() => ({status:0}));
+  if (r.status === 401) return showLogin();
+  if (r.status === 503) return showLogin("Планировщик ещё не включён (не задан TOY_PASSWORD).");
+  if (r.status !== 200) return showLogin("Сервер недоступен. Попробуйте чуть позже.");
+  plan = r.body.data || {guests:[], meta:{}};
+  plan.guests ||= [];
+  version = r.body.version;
+  $("#loginView").classList.add("hidden"); $("#app").classList.remove("hidden");
+  drawStatic($("#map"));
+  render();
+  requestAnimationFrame(() => {
+    applyZoom(false);
+    // On a phone, start zoomed in on the family's side of the hall.
+    if (zoom > 1) { const box = $("#mapview"); box.scrollLeft = 0; box.scrollTop = (box.scrollHeight - box.clientHeight) * 0.45; }
+  });
+  if (r.body.updatedAt) setSave("Сохранено " + new Date(r.body.updatedAt).toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}));
+}
+boot();
+</script>
+</body>
+</html>
