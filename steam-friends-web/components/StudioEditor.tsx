@@ -1035,8 +1035,17 @@ export default function StudioEditor({
           <button className="btn" onClick={() => call({ action: "add", kind: "widget" })}>+ Widget</button>
           <button
             className="btn"
-            title="A kitten for everyone who types in chat, walking along the bottom of the frame"
+            title="A kitten for everyone who types in chat, walking along the bottom of the frame. Selects it if there's one already."
             onClick={() => {
+              // One is almost always what's wanted, and a second lands exactly on
+              // top of the first, where it can't be seen but doubles every pet.
+              // So this finds the one there is. A second one is still possible
+              // through + Widget, for another channel say.
+              const existing = elements.find((e) => e.kind === "widget" && e.props?.mode === "chatpets");
+              if (existing) {
+                selectOnly(existing.id);
+                return;
+              }
               // Full width along the bottom of the frame, which is where they belong.
               const h = 200;
               void call({
