@@ -53,7 +53,8 @@ export const config = {
   // `jayc` likewise: it is a static game canvas with its own text, and the
   // audio beside it is megabytes that gain nothing from a Set-Cookie.
   // `toy` (the seating planner) has its own login and no localized text.
+  // `chatpets` is framed inside the browser source, same as `scene`.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|studio|diag|jayc|toy|api/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|sitemap.xml|robots.txt|ads.txt|opengraph-image|overlay|scene|lite|chatpets|studio|diag|jayc|toy|api/).*)",
   ],
 };

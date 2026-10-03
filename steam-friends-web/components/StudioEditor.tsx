@@ -7,6 +7,7 @@ import StudioAdmin from "./StudioAdmin";
 import { isEmbeddable, videoPaused } from "@/lib/embed";
 import StreamBackdrop from "./StreamBackdrop";
 import { imageCandidates } from "@/lib/imagesrc";
+import { CHATPETS_DEFAULTS, chatPetsChannel } from "@/lib/chatpets";
 
 type Canvas = { w: number; h: number };
 
@@ -1032,6 +1033,20 @@ export default function StudioEditor({
           <button className="btn" onClick={() => call({ action: "add", kind: "image" })}>+ Image</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "video" })}>+ Video</button>
           <button className="btn" onClick={() => call({ action: "add", kind: "widget" })}>+ Widget</button>
+          <button
+            className="btn"
+            title="An animal for everyone who types in chat, walking along the bottom"
+            onClick={() => {
+              // Full width along the bottom of the frame, which is where they belong.
+              const h = 200;
+              void call({
+                action: "add", kind: "widget", x: 0, y: Math.max(0, canvas.h - h), w: canvas.w, h,
+                props: { mode: "chatpets", channel: studio.channel ?? "", ...CHATPETS_DEFAULTS, colors: true },
+              });
+            }}
+          >
+            + Chat pets
+          </button>
           <button className="btn btn-ghost" onClick={() => setShowEmotes(true)}>+ 7TV emote</button>
           {selectedIds.length > 0 && (
             <>
@@ -1497,12 +1512,49 @@ export default function StudioEditor({
               {selected.kind === "widget" && (
                 <>
                   <label className="st-row"><span>Mode</span>
-                    <select value={selected.props.mode ?? "html"} onChange={(e) => setProp("mode", e.target.value)}>
+                    <select
+                      value={selected.props.mode ?? "html"}
+                      onChange={(e) =>
+                        // A widget turned into chat pets starts on this studio's chat.
+                        e.target.value === "chatpets" && !selected.props.channel
+                          ? setProps({ mode: "chatpets", channel: studio.channel ?? "" })
+                          : setProp("mode", e.target.value)
+                      }
+                    >
                       <option value="html">Custom HTML</option>
                       <option value="url">Embed a URL</option>
+                      <option value="chatpets">Chat pets</option>
                     </select>
                   </label>
-                  {(selected.props.mode ?? "html") === "url" ? (
+                  {selected.props.mode === "chatpets" ? (
+                    <>
+                      <label className="st-row"><span>Twitch channel</span>
+                        <input
+                          type="text" placeholder={studio.channel ?? "channel"}
+                          value={selected.props.channel ?? ""}
+                          onChange={(e) => setProp("channel", e.target.value)}
+                        />
+                      </label>
+                      <div className="st-grid">
+                        <label><span>Animal size</span><input type="number" min={16} max={256} value={selected.props.size ?? CHATPETS_DEFAULTS.size} onChange={(e) => setProp("size", Number(e.target.value))} /></label>
+                        <label><span>Leave after (min)</span><input type="number" min={1} max={240} value={selected.props.idle ?? CHATPETS_DEFAULTS.idle} onChange={(e) => setProp("idle", Number(e.target.value))} /></label>
+                        <label><span>Most at once</span><input type="number" min={1} max={200} value={selected.props.max ?? CHATPETS_DEFAULTS.max} onChange={(e) => setProp("max", Number(e.target.value))} /></label>
+                      </div>
+                      <label className="st-check"><input type="checkbox" checked={selected.props.colors !== false} onChange={(e) => setProp("colors", e.target.checked)} /><span>Names in each chatter&apos;s Twitch colour</span></label>
+                      <label className="st-row"><span>Never give a pet to</span>
+                        <input
+                          type="text" placeholder="nightbot, streamelements, … (the usual bots)"
+                          value={selected.props.ignore ?? ""}
+                          onChange={(e) => setProp("ignore", e.target.value)}
+                        />
+                      </label>
+                      <p className="st-hint">
+                        Everyone who types in chat gets an animal (always the same one) that wanders
+                        along the bottom of this box and hops when they chat again. The made-up
+                        chatters are only here in the editor.
+                      </p>
+                    </>
+                  ) : (selected.props.mode ?? "html") === "url" ? (
                     <label className="st-row"><span>URL</span>
                       <input type="url" placeholder="https://…" value={selected.props.url ?? ""} onChange={(e) => setProp("url", e.target.value)} />
                     </label>
@@ -1543,6 +1595,7 @@ export default function StudioEditor({
 function labelFor(el: RElement): string {
   const p = el.props ?? {};
   if (el.kind === "text") return String(p.text ?? "").slice(0, 24) || "(empty)";
+  if (el.kind === "widget" && p.mode === "chatpets") return `chat pets · #${chatPetsChannel(p.channel) || "?"}`;
   if (el.kind === "widget") return (p.mode ?? "html") === "url" ? String(p.url ?? "(no url)") : "custom HTML";
   if (p.label) return String(p.label).slice(0, 24);
   const u = String(p.url ?? "");
