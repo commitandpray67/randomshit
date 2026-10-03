@@ -15,7 +15,8 @@
  *   max      most pets on screen at once; the quietest leaves first (default 30)
  *   colors   0 to draw every name in white instead of the chatter's colour
  *   ignore   comma-separated logins that never get a pet (default: common bots)
- *   set      "emoji" for emoji animals instead of the kitten sprites
+ *   set      which pets: walking cats (default), "round" for the round kitten
+ *            badges, or "emoji" for emoji animals
  *   demo     1 to add made-up chatters, for placing it in the editor
  *
  * Chat comes straight from Twitch's IRC websocket as an anonymous "justinfan"
@@ -31,6 +32,7 @@ import kitten2 from "./sprites/kitten-2.png";
 import kitten3 from "./sprites/kitten-3.png";
 import kitten4 from "./sprites/kitten-4.png";
 import kitten5 from "./sprites/kitten-5.png";
+import { WALKERS, CAT_H } from "./sprites/walkers";
 
 const KITTENS = [kitten1, kitten2, kitten3, kitten4, kitten5].map((k) => k.src);
 
@@ -49,6 +51,7 @@ text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2p
 .b{line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
 .b span,.b img{display:inline-block}
 .b img{display:block;-webkit-user-drag:none}
+.b .w{display:block;background-repeat:no-repeat;background-size:400% 100%}
 #st{position:absolute;left:6px;top:6px;font:12px/1.3 system-ui,sans-serif;color:#fff;
 background:rgba(0,0,0,.55);padding:3px 7px;border-radius:4px}
 </style></head><body><div id="s"></div><script>
@@ -58,7 +61,10 @@ function n(k,d,lo,hi){var v=+Q.get(k);return v>0?Math.min(hi,Math.max(lo,v)):d;}
 var CH=(Q.get("channel")||"").toLowerCase().replace(/[^a-z0-9_]/g,"");
 var SIZE=n("size",56,16,256),IDLE=n("idle",10,1,240)*60000,MAX=Math.round(n("max",30,1,200));
 var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1";
-var SPRITES=Q.get("set")==="emoji"?null:${JSON.stringify(KITTENS)};
+// Walking cats unless asked otherwise. "kittens" is what the editor used to
+// call the default, so it means the default still.
+var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,
+WALK=SET==="round"||SET==="emoji"?null:${JSON.stringify(WALKERS)},K=SIZE/${CAT_H};
 var IGNORE={};
 (Q.has("ignore")?Q.get("ignore"):"nightbot,streamelements,streamlabs,moobot,fossabot,wizebot,soundalerts,sery_bot")
 .split(/[\s,]+/).forEach(function(l){if(l)IGNORE[l.toLowerCase().replace(/^@/,"")]=1;});
@@ -81,22 +87,30 @@ login=login.toLowerCase();if(!login||IGNORE[login])return;
 var now=performance.now(),p=P[login];
 if(!p){
 p=P[login]={login:login,el:document.createElement("div"),nm:document.createElement("div"),
-bd:document.createElement("div"),sp:document.createElement(SPRITES?"img":"span"),
+bd:document.createElement("div"),sp:document.createElement(SPRITES?"img":WALK?"div":"span"),
 x:0,dir:Math.random()<.5?-1:1,speed:rand(.35,.8)*SIZE,walking:false,until:now+rand(300,1500),half:SIZE/2};
 p.el.className="pet";p.nm.className="n";p.bd.className="b";
 p.el.style.opacity="0";p.nm.style.fontSize=Math.max(10,Math.round(SIZE*.24))+"px";
 p.bd.style.fontSize=SIZE+"px";
-if(SPRITES){p.sp.src=pick(login,SPRITES);p.sp.alt="";p.sp.width=p.sp.height=SIZE;}
+if(WALK){var c=pick(login,WALK),s=p.sp.style;p.sp.className="w";p.frame=-1;p.dist=0;
+s.width=(c.w*K).toFixed(1)+"px";s.height=(c.h*K).toFixed(1)+"px";s.backgroundImage="url("+c.src+")";}
+else if(SPRITES){p.sp.src=pick(login,SPRITES);p.sp.alt="";p.sp.width=p.sp.height=SIZE;}
 else p.sp.textContent=pick(login,ANIMALS);
 p.bd.appendChild(p.sp);p.el.appendChild(p.nm);p.el.appendChild(p.bd);S.appendChild(p.el);count++;
 p.nm.textContent=name;p.half=Math.max(SIZE,p.el.offsetWidth)/2;
-p.x=rand(p.half,Math.max(p.half,innerWidth-p.half));
+p.x=spot(p);
 requestAnimationFrame(function(){p.el.style.opacity="1";});
 if(count>MAX){var old=null;for(var k in P)if(P[k]!==p&&(!old||P[k].last<old.last))old=P[k];if(old)drop(old.login);}
 }
 if(p.nm.textContent!==name){p.nm.textContent=name;p.half=Math.max(SIZE,p.el.offsetWidth)/2;}
 p.nm.style.color=COLORS&&/^#[0-9a-f]{6}$/i.test(color||"")?color:"#fff";
 p.last=now;p.hop=now;}
+
+// Somewhere with room: of a dozen random spots, the one furthest from every
+// other pet, so a burst of chatters spreads out instead of piling up.
+function spot(p){var lo=p.half,hi=Math.max(lo,innerWidth-p.half),best=rand(lo,hi),bd=-1;
+for(var i=0;i<12;i++){var x=rand(lo,hi),d=1e9;for(var k in P)if(P[k]!==p)d=Math.min(d,Math.abs(P[k].x-x));
+if(d>bd){bd=d;best=x;}}return best;}
 
 function drop(login){var p=P[login];if(!p)return;delete P[login];count--;
 p.el.style.opacity="0";setTimeout(function(){p.el.remove();},700);}
@@ -106,16 +120,22 @@ function tick(now){var dt=Math.min(.1,(now-prev)/1000),W=innerWidth;prev=now;
 for(var k in P){var p=P[k];
 if(now>p.until){p.walking=!p.walking;
 if(p.walking){if(Math.random()<.6)p.dir=-p.dir;p.until=now+rand(2000,7000);}else p.until=now+rand(800,4000);}
-if(p.walking){p.x+=p.dir*p.speed*dt;
+if(p.walking){p.x+=p.dir*p.speed*dt;p.dist+=p.speed*dt;
 if(p.x<p.half){p.x=p.half;p.dir=1;}else if(p.x>W-p.half){p.x=W-p.half;p.dir=-1;}}
 if(W<=p.half*2)p.x=W/2;
-var y=p.walking?Math.abs(Math.sin(now*p.speed/SIZE/40))*SIZE*.08:0;
+// The walking cats' frames are the gait already; the rest get a bob.
+var y=p.walking&&!WALK?Math.abs(Math.sin(now*p.speed/SIZE/40))*SIZE*.08:0;
 if(p.hop){var h=(now-p.hop)/600;if(h>=1)p.hop=0;else y+=4*h*(1-h)*SIZE*.6;}
 p.el.style.transform="translate("+(p.x-p.half).toFixed(1)+"px,"+(-y).toFixed(1)+"px)";
-// Emoji animals mostly face left, so mirror the ones walking right. The
-// kittens face the camera, and mirroring their frames would look wrong, so they
-// lean into the walk instead.
-p.sp.style.transform=SPRITES?(p.walking?"rotate("+(p.dir*6)+"deg)":"none"):(p.dir>0?"scaleX(-1)":"none");}
+// Walking cats: the strip's first pair faces right and the second left, and
+// the frame steps with distance walked rather than time, so slow cats take
+// slow steps instead of moonwalking. Standing still is the first frame.
+if(WALK){var f=(p.dir>0?0:2)+(p.walking?Math.floor(p.dist/(SIZE*.3))%2:0);
+if(f!==p.frame){p.frame=f;p.sp.style.backgroundPosition=(f*100/3).toFixed(3)+"% 0";}}
+// Emoji animals mostly face left, so mirror the ones walking right. The round
+// kittens face the camera, and mirroring their frames would look wrong, so
+// they lean into the walk instead.
+else p.sp.style.transform=SPRITES?(p.walking?"rotate("+(p.dir*6)+"deg)":"none"):(p.dir>0?"scaleX(-1)":"none");}
 requestAnimationFrame(tick);}
 requestAnimationFrame(tick);
 

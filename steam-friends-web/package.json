@@ -11,7 +11,8 @@
     "test:7tv": "node --experimental-strip-types scripts/test-seventv.ts",
     "test:embed": "node --experimental-strip-types scripts/test-embed.ts",
     "test:image": "node --experimental-strip-types scripts/test-imagesrc.ts",
-    "test:login": "node --experimental-strip-types scripts/test-login.ts"
+    "test:login": "node --experimental-strip-types scripts/test-login.ts",
+    "sprites": "node scripts/chatpets-sprites.mjs"
   },
   "dependencies": {
     "next": "^15.1.0",
@@ -23,6 +24,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.2.3",
+    "sharp": "^0.34.5",
     "typescript": "^5.7.0"
   }
 }
