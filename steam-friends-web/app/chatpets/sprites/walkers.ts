@@ -3,8 +3,10 @@
 //
 // Each strip is four cells of w×h in a row: right-1, right-2, left-1, left-2.
 
+import bell from "./walk-bell.png";
 import plain from "./walk-plain.png";
 import pumpkin from "./walk-pumpkin.png";
+import satchel from "./walk-satchel.png";
 import sleepy from "./walk-sleepy.png";
 import tongue from "./walk-tongue.png";
 import witch from "./walk-witch.png";
@@ -13,8 +15,10 @@ import witch from "./walk-witch.png";
 export const CAT_H = 150;
 
 export const WALKERS: { src: string; w: number; h: number }[] = [
+  { src: bell.src, w: 216, h: 156 },
   { src: plain.src, w: 204, h: 150 },
   { src: pumpkin.src, w: 240, h: 151 },
+  { src: satchel.src, w: 216, h: 156 },
   { src: sleepy.src, w: 204, h: 145 },
   { src: tongue.src, w: 212, h: 153 },
   { src: witch.src, w: 210, h: 162 },
