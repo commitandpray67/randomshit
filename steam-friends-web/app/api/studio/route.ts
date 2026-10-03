@@ -139,6 +139,8 @@ export async function POST(req: NextRequest) {
         props: body.props && typeof body.props === "object" ? body.props : undefined,
         w: typeof body.w === "number" ? body.w : undefined,
         h: typeof body.h === "number" ? body.h : undefined,
+        x: typeof body.x === "number" ? body.x : undefined,
+        y: typeof body.y === "number" ? body.y : undefined,
       });
       noteElements(scene.id, [el.id]);
       break;

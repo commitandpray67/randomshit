@@ -368,7 +368,7 @@ Create the tables with `db/neon-studio.sql` (Neon SQL editor) or
 | **Text** | content, colour, size, weight, alignment, font, drop shadow |
 | **Image** | any URL (incl. `data:`), object-fit; page links resolved to the file |
 | **Video** | a media file, or a YouTube / Vimeo link; play/pause, loop, autoplay, mute + volume, object-fit |
-| **Widget** | custom HTML+CSS+JS, or an embedded URL |
+| **Widget** | custom HTML+CSS+JS, or an embedded URL, or chat pets |
 
 Every element carries position, size, rotation, z-order, opacity, lock, hide and
 a CSS `clip-path` — the same properties Pogly's `Elements` table stores.
@@ -396,6 +396,37 @@ are covered by `npm run test:7tv`:
   `3x.webp` breaks on emotes never encoded at that size.
 
 Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
+
+### Chat pets
+
+The toolbar's *+ Chat pets* button adds a strip along the bottom of the frame
+where everyone who types in the studio's Twitch chat gets an animal with their
+name over it. It wanders left and right, hops when they chat again, and leaves
+after they've been quiet for a while (10 minutes by default). The most pets on
+screen at once is capped (30 by default); past that the quietest one leaves.
+A ban or timeout takes the pet with it, and the usual bots (Nightbot,
+StreamElements and so on) never get one.
+
+- **Same animal every time.** The animal is picked from a hash of the login, so
+  a regular keeps theirs from stream to stream. It's an emoji for now, so it
+  looks like whatever emoji font OBS uses (Segoe UI Emoji on Windows).
+- **No server side.** The pets are a few KB of plain JS at `/chatpets`
+  (`app/chatpets/route.ts`), which the widget frames. That page reads chat
+  itself, logged in anonymously to Twitch's IRC websocket (a `justinfan` user,
+  which can read any public channel without a token), so it adds nothing to
+  the database or the scene stream. Both the browser source and `/lite` frame
+  the same page.
+- **It's a widget mode, not a new element kind.** `scene_elements.kind` has a
+  CHECK constraint, and a new kind would mean migrating both hosts. Switching an
+  existing widget's *Mode* to *Chat pets* does the same thing.
+- **The editor shows made-up chatters** as well as real ones, so there's
+  something to look at while you size and place it, and a corner label saying
+  whether chat is connected. Neither is ever drawn in OBS.
+
+Settings in the side panel: channel (defaults to the studio's), animal size,
+how long a pet stays, how many at once, names in each chatter's Twitch colour or
+white, and extra logins that never get a pet. Typing in that last box replaces
+the built-in bot list rather than adding to it.
 
 ### Page links vs. files
 

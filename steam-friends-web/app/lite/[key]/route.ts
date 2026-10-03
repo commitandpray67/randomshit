@@ -68,7 +68,7 @@ C.style.width=CV.w+"px";C.style.height=CV.h+"px";C.style.transform="scale("+s+")
 // What forces the inner node to be rebuilt. Deliberately excludes the player's
 // options: rebuilding an iframe restarts the video, so mute and volume are sent
 // to the running player as commands instead.
-function sig(e){var p=e.props||{};return e.kind+"|"+(p._e||p.url||"")+"|"+(p.html||"")+"|"
+function sig(e){var p=e.props||{};return e.kind+"|"+(p._e||p._s||p.url||"")+"|"+(p.html||"")+"|"
 +(p.mode||"")+"|"+(p.text||"")+"|"+(p.color||"")+"|"+(p.fontSize||"")+"|"+(p.weight||"")
 +"|"+(p.align||"")+"|"+(p.fontFamily||"")+"|"+(p.shadow?1:0)+"|"+(p.fit||"");}
 
@@ -122,7 +122,8 @@ n.autoplay=p.autoplay!==false;n.loop=p.loop!==false;n.muted=p.muted!==false;n.pl
 if(typeof p.volume==="number")n.volume=Math.min(1,Math.max(0,p.volume));
 n.style.objectFit=p.fit||"contain";}
 else{n=document.createElement("iframe");n.allow="autoplay; encrypted-media";
-if((p.mode||"html")==="url"){n.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups allow-forms");if(p.url)n.src=p.url;}
+if(p.mode==="chatpets"){n.setAttribute("sandbox","allow-scripts");n.src=p._s||"";}
+else if((p.mode||"html")==="url"){n.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups allow-forms");if(p.url)n.src=p.url;}
 // No allow-same-origin for pasted HTML: it runs on our origin otherwise.
 else{n.setAttribute("sandbox","allow-scripts");n.srcdoc=p.html||"";}}
 return n;}
