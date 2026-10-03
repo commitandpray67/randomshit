@@ -8,6 +8,9 @@
  * widget frames, so the React renderer and the lite source share one
  * implementation and the only thing that differs is how the URL is built.
  *
+ * Each chatter gets one of the kitten sprites (app/chatpets/sprites), or with
+ * `set: "emoji"` an emoji animal.
+ *
  * The page reads chat itself, anonymously, straight from Twitch: no token, no
  * server state, nothing added to the scene stream.
  */
@@ -42,6 +45,7 @@ export function chatPetsSrc(p: Record<string, any>, demo = false): string {
   if (idle) q.set("idle", String(idle));
   if (max) q.set("max", String(max));
   if (p.colors === false) q.set("colors", "0");
+  if (p.set === "emoji") q.set("set", "emoji");
   // A cleared box means the built-in bot list, not "ignore nobody".
   if (typeof p.ignore === "string" && p.ignore.trim()) q.set("ignore", p.ignore.trim());
   if (demo) q.set("demo", "1");

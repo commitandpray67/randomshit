@@ -400,16 +400,21 @@ Set `SEVENTV_API_BASE` to point the lookup at a stub for testing.
 ### Chat pets
 
 The toolbar's *+ Chat pets* button adds a strip along the bottom of the frame
-where everyone who types in the studio's Twitch chat gets an animal with their
-name over it. It wanders left and right, hops when they chat again, and leaves
+where everyone who types in the studio's Twitch chat gets a kitten (or, if you
+pick it, an emoji animal) with their name over it. It wanders left and right, hops when they chat again, and leaves
 after they've been quiet for a while (10 minutes by default). The most pets on
 screen at once is capped (30 by default); past that the quietest one leaves.
 A ban or timeout takes the pet with it, and the usual bots (Nightbot,
 StreamElements and so on) never get one.
 
-- **Same animal every time.** The animal is picked from a hash of the login, so
-  a regular keeps theirs from stream to stream. It's an emoji for now, so it
-  looks like whatever emoji font OBS uses (Segoe UI Emoji on Windows).
+- **Same pet every time.** The pet is picked from a hash of the login, so a
+  regular keeps theirs from stream to stream.
+- **Kittens or emoji.** The kittens are five 72×72 PNGs in
+  `app/chatpets/sprites/`. They're imported by the route rather than put in
+  `public/` (which the studio host's image doesn't ship), so they're served from
+  `.next/static` under hashed names. To add one, drop a PNG next to them and add
+  it to the import list in `app/chatpets/route.ts`. Emoji animals look like
+  whatever emoji font OBS has (Segoe UI Emoji on Windows).
 - **No server side.** The pets are a few KB of plain JS at `/chatpets`
   (`app/chatpets/route.ts`), which the widget frames. That page reads chat
   itself, logged in anonymously to Twitch's IRC websocket (a `justinfan` user,
@@ -419,11 +424,15 @@ StreamElements and so on) never get one.
 - **It's a widget mode, not a new element kind.** `scene_elements.kind` has a
   CHECK constraint, and a new kind would mean migrating both hosts. Switching an
   existing widget's *Mode* to *Chat pets* does the same thing.
-- **The editor shows made-up chatters** as well as real ones, so there's
-  something to look at while you size and place it, and a corner label saying
-  whether chat is connected. Neither is ever drawn in OBS.
+- **The editor draws the box.** The frame is transparent and empty until
+  someone chats, so on the canvas it gets a pink dashed outline, a
+  "🐾 Chat pets · #channel" tag and a line along the bottom where the pets walk.
+  It also shows made-up chatters as well as real ones, so there's something to
+  look at while you size and place it, plus a corner label saying whether chat
+  is connected. None of this is ever drawn in OBS.
 
-Settings in the side panel: channel (defaults to the studio's), animal size,
+Settings in the side panel: channel (defaults to the studio's), kittens or
+emoji, pet size,
 how long a pet stays, how many at once, names in each chatter's Twitch colour or
 white, and extra logins that never get a pet. Typing in that last box replaces
 the built-in bot list rather than adding to it.

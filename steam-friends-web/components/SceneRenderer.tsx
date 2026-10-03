@@ -2,7 +2,7 @@
 
 import VideoPlayer from "./VideoPlayer";
 import ImageElement from "./ImageElement";
-import { chatPetsSrc } from "@/lib/chatpets";
+import { chatPetsChannel, chatPetsSrc } from "@/lib/chatpets";
 
 export type RElement = {
   id: number;
@@ -73,12 +73,43 @@ export function ElementView({ el, editing = false }: { el: RElement; editing?: b
     // Our own page, reading Twitch chat itself (see lib/chatpets). It needs
     // scripts and a websocket, nothing of this origin's. The editor gets
     // made-up chatters too, so there's something to place.
-    return (
+    const frame = (
       <iframe
         src={chatPetsSrc(p, editing)}
         sandbox="allow-scripts"
         style={{ width: "100%", height: "100%", border: 0, display: "block", background: "transparent" }}
       />
+    );
+    if (!editing) return frame;
+    // The frame itself is transparent and empty until someone chats, so in the
+    // editor the box is drawn: where it is, what it is, and the line the pets
+    // walk along. None of this goes on stream.
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {frame}
+        <div
+          style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            border: "2px dashed rgba(255,143,190,0.85)", borderRadius: 6,
+            background: "rgba(255,143,190,0.08)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", left: 0, right: 0, bottom: 0, height: 3, pointerEvents: "none",
+            background: "rgba(255,143,190,0.85)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", top: 6, right: 6, pointerEvents: "none",
+            background: "#ff8fbe", color: "#2a0d1a", borderRadius: 4, padding: "3px 8px",
+            font: "700 14px/1.2 system-ui, sans-serif", whiteSpace: "nowrap",
+          }}
+        >
+          🐾 Chat pets · #{chatPetsChannel(p.channel) || "no channel"}
+        </div>
+      </div>
     );
   }
   if (mode === "url") {

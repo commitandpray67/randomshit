@@ -1035,7 +1035,7 @@ export default function StudioEditor({
           <button className="btn" onClick={() => call({ action: "add", kind: "widget" })}>+ Widget</button>
           <button
             className="btn"
-            title="An animal for everyone who types in chat, walking along the bottom"
+            title="A kitten for everyone who types in chat, walking along the bottom of the frame"
             onClick={() => {
               // Full width along the bottom of the frame, which is where they belong.
               const h = 200;
@@ -1045,7 +1045,7 @@ export default function StudioEditor({
               });
             }}
           >
-            + Chat pets
+            + 🐾 Chat pets
           </button>
           <button className="btn btn-ghost" onClick={() => setShowEmotes(true)}>+ 7TV emote</button>
           {selectedIds.length > 0 && (
@@ -1535,8 +1535,14 @@ export default function StudioEditor({
                           onChange={(e) => setProp("channel", e.target.value)}
                         />
                       </label>
+                      <label className="st-row"><span>Pets</span>
+                        <select value={selected.props.set === "emoji" ? "emoji" : "kittens"} onChange={(e) => setProp("set", e.target.value)}>
+                          <option value="kittens">Kittens</option>
+                          <option value="emoji">Emoji animals</option>
+                        </select>
+                      </label>
                       <div className="st-grid">
-                        <label><span>Animal size</span><input type="number" min={16} max={256} value={selected.props.size ?? CHATPETS_DEFAULTS.size} onChange={(e) => setProp("size", Number(e.target.value))} /></label>
+                        <label><span>Pet size</span><input type="number" min={16} max={256} value={selected.props.size ?? CHATPETS_DEFAULTS.size} onChange={(e) => setProp("size", Number(e.target.value))} /></label>
                         <label><span>Leave after (min)</span><input type="number" min={1} max={240} value={selected.props.idle ?? CHATPETS_DEFAULTS.idle} onChange={(e) => setProp("idle", Number(e.target.value))} /></label>
                         <label><span>Most at once</span><input type="number" min={1} max={200} value={selected.props.max ?? CHATPETS_DEFAULTS.max} onChange={(e) => setProp("max", Number(e.target.value))} /></label>
                       </div>
@@ -1549,7 +1555,7 @@ export default function StudioEditor({
                         />
                       </label>
                       <p className="st-hint">
-                        Everyone who types in chat gets an animal (always the same one) that wanders
+                        Everyone who types in chat gets a pet (always the same one) that wanders
                         along the bottom of this box and hops when they chat again. The made-up
                         chatters are only here in the editor.
                       </p>

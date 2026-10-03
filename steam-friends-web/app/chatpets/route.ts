@@ -15,12 +15,24 @@
  *   max      most pets on screen at once; the quietest leaves first (default 30)
  *   colors   0 to draw every name in white instead of the chatter's colour
  *   ignore   comma-separated logins that never get a pet (default: common bots)
+ *   set      "emoji" for emoji animals instead of the kitten sprites
  *   demo     1 to add made-up chatters, for placing it in the editor
  *
  * Chat comes straight from Twitch's IRC websocket as an anonymous "justinfan"
  * user, which needs no token and can read any public channel.
  */
 export const dynamic = "force-static";
+
+// Imported rather than put in public/, for the same Docker reason: an import
+// lands in .next/static under a content-hashed name, which both hosts serve
+// and browsers may cache for good.
+import kitten1 from "./sprites/kitten-1.png";
+import kitten2 from "./sprites/kitten-2.png";
+import kitten3 from "./sprites/kitten-3.png";
+import kitten4 from "./sprites/kitten-4.png";
+import kitten5 from "./sprites/kitten-5.png";
+
+const KITTENS = [kitten1, kitten2, kitten3, kitten4, kitten5].map((k) => k.src);
 
 const HTML = String.raw`<!doctype html>
 <html><head><meta charset="utf-8">
@@ -35,7 +47,8 @@ will-change:transform;transition:opacity .6s;pointer-events:none}
 font-family:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;margin-bottom:.15em;
 text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px rgba(0,0,0,.6)}
 .b{line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
-.b span{display:inline-block}
+.b span,.b img{display:inline-block}
+.b img{display:block;-webkit-user-drag:none}
 #st{position:absolute;left:6px;top:6px;font:12px/1.3 system-ui,sans-serif;color:#fff;
 background:rgba(0,0,0,.55);padding:3px 7px;border-radius:4px}
 </style></head><body><div id="s"></div><script>
@@ -45,6 +58,7 @@ function n(k,d,lo,hi){var v=+Q.get(k);return v>0?Math.min(hi,Math.max(lo,v)):d;}
 var CH=(Q.get("channel")||"").toLowerCase().replace(/[^a-z0-9_]/g,"");
 var SIZE=n("size",56,16,256),IDLE=n("idle",10,1,240)*60000,MAX=Math.round(n("max",30,1,200));
 var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1";
+var SPRITES=Q.get("set")==="emoji"?null:${JSON.stringify(KITTENS)};
 var IGNORE={};
 (Q.has("ignore")?Q.get("ignore"):"nightbot,streamelements,streamlabs,moobot,fossabot,wizebot,soundalerts,sery_bot")
 .split(/[\s,]+/).forEach(function(l){if(l)IGNORE[l.toLowerCase().replace(/^@/,"")]=1;});
@@ -55,9 +69,9 @@ var ANIMALS=["🐈","🐕","🐩","🐖","🐄","🐂","🐃","🐑","🐏","�
 "🐢","🐊","🦎","🐍","🐌","🐛","🐜","🐞","🐝","🦗","🦆","🦢","🦩","🦚","🦜","🐧","🦦","🦥","🦨",
 "🦡","🐁","🐀","🐅","🐆","🦓","🦒","🐘","🦏","🦛","🐪","🦘","🦙","🦕","🦖","🐉","🦮"];
 
-// The same chatter always gets the same animal: FNV-1a over their login.
-function pick(login){var h=2166136261;for(var i=0;i<login.length;i++){h^=login.charCodeAt(i);h=Math.imul(h,16777619);}
-return ANIMALS[(h>>>0)%ANIMALS.length];}
+// The same chatter always gets the same pet: FNV-1a over their login.
+function pick(login,list){var h=2166136261;for(var i=0;i<login.length;i++){h^=login.charCodeAt(i);h=Math.imul(h,16777619);}
+return list[(h>>>0)%list.length];}
 
 var S=document.getElementById("s"),P={},count=0;
 function rand(a,b){return a+Math.random()*(b-a);}
@@ -67,11 +81,13 @@ login=login.toLowerCase();if(!login||IGNORE[login])return;
 var now=performance.now(),p=P[login];
 if(!p){
 p=P[login]={login:login,el:document.createElement("div"),nm:document.createElement("div"),
-bd:document.createElement("div"),sp:document.createElement("span"),
+bd:document.createElement("div"),sp:document.createElement(SPRITES?"img":"span"),
 x:0,dir:Math.random()<.5?-1:1,speed:rand(.35,.8)*SIZE,walking:false,until:now+rand(300,1500),half:SIZE/2};
 p.el.className="pet";p.nm.className="n";p.bd.className="b";
 p.el.style.opacity="0";p.nm.style.fontSize=Math.max(10,Math.round(SIZE*.24))+"px";
-p.bd.style.fontSize=SIZE+"px";p.sp.textContent=pick(login);
+p.bd.style.fontSize=SIZE+"px";
+if(SPRITES){p.sp.src=pick(login,SPRITES);p.sp.alt="";p.sp.width=p.sp.height=SIZE;}
+else p.sp.textContent=pick(login,ANIMALS);
 p.bd.appendChild(p.sp);p.el.appendChild(p.nm);p.el.appendChild(p.bd);S.appendChild(p.el);count++;
 p.nm.textContent=name;p.half=Math.max(SIZE,p.el.offsetWidth)/2;
 p.x=rand(p.half,Math.max(p.half,innerWidth-p.half));
@@ -96,8 +112,10 @@ if(W<=p.half*2)p.x=W/2;
 var y=p.walking?Math.abs(Math.sin(now*p.speed/SIZE/40))*SIZE*.08:0;
 if(p.hop){var h=(now-p.hop)/600;if(h>=1)p.hop=0;else y+=4*h*(1-h)*SIZE*.6;}
 p.el.style.transform="translate("+(p.x-p.half).toFixed(1)+"px,"+(-y).toFixed(1)+"px)";
-// Emoji animals mostly face left, so mirror the ones walking right.
-p.sp.style.transform=p.dir>0?"scaleX(-1)":"none";}
+// Emoji animals mostly face left, so mirror the ones walking right. The
+// kittens face the camera, and mirroring their frames would look wrong, so they
+// lean into the walk instead.
+p.sp.style.transform=SPRITES?(p.walking?"rotate("+(p.dir*6)+"deg)":"none"):(p.dir>0?"scaleX(-1)":"none");}
 requestAnimationFrame(tick);}
 requestAnimationFrame(tick);
 
