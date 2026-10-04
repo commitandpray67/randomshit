@@ -8,6 +8,8 @@ import { isEmbeddable, videoPaused } from "@/lib/embed";
 import StreamBackdrop from "./StreamBackdrop";
 import { imageCandidates } from "@/lib/imagesrc";
 import { CHATPETS_DEFAULTS, chatPetsChannel } from "@/lib/chatpets";
+import SoundLibrary, { type MediaItem } from "./SoundLibrary";
+import { soundPlaying, soundVolume } from "@/lib/sound";
 
 type Canvas = { w: number; h: number };
 
@@ -92,6 +94,8 @@ export default function StudioEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmotes, setShowEmotes] = useState(false);
+  /** The sound library, open to add a sound element or to change the selected one's file. */
+  const [soundPick, setSoundPick] = useState<null | "add" | "swap">(null);
   const [copied, setCopied] = useState(false);
   const [copiedLite, setCopiedLite] = useState(false);
   // Keep tracking the viewport until someone picks a zoom of their own.
@@ -1056,6 +1060,9 @@ export default function StudioEditor({
           >
             + 🐾 Chat pets
           </button>
+          <button className="btn" title="Play your own sounds on stream, from the studio's sound library" onClick={() => setSoundPick("add")}>
+            + 🔊 Sound
+          </button>
           <button className="btn btn-ghost" onClick={() => setShowEmotes(true)}>+ 7TV emote</button>
           {selectedIds.length > 0 && (
             <>
@@ -1533,9 +1540,39 @@ export default function StudioEditor({
                       <option value="html">Custom HTML</option>
                       <option value="url">Embed a URL</option>
                       <option value="chatpets">Chat pets</option>
+                      <option value="sound">Sound</option>
                     </select>
                   </label>
-                  {selected.props.mode === "chatpets" ? (
+                  {selected.props.mode === "sound" ? (
+                    <>
+                      <div className="st-row"><span>File</span>
+                        <div className="st-sound-file">
+                          <span>{selected.props.media ? String(selected.props.name ?? "Sound") : "None yet"}</span>
+                          <button className="btn btn-ghost" onClick={() => setSoundPick("swap")}>Choose…</button>
+                        </div>
+                      </div>
+                      {/* Stamps, not a flag: see lib/sound.ts. ▶ on a sound
+                          that's playing starts it again from the top. */}
+                      <div className="st-transport">
+                        <button className="btn" disabled={!selected.props.media} onClick={() => setProp("playAt", Date.now())}>
+                          ▶ Play
+                        </button>
+                        <button className="btn btn-ghost" disabled={!soundPlaying(selected.props)} onClick={() => setProp("stopAt", Date.now())}>
+                          ■ Stop
+                        </button>
+                      </div>
+                      <label className="st-row"><span>Volume {Math.round(soundVolume(selected.props) * 100)}%</span>
+                        <input type="range" min={0} max={100} value={Math.round(soundVolume(selected.props) * 100)} onChange={(e) => setProp("volume", Number(e.target.value) / 100)} />
+                      </label>
+                      <label className="st-check"><input type="checkbox" checked={Boolean(selected.props.loop)} onChange={(e) => setProp("loop", e.target.checked)} /><span>Loop until stopped</span></label>
+                      <p className="st-hint">
+                        Plays in OBS, not in this tab — use ▶ in the sound library to listen here.
+                        Nothing shows on stream; the box is only in the editor. Hiding the layer
+                        silences it. For OBS&apos;s mixer to show it, tick <em>Control audio via OBS</em> on
+                        the browser source.
+                      </p>
+                    </>
+                  ) : selected.props.mode === "chatpets" ? (
                     <>
                       <label className="st-row"><span>Twitch channel</span>
                         <input
@@ -1584,15 +1621,37 @@ export default function StudioEditor({
                       />
                     </label>
                   )}
-                  <p className="st-hint">
-                    Widgets run in a sandboxed iframe with no access to this site.
-                  </p>
+                  {selected.props.mode !== "sound" && (
+                    <p className="st-hint">
+                      Widgets run in a sandboxed iframe with no access to this site.
+                    </p>
+                  )}
                 </>
               )}
             </section>
           )}
         </aside>
       </div>
+
+      {soundPick && (
+        <SoundLibrary
+          studio={studio.slug}
+          onClose={() => setSoundPick(null)}
+          onPick={(m: MediaItem) => {
+            const file = { media: m.id, name: m.name, duration: m.duration };
+            if (soundPick === "swap" && selected?.kind === "widget" && selected.props.mode === "sound") {
+              // A new file isn't the one that was playing, so whatever was is stopped.
+              setProps({ ...file, stopAt: Date.now() });
+            } else {
+              void call({
+                action: "add", kind: "widget", w: 360, h: 64,
+                props: { mode: "sound", ...file, volume: 1, loop: false, playAt: 0, stopAt: 0 },
+              });
+            }
+            setSoundPick(null);
+          }}
+        />
+      )}
 
       {showEmotes && (
         <EmotePicker
@@ -1611,6 +1670,7 @@ export default function StudioEditor({
 function labelFor(el: RElement): string {
   const p = el.props ?? {};
   if (el.kind === "text") return String(p.text ?? "").slice(0, 24) || "(empty)";
+  if (el.kind === "widget" && p.mode === "sound") return `🔊 ${String(p.name ?? "sound").slice(0, 22)}`;
   if (el.kind === "widget" && p.mode === "chatpets") return `chat pets · #${chatPetsChannel(p.channel) || "?"}`;
   if (el.kind === "widget") return (p.mode ?? "html") === "url" ? String(p.url ?? "(no url)") : "custom HTML";
   if (p.label) return String(p.label).slice(0, 24);

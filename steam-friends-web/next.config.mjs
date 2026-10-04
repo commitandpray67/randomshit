@@ -55,6 +55,8 @@ const nextConfig = {
       // a lite page opened before the move polls this host and is sent on.
       { source: "/lite/:key", destination: `${studioOrigin}/lite/:key`, permanent: false },
       { source: "/api/scene/:path*", destination: `${studioOrigin}/api/scene/:path*`, permanent: false },
+      // Sound files live in the studio's database too.
+      { source: "/api/media/:path*", destination: `${studioOrigin}/api/media/:path*`, permanent: false },
     ];
   },
 

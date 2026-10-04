@@ -1,6 +1,7 @@
 import { videoEmbed, videoPaused, videoVolume } from "./embed";
 import { imageCandidates } from "./imagesrc";
 import { chatPetsSrc } from "./chatpets";
+import { soundSrc, soundVolume } from "./sound";
 
 /**
  * Media resolution for the framework-free browser source.
@@ -25,8 +26,10 @@ export type LiteProps = {
   _a?: { muted: boolean; volume: number; paused: boolean };
   /** Image URLs to try in order; a wrong guess costs one request. */
   _c?: string[];
-  /** Chat pets page, for a widget in that mode. */
+  /** Chat pets page, or a sound's file, for a widget in either mode. */
   _s?: string;
+  /** A sound's volume, clamped. */
+  _v?: number;
 };
 
 export function resolveForLite<T extends { kind: string; props?: Record<string, any> }>(
@@ -41,6 +44,11 @@ export function resolveForLite<T extends { kind: string; props?: Record<string, 
 
     if (el.kind === "widget" && p.mode === "chatpets") {
       p._s = chatPetsSrc(p);
+    }
+
+    if (el.kind === "widget" && p.mode === "sound") {
+      p._s = soundSrc(p) ?? "";
+      p._v = soundVolume(p);
     }
 
     if (el.kind === "video") {

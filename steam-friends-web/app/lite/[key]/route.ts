@@ -60,7 +60,7 @@ transition:transform 1s linear,width 1s linear,height 1s linear,opacity 1s linea
 .t{display:flex;align-items:center;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.15}
 </style></head><body><div id="w"><div id="c"></div></div><script>
 var K=${embed(key)},V=${scene.version},CV=${embed({ w: scene.canvasW, h: scene.canvasH })},
-EL=${embed(elements)},C=document.getElementById("c"),N={},PL={};
+EL=${embed(elements)},C=document.getElementById("c"),N={},PL={},SND={};
 
 function fit(){var s=Math.min(innerWidth/CV.w,innerHeight/CV.h)||1;
 C.style.width=CV.w+"px";C.style.height=CV.h+"px";C.style.transform="scale("+s+")";}
@@ -122,11 +122,24 @@ n.autoplay=p.autoplay!==false;n.loop=p.loop!==false;n.muted=p.muted!==false;n.pl
 if(typeof p.volume==="number")n.volume=Math.min(1,Math.max(0,p.volume));
 n.style.objectFit=p.fit||"contain";}
 else{n=document.createElement("iframe");n.allow="autoplay; encrypted-media";
+if(p.mode==="sound"){n=document.createElement("audio");n.preload="auto";if(p._s)n.src=p._s;
+// The stamps as loaded are history, except a loop still meant to be going.
+SND[e.id]={a:n,p:+p.playAt||0,s:+p.stopAt||0};snd(e.id,p);
+if(p.loop&&(+p.playAt||0)>(+p.stopAt||0)&&p._s){n.currentTime=0;n.play().catch(function(){});}
+return n;}
 if(p.mode==="chatpets"){n.setAttribute("sandbox","allow-scripts");n.src=p._s||"";}
 else if((p.mode||"html")==="url"){n.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups allow-forms");if(p.url)n.src=p.url;}
 // No allow-same-origin for pasted HTML: it runs on our origin otherwise.
 else{n.setAttribute("sandbox","allow-scripts");n.srcdoc=p.html||"";}}
 return n;}
+
+// A sound element: ▶ and ■ in the studio arrive as stamps (lib/sound.ts), and
+// this acts on any that moved past the last one seen.
+function snd(id,p){var r=SND[id];if(!r)return;var a=r.a,pl=+p.playAt||0,st=+p.stopAt||0;
+a.volume=p._v==null?1:p._v;a.loop=!!p.loop;
+if(st>r.s&&st>=pl){a.pause();a.currentTime=0;}
+else if(pl>r.p&&p._s){a.currentTime=0;a.play().catch(function(){});}
+r.p=pl;r.s=st;}
 
 function place(h,e){var s=h.style;s.width=e.w+"px";s.height=e.h+"px";
 s.transform="translate3d("+e.x+"px,"+e.y+"px,0) rotate("+(e.rotation||0)+"deg)";
@@ -137,11 +150,12 @@ function render(list){var seen={};
 for(var i=0;i<list.length;i++){var e=list[i],id=e.id,g=sig(e),rec=N[id];seen[id]=1;
 if(!rec){var h=document.createElement("div");h.className="e";h.appendChild(build(e));
 C.appendChild(h);rec=N[id]={h:h,sig:g};}
-else if(rec.sig!==g){delete PL[id];rec.h.innerHTML="";rec.h.appendChild(build(e));rec.sig=g;}
+else if(rec.sig!==g){delete PL[id];if(SND[id])SND[id].a.pause();delete SND[id];rec.h.innerHTML="";rec.h.appendChild(build(e));rec.sig=g;}
+else if(SND[id]){snd(id,e.props||{});}
 else if(PL[id]&&e.props&&e.props._a){ // same player, possibly new audio settings
 PL[id].a=e.props._a;audio(id);}
 place(rec.h,e);}
-for(var k in N)if(!seen[k]){C.removeChild(N[k].h);delete N[k];delete PL[k];}}
+for(var k in N)if(!seen[k]){C.removeChild(N[k].h);delete N[k];delete PL[k];if(SND[k])SND[k].a.pause();delete SND[k];}}
 
 var fails=0;
 function poll(){var x=new XMLHttpRequest();

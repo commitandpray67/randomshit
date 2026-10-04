@@ -57,7 +57,7 @@ L="psql -v ON_ERROR_STOP=1 -U studio -d studio -tA"
 
 # Nothing uses this database until the very end of the script, so whatever an
 # earlier, unfinished run left here can go.
-$L -c "SET client_min_messages = warning; DROP TABLE IF EXISTS scene_elements, scenes, studio_members, studios CASCADE" >/dev/null || exit 1
+$L -c "SET client_min_messages = warning; DROP TABLE IF EXISTS studio_media, scene_elements, scenes, studio_members, studios CASCADE" >/dev/null || exit 1
 
 # Give up rather than wait for ever: on connecting, on a lock someone else
 # holds, and on the whole read. What pg_dump was doing when it stopped is
@@ -69,6 +69,7 @@ if ! timeout 180 pg_dump "$NEON" --lock-wait-timeout=30s --verbose -Fc --no-owne
   -t public.scenes -t public.scenes_id_seq \
   -t public.scene_elements -t public.scene_elements_id_seq \
   -t public.studios -t public.studios_id_seq -t public.studio_members \
+  -t public.studio_media \
   -f /tmp/studio.dump 2>/tmp/studio.log; then
   echo "Couldn't read from Neon. The last thing it was doing:"
   tail -4 /tmp/studio.log | sed 's/^/  /'
@@ -76,8 +77,8 @@ if ! timeout 180 pg_dump "$NEON" --lock-wait-timeout=30s --verbose -Fc --no-owne
 fi
 
 # Everything but the link from scenes to users: users stay in Neon. (The
-# studio tables, if this is an older deployment without them yet, are simply
-# absent from the dump; the app creates them on first use.)
+# studio tables and the sound library, if this is an older deployment without
+# them yet, are simply absent from the dump; the app creates them on first use.)
 pg_restore -l /tmp/studio.dump | grep -v 'FK CONSTRAINT public scenes scenes_steam_id_fkey' > /tmp/studio.list
 echo "Writing them here..."
 pg_restore --exit-on-error --no-owner --no-acl -L /tmp/studio.list -U studio -d studio /tmp/studio.dump || {

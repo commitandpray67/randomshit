@@ -3,6 +3,7 @@
 import VideoPlayer from "./VideoPlayer";
 import ImageElement from "./ImageElement";
 import { chatPetsChannel, chatPetsSrc } from "@/lib/chatpets";
+import SoundPlayer from "./SoundPlayer";
 
 export type RElement = {
   id: number;
@@ -69,6 +70,7 @@ export function ElementView({ el, editing = false }: { el: RElement; editing?: b
 
   // widget
   const mode = p.mode ?? "html";
+  if (mode === "sound") return <SoundPlayer props={p} editing={editing} />;
   if (mode === "chatpets") {
     // Our own page, reading Twitch chat itself (see lib/chatpets). It needs
     // scripts and a websocket, nothing of this origin's. The editor gets

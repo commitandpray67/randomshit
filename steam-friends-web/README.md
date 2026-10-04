@@ -454,6 +454,41 @@ round kittens or emoji, pet size, how long a pet stays, how many at once, names 
 white, and extra logins that never get a pet. Typing in that last box replaces
 the built-in bot list rather than adding to it.
 
+### Sounds
+
+The toolbar's *+ 🔊 Sound* button opens the studio's sound library: upload
+mp3, ogg, wav, m4a, flac or webm files, listen to them (in your own browser
+only), and *Use* one to add a sound element. Select the element and press
+**▶ Play** to play it in OBS, **■ Stop** to stop it; volume and *Loop until
+stopped* are next to them. ▶ on a sound that's already playing starts it again.
+Nothing shows on stream. The box is only in the editor, where it turns green
+while the sound is playing. Hiding the layer silences it.
+
+- **It plays in OBS, not in the editor.** The editor is somebody's browser tab,
+  maybe one of several open on the studio, so it never makes the sound itself.
+  Whoever presses ▶ can be anywhere; the sound comes out of the streamer's OBS.
+  For OBS's audio mixer to show it as its own channel, tick *Control audio via
+  OBS* on the browser source.
+- **▶ and ■ are timestamps.** The element stores when each was last pressed
+  (`playAt`, `stopAt`, see `lib/sound.ts`), and a player acts when one moves
+  past what it last saw. A browser source that loads afterwards treats them as
+  history, so a sound effect from ten minutes ago doesn't go off when OBS
+  reloads. A looping sound that hasn't been stopped does come back.
+- **The library lives in the studio's database** (`studio_media`, created on
+  first use by `lib/media.ts`), per studio. On the studio's own server that's
+  the local Postgres, so the nightly backups include the sounds. Up to 20 MB a
+  file and 300 MB a studio. The type is read from the file's first bytes, so
+  only real audio gets in.
+- **Files are served at `/api/media/<id>`** to anyone with the id, like scene
+  keys, since OBS can't sign in. Ids are random, and files are cached for good
+  because one never changes under its id. Listing, uploading and deleting are
+  for the studio's editors only.
+- **Uploads belong on the studio's own server.** On Vercel a request body is
+  capped at 4.5 MB, and every sound would sit in Neon's storage.
+
+The sound is a widget in *Sound* mode, like chat pets, so it needed no change
+to the element table.
+
 ### Page links vs. files
 
 The commonest way to get a blank element is to paste a link to a *page about*
