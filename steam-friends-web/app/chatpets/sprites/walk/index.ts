@@ -38,6 +38,6 @@ export const WALK_SETS: Record<string, Walker[]> = {
     { id: "juntella/tabby", src: juntellaTabby.src, w: 231, h: 160 },
   ],
   special: [
-    { id: "special/whale", src: specialWhale.src, w: 250, h: 142 },
+    { id: "special/whale", src: specialWhale.src, w: 264, h: 143 },
   ],
 };

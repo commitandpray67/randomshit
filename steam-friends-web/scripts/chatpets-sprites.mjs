@@ -77,13 +77,40 @@ function box(x0, y0, x1, y1) {
   return { left: l, top: t, width: r - l + 1, height: b - t + 1 };
 }
 
-const mx = Math.floor(W / 2);
-const my = Math.floor(H / 2);
+/**
+ * Where to cut between frames: the emptiest line in the middle fifth of the
+ * span, rather than the exact centre. Frames aren't always centred in their
+ * quarter of the sheet, and a tail or a ribbon reaching past the halfway mark
+ * would otherwise be cut off one frame and left as a stray sliver on the next.
+ */
+function gap(lo, hi, count) {
+  const from = Math.floor(lo + (hi - lo) * 0.4), to = Math.ceil(lo + (hi - lo) * 0.6);
+  const counts = [];
+  for (let i = from; i <= to; i++) counts.push(count(i));
+  const fewest = Math.min(...counts);
+  // The middle of the longest stretch of emptiest lines, so the cut keeps
+  // clear of both frames instead of grazing the edge of one.
+  let best = Math.floor((lo + hi) / 2), longest = 0;
+  for (let i = 0; i < counts.length; ) {
+    if (counts[i] !== fewest) { i++; continue; }
+    let j = i;
+    while (j + 1 < counts.length && counts[j + 1] === fewest) j++;
+    if (j - i + 1 > longest) { longest = j - i + 1; best = from + Math.floor((i + j) / 2); }
+    i = j + 1;
+  }
+  return best;
+}
+const solidInRow = (y, x0, x1) => { let n = 0; for (let x = x0; x < x1; x++) if (alpha(x, y) >= SOLID) n++; return n; };
+const solidInCol = (x, y0, y1) => { let n = 0; for (let y = y0; y < y1; y++) if (alpha(x, y) >= SOLID) n++; return n; };
+
+const my = gap(0, H, (y) => solidInRow(y, 0, W));
+const mxTop = gap(0, W, (x) => solidInCol(x, 0, my));
+const mxBottom = gap(0, W, (x) => solidInCol(x, my, H));
 const frames = [
-  box(0, 0, mx, my), // right 1
-  box(mx, 0, W, my), // right 2
-  box(0, my, mx, H), // left 1
-  box(mx, my, W, H), // left 2
+  box(0, 0, mxTop, my), // right 1
+  box(mxTop, 0, W, my), // right 2
+  box(0, my, mxBottom, H), // left 1
+  box(mxBottom, my, W, H), // left 2
 ];
 
 const srcW = Math.max(...frames.map((f) => f.width));
