@@ -159,9 +159,14 @@ the same from either host, and the ones already in OBS keep loading from
 cd /opt/randomshit/steam-friends-web
 git pull
 docker compose up -d --build
+docker compose restart caddy
 ```
 
-The studio is down for a few seconds while the new container starts.
+The studio is down for a few seconds while the new container starts. The last
+line picks up any change to the `Caddyfile`, which lists the paths this host
+serves. Caddy reads that file through a bind mount, and `git pull` replaces the
+file rather than editing it, so a running Caddy keeps the old copy until it
+restarts. Restarting it when nothing changed costs a second.
 
 **Rolling back** to Vercel: delete `STUDIO_ORIGIN` in Vercel and redeploy.
 Everything goes back to how it was; the VPS can keep running or be stopped with
