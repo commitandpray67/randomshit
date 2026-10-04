@@ -418,7 +418,7 @@ StreamElements and so on) never get one.
   says which set each streamer's chat gets (Nayomy_cs and Qiyarah: `cats`;
   Juntella: `juntella`, three tabbies; anyone not listed gets `DEFAULT_SET`,
   also `cats`), and which chatters always
-  get one particular sprite in every chat (`skipperlovesnate` gets the whale,
+  get one particular sprite in every chat (`skipperbtw` gets the whale,
   `unemployedvera` the red car).
   Sprites in the `special` set only ever go to a chatter named there. A name in
   that file that doesn't match a sprite fails the build, so a typo can't give
