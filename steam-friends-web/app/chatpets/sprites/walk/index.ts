@@ -15,6 +15,7 @@ import catsWitch from "./cats/witch.png";
 import juntellaBell from "./juntella/bell.png";
 import juntellaSleepy from "./juntella/sleepy.png";
 import juntellaTabby from "./juntella/tabby.png";
+import specialVera from "./special/vera.png";
 import specialWhale from "./special/whale.png";
 
 export type Walker = { id: string; src: string; w: number; h: number };
@@ -38,6 +39,7 @@ export const WALK_SETS: Record<string, Walker[]> = {
     { id: "juntella/tabby", src: juntellaTabby.src, w: 231, h: 160 },
   ],
   special: [
+    { id: "special/vera", src: specialVera.src, w: 252, h: 165 },
     { id: "special/whale", src: specialWhale.src, w: 264, h: 143 },
   ],
 };

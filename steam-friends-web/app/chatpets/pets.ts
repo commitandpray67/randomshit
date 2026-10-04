@@ -25,4 +25,5 @@ export const STREAMER_SETS: Record<string, string> = {
  */
 export const CHATTER_SPRITES: Record<string, string> = {
   skipperlovesnate: "special/whale",
+  unemployedvera: "special/vera",
 };
