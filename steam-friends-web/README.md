@@ -416,7 +416,8 @@ StreamElements and so on) never get one.
   like whatever emoji font OBS has (Segoe UI Emoji on Windows).
 - **Sets per streamer, and sprites per chatter.** `app/chatpets/pets.ts`
   says which set each streamer's chat gets (Nayomy_cs and Qiyarah: `cats`;
-  anyone not listed gets `DEFAULT_SET`, also `cats`), and which chatters always
+  Juntella: `juntella`, three tabbies; anyone not listed gets `DEFAULT_SET`,
+  also `cats`), and which chatters always
   get one particular sprite in every chat (`skipperlovesnate` gets the whale).
   Sprites in the `special` set only ever go to a chatter named there. A name in
   that file that doesn't match a sprite fails the build, so a typo can't give

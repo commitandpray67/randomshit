@@ -11,11 +11,9 @@ export const DEFAULT_SET = "cats";
 /**
  * Each streamer's set, by their channel. A streamer who isn't listed gets
  * DEFAULT_SET, and so does one whose set doesn't exist (yet).
- *
- * Juntella is meant to get a set of their own: make the sprites as
- * `juntella/<name>`, then add `juntella: "juntella"` here.
  */
 export const STREAMER_SETS: Record<string, string> = {
+  juntella: "juntella",
   nayomy_cs: "cats",
   qiyarah: "cats",
 };
