@@ -15,8 +15,8 @@
  *   max      most pets on screen at once; the quietest leaves first (default 30)
  *   colors   0 to draw every name in white instead of the chatter's colour
  *   ignore   comma-separated logins that never get a pet (default: common bots)
- *   set      which pets: walking cats (default), "round" for the round kitten
- *            badges, or "emoji" for emoji animals
+ *   set      which pets: the streamer's walking set (default, see pets.ts),
+ *            "round" for the round kitten badges, or "emoji" for emoji animals
  *   demo     1 to add made-up chatters, for placing it in the editor
  *
  * Chat comes straight from Twitch's IRC websocket as an anonymous "justinfan"
@@ -32,9 +32,28 @@ import kitten2 from "./sprites/kitten-2.png";
 import kitten3 from "./sprites/kitten-3.png";
 import kitten4 from "./sprites/kitten-4.png";
 import kitten5 from "./sprites/kitten-5.png";
-import { WALKERS, CAT_H } from "./sprites/walkers";
+import { WALK_SETS, CAT_H, type Walker } from "./sprites/walk";
+import { DEFAULT_SET, STREAMER_SETS, CHATTER_SPRITES } from "./pets";
 
 const KITTENS = [kitten1, kitten2, kitten3, kitten4, kitten5].map((k) => k.src);
+
+// pets.ts is edited by hand, so a name in it that doesn't match a sprite stops
+// the build here rather than quietly giving someone the wrong pet on stream.
+const BY_ID = new Map<string, Walker>(Object.values(WALK_SETS).flat().map((w) => [w.id, w]));
+if (!WALK_SETS[DEFAULT_SET]) throw new Error(`chatpets/pets.ts: DEFAULT_SET "${DEFAULT_SET}" has no sprites`);
+const CHATTERS: Record<string, Walker> = {};
+for (const [login, id] of Object.entries(CHATTER_SPRITES)) {
+  const w = BY_ID.get(id);
+  if (!w) throw new Error(`chatpets/pets.ts: ${login}'s sprite "${id}" doesn't exist`);
+  CHATTERS[login.toLowerCase()] = w;
+}
+// A streamer's set is only offered if it exists; until then they get the default.
+const STREAMERS: Record<string, string> = Object.fromEntries(
+  Object.entries(STREAMER_SETS).filter(([, set]) => WALK_SETS[set]).map(([ch, set]) => [ch.toLowerCase(), set]),
+);
+// The special set is never anyone's whole set: its sprites are only ever given
+// to a chatter by name.
+const SETS = Object.fromEntries(Object.entries(WALK_SETS).filter(([set]) => set !== "special"));
 
 const HTML = String.raw`<!doctype html>
 <html><head><meta charset="utf-8">
@@ -63,9 +82,14 @@ var SIZE=n("size",56,16,256),IDLE=n("idle",10,1,240)*60000,MAX=Math.round(n("max
 var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1";
 // Walking cats unless asked otherwise. "kittens" is what the editor used to
 // call the default, so it means the default still.
-var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,
-WALK=SET==="round"||SET==="emoji"?null:${JSON.stringify(WALKERS)},K=SIZE/${CAT_H};
-var IGNORE={};
+var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,WALK=null,MINE={},K=SIZE/${CAT_H};
+function own(o,k){return Object.prototype.hasOwnProperty.call(o,k);}
+// This streamer's set (pets.ts), or the default; and the chatters who always
+// get a sprite of their own.
+if(SET!=="round"&&SET!=="emoji"){var WS=${JSON.stringify(SETS)},SS=${JSON.stringify(STREAMERS)};
+WALK=WS[own(SS,CH)?SS[CH]:${JSON.stringify(DEFAULT_SET)}];MINE=${JSON.stringify(CHATTERS)};}
+// Keyed by login, so no inherited keys: a chatter called "constructor" is real.
+var IGNORE=Object.create(null);
 (Q.has("ignore")?Q.get("ignore"):"nightbot,streamelements,streamlabs,moobot,fossabot,wizebot,soundalerts,sery_bot")
 .split(/[\s,]+/).forEach(function(l){if(l)IGNORE[l.toLowerCase().replace(/^@/,"")]=1;});
 
@@ -79,7 +103,7 @@ var ANIMALS=["🐈","🐕","🐩","🐖","🐄","🐂","🐃","🐑","🐏","�
 function pick(login,list){var h=2166136261;for(var i=0;i<login.length;i++){h^=login.charCodeAt(i);h=Math.imul(h,16777619);}
 return list[(h>>>0)%list.length];}
 
-var S=document.getElementById("s"),P={},count=0;
+var S=document.getElementById("s"),P=Object.create(null),count=0;
 function rand(a,b){return a+Math.random()*(b-a);}
 
 function chat(login,name,color){
@@ -92,7 +116,7 @@ x:0,dir:Math.random()<.5?-1:1,speed:rand(.35,.8)*SIZE,walking:false,until:now+ra
 p.el.className="pet";p.nm.className="n";p.bd.className="b";
 p.el.style.opacity="0";p.nm.style.fontSize=Math.max(10,Math.round(SIZE*.24))+"px";
 p.bd.style.fontSize=SIZE+"px";
-if(WALK){var c=pick(login,WALK),s=p.sp.style;p.sp.className="w";p.frame=-1;p.dist=0;
+if(WALK){var c=own(MINE,login)?MINE[login]:pick(login,WALK),s=p.sp.style;p.sp.className="w";p.frame=-1;p.dist=0;
 s.width=(c.w*K).toFixed(1)+"px";s.height=(c.h*K).toFixed(1)+"px";s.backgroundImage="url("+c.src+")";}
 else if(SPRITES){p.sp.src=pick(login,SPRITES);p.sp.alt="";p.sp.width=p.sp.height=SIZE;}
 else p.sp.textContent=pick(login,ANIMALS);

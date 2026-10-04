@@ -414,20 +414,30 @@ StreamElements and so on) never get one.
   as it walks, a step per distance covered so slow cats take slow steps. The
   round kitten badges and emoji animals are the other two choices. Emoji look
   like whatever emoji font OBS has (Segoe UI Emoji on Windows).
-- **Adding a cat.** Draw (or generate) a 2×2 sheet on a transparent
+- **Sets per streamer, and sprites per chatter.** `app/chatpets/pets.ts`
+  says which set each streamer's chat gets (Nayomy_cs and Qiyarah: `cats`;
+  anyone not listed gets `DEFAULT_SET`, also `cats`), and which chatters always
+  get one particular sprite in every chat (`skipperlovesnate` gets the whale).
+  Sprites in the `special` set only ever go to a chatter named there. A name in
+  that file that doesn't match a sprite fails the build, so a typo can't give
+  someone the wrong pet on stream.
+- **Adding a sprite.** Draw (or generate) a 2×2 sheet on a transparent
   background: top row walking right, bottom row walking left, two frames each.
   Then:
 
   ```sh
-  npm run sprites -- path/to/sheet.png bell
+  npm run sprites -- path/to/sheet.png cats/bell          # one more cat
+  npm run sprites -- path/to/sheet.png juntella/fox       # a set of Juntella's own
+  npm run sprites -- path/to/sheet.png special/whale      # a sprite for one chatter
   ```
 
   That cuts the four frames out, lines them up so the feet sit on the ground and
   the nose doesn't jump between frames, and writes
-  `app/chatpets/sprites/walk-bell.png` and the `walkers.ts` list beside it. The
-  new cat is in on the next build. Every sheet is stored at the same scale, so
-  a cat in a tall hat is taller rather than smaller; the *pet size* setting is
-  how tall an ordinary cat is. Adding a cat reshuffles who gets which, once.
+  `app/chatpets/sprites/walk/<set>/<name>.png` and the `index.ts` list beside
+  the sets. A new set is used once `pets.ts` maps a streamer to it. Every sheet
+  is stored at the same scale, so a cat in a tall hat is taller rather than
+  smaller; the *pet size* setting is how tall an ordinary cat is. Adding a
+  sprite to a set reshuffles who in that chat gets which, once.
 - **Served from the build.** Sprites are imported by the route rather than put
   in `public/` (which the studio host's image doesn't ship), so they're served
   from `.next/static` under hashed names, from whichever host serves the scene.
