@@ -332,8 +332,10 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 <script>
 "use strict";
 /* =====================================================================
-   Hall layout — traced from the printed plan. N1–N11 and N30–N37 are the
-   rectangular outer tables (10 seats), N12–N29 the round inner ones (12).
+   Hall layout — traced from the printed plan. N1–N10 and N29–N36 are the
+   rectangular outer tables (10 seats), N11–N28 the round inner ones (12).
+   The printed plan had a long table N11 at the top of the left arc; it was
+   taken out and everything after it moved down a number (see upgrade()).
    ===================================================================== */
 const SIDES = {
   PAPA:  {label:"Папа",  c:"var(--papa)",  t:"var(--papa-t)",  s:"P"},
@@ -346,7 +348,7 @@ const SIDES = {
 // on two rings inside it, the dance-floor mandala in the middle.
 const CX = 640, CY = 800, R = 545, RING_A = 390, RING_B = 265;
 const rad = d => d * Math.PI / 180;
-function outerSlot(k){ // k = 1 (bottom) … 11 (top) on the left arc
+function outerSlot(k){ // k = 1 (bottom) … 10 (top) on the left arc
   const th = rad(116 + (k - 1) * 12.8);
   // Long side points at the middle of the hall, chairs along the arc.
   return {x:CX + R * Math.cos(th), y:CY + R * Math.sin(th), rot:th * 180 / Math.PI};
@@ -354,18 +356,39 @@ function outerSlot(k){ // k = 1 (bottom) … 11 (top) on the left arc
 function ringSlot(r, deg){ return {x:CX + r * Math.cos(rad(deg)), y:CY + r * Math.sin(rad(deg))}; }
 const mirror = p => ({x:2 * CX - p.x, y:p.y, rot:p.rot == null ? 0 : 180 - p.rot});
 const TABLES = [];
-for (let k = 1; k <= 11; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, ...s}); }
-// Left inner tables: outer ring N12–N16 (bottom → top), inner ring N17–N20.
-const LEFT_ROUND = {12:[RING_A,139],13:[RING_A,159],14:[RING_A,179],15:[RING_A,199],16:[RING_A,219],
-                    17:[RING_B,136],18:[RING_B,162],19:[RING_B,188],20:[RING_B,214]};
+for (let k = 1; k <= 10; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, ...s}); }
+// Left inner tables: outer ring N11–N15 (bottom → top), inner ring N16–N19.
+const LEFT_ROUND = {11:[RING_A,139],12:[RING_A,159],13:[RING_A,179],14:[RING_A,199],15:[RING_A,219],
+                    16:[RING_B,136],17:[RING_B,162],18:[RING_B,188],19:[RING_B,214]};
 for (const [n, [r, d]] of Object.entries(LEFT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...ringSlot(r, d), rot:0});
-// Right inner tables mirror the left: N25–N29 outer ring, N21–N24 inner ring.
-const RIGHT_ROUND = {25:[RING_A,139],26:[RING_A,159],27:[RING_A,179],28:[RING_A,199],29:[RING_A,219],
-                     21:[RING_B,136],22:[RING_B,162],23:[RING_B,188],24:[RING_B,214]};
+// Right inner tables mirror the left: N24–N28 outer ring, N20–N23 inner ring.
+const RIGHT_ROUND = {24:[RING_A,139],25:[RING_A,159],26:[RING_A,179],27:[RING_A,199],28:[RING_A,219],
+                     20:[RING_B,136],21:[RING_B,162],22:[RING_B,188],23:[RING_B,214]};
 for (const [n, [r, d]] of Object.entries(RIGHT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...mirror(ringSlot(r, d)), rot:0});
-for (let n = 30; n <= 37; n++) TABLES.push({n, kind:"rect", seats:10, ...mirror(outerSlot(40 - n))});
+for (let n = 29; n <= 36; n++) TABLES.push({n, kind:"rect", seats:10, ...mirror(outerSlot(39 - n))});
 const MUSIC = mirror(outerSlot(2));
 const TBL = Object.fromEntries(TABLES.map(t => [t.n, t]));
+
+// Which numbering a plan's table numbers are in. Plans saved before N11 was
+// taken out carry no marker and use the printed plan's N1–N37; upgrade()
+// renumbers them so every guest stays at the same physical table. The server
+// refuses saves from pages that don't send this, so a tab left open on the
+// old numbering can't write it back over the new one.
+const LAYOUT = 2;
+function upgrade(data){
+  if (!data) return data;
+  data.meta ||= {};
+  if (data.meta.layout === LAYOUT) return data;
+  const unseated = [];
+  for (const g of data.guests || []) {
+    if (g.table == null) continue;
+    if (g.table === 11) { g.table = null; if (g.status !== "removed") unseated.push(g.name); }
+    else if (g.table > 11) g.table -= 1;
+  }
+  data.meta.layout = LAYOUT;
+  if (unseated.length) setTimeout(() => toast(`Стола N11 больше нет — без стола: ${unseated.join(", ")}.`), 0);
+  return data;
+}
 
 /* =====================================================================
    State
@@ -441,6 +464,7 @@ function applyOp(p, op){
     case "remove": { const g = find(op.id); if (g) { g.status = "removed"; g.table = null; } } break;
     case "restore":{ const g = find(op.id); if (g) g.status = "active"; } break;
     case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
+    case "upgrade": upgrade(p); break;
   }
 }
 function commit(op, note){
@@ -481,14 +505,14 @@ async function save(){
   saving = true;
   const sending = pending.slice();
   try {
-    const r = await api("/api/toy/state", {method:"PUT", body:JSON.stringify({data:plan, baseVersion:version, note:lastNote})});
+    const r = await api("/api/toy/state", {method:"PUT", body:JSON.stringify({data:plan, baseVersion:version, note:lastNote, layout:LAYOUT})});
     if (r.status === 200) {
       version = r.body.version;
       pending = pending.slice(sending.length);
       setSave("Сохранено " + new Date().toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}));
     } else if (r.status === 409) {
       // Someone else saved first: take theirs, put our unsaved changes back on top.
-      const fresh = r.body.data ? clone(r.body.data) : {guests:[], meta:{}};
+      const fresh = r.body.data ? upgrade(clone(r.body.data)) : {guests:[], meta:{layout:LAYOUT}};
       pending.forEach(op => applyOp(fresh, op));
       plan = fresh; version = r.body.version; undoStack = [];
       render();
@@ -496,6 +520,10 @@ async function save(){
       saving = false; return save();
     } else if (r.status === 401) {
       setSave("Вы вышли", true); showLogin();
+    } else if (r.status === 426) {
+      // The planner changed under this tab; retrying would never land.
+      setSave("Обновите страницу", true); toast("Планировщик обновился — обновите страницу.");
+      saving = false; return;
     } else {
       setSave("Не сохранено — повтор…", true);
       setTimeout(scheduleSave, 4000);
@@ -511,7 +539,7 @@ async function poll(){
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#listView") && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const r = await api("/api/toy/state").catch(() => null);
   if (r && r.status === 200 && r.body.version > version && !pending.length) {
-    plan = r.body.data; version = r.body.version; undoStack = [];
+    plan = upgrade(r.body.data); version = r.body.version; undoStack = [];
     render(); toast("План обновлён: изменения с другого устройства.");
   }
 }
@@ -1048,7 +1076,9 @@ const SIDE_ALIASES = {"папа":"PAPA", "мама":"MAMA", "ляман":"LAMAN"
 function rowsToPlan(rows){
   const key = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [String(k).trim().toLowerCase(), v]));
   const guests = [], seen = new Set();
+  let layout = null;
   rows.map(key).forEach((r, i) => {
+    if (r["схема"] !== undefined && +r["схема"] === LAYOUT) layout = LAYOUT;
     for (const [ru, en] of [["сторона","side"],["№","no"],["имя","name"],["группа","group"],["стол","table"],["статус","status"],["примечание","note"]]) if (r[ru] !== undefined && r[en] === undefined) r[en] = r[ru];
     const name = String(r.name ?? r["ad"] ?? "").trim(); if (!name) return;
     const side = SIDE_ALIASES[String(r.side ?? "").trim().toLowerCase()] || (SIDES[String(r.side ?? "").trim().toUpperCase()] ? String(r.side).trim().toUpperCase() : "OTHER");
@@ -1058,9 +1088,16 @@ function rowsToPlan(rows){
     const status = /del|remov|sil|удал/i.test(String(r.status ?? "")) ? "removed" : "active";
     const tbl = r.table === "" || r.table == null ? null : parseInt(String(r.table).replace(/\D/g, ""), 10);
     const group = r.group === "" || r.group == null ? null : (isNaN(+r.group) ? String(r.group) : +r.group);
-    guests.push({id, no, name, side, group, table:status === "active" && TBL[tbl] ? tbl : null, note:String(r.note ?? "").trim(), status});
+    guests.push({id, no, name, side, group, table:status === "active" && Number.isFinite(tbl) ? tbl : null, note:String(r.note ?? "").trim(), status});
   });
-  return {guests, meta:{importedAt:new Date().toISOString()}};
+  // Without the «Схема» column the table numbers are the printed plan's; readFile upgrades them.
+  return {guests, meta:{importedAt:new Date().toISOString(), ...(layout ? {layout} : {})}};
+}
+// Any file is read in the current numbering, and a table that doesn't exist leaves the guest unseated.
+function settle(data){
+  upgrade(data);
+  for (const g of data.guests) if (g.table != null && !TBL[g.table]) g.table = null;
+  return data;
 }
 async function readFile(f){
   const ext = f.name.split(".").pop().toLowerCase();
@@ -1068,14 +1105,14 @@ async function readFile(f){
     const j = JSON.parse(await f.text());
     const g = Array.isArray(j) ? j : j.guests;
     if (!Array.isArray(g)) throw new Error("Этот .json не является резервной копией рассадки.");
-    return g[0] && "status" in g[0] && "id" in g[0] ? {guests:g, meta:j.meta || {}} : rowsToPlan(g);
+    return settle(g[0] && "status" in g[0] && "id" in g[0] ? {guests:g, meta:j.meta || {}} : rowsToPlan(g));
   }
   await loadXLSX();
   const wb = ext === "csv" ? XLSX.read(await f.text(), {type:"string"}) : XLSX.read(await f.arrayBuffer(), {type:"array"});
   const pick = wb.SheetNames.find(n => /planner import|для импорта/i.test(n)) ||
     wb.SheetNames.find(n => { const r = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1})[0] || []; const h = r.map(x => String(x).toLowerCase()); return (h.includes("name") || h.includes("имя")) && (h.includes("side") || h.includes("сторона")); });
   if (!pick) throw new Error("Не найден лист со столбцами «Side/Сторона» и «Name/Имя» — используйте лист «Planner import».");
-  return rowsToPlan(XLSX.utils.sheet_to_json(wb.Sheets[pick], {defval:""}));
+  return settle(rowsToPlan(XLSX.utils.sheet_to_json(wb.Sheets[pick], {defval:""})));
 }
 $("#file").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
@@ -1129,7 +1166,7 @@ async function exportXlsx(){
   // 3. Occupancy of every table.
   sheet(TABLES.map(t => ({"Стол":"N" + t.n, "Тип":t.kind === "round" ? "Круглый (внутр.)" : "Длинный (внешн.)", "Мест":t.seats, "Занято":at(t.n).length, "Свободно":t.seats - at(t.n).length})), "Столы", [8, 18, 7, 8, 9]);
   // 4. Re-importable copy (More → Import reads this sheet).
-  sheet(plan.guests.slice().sort(byOrder).map(g => ({"Сторона":sideOf(g), "№":g.no ?? "", "Имя":g.name, "Группа":g.group ?? "", "Стол":g.table ?? "", "Статус":g.status === "removed" ? "Удалён" : "Придёт", "Примечание":noteRu(g.note)})), "Для импорта", [8, 5, 30, 7, 7, 10, 50]);
+  sheet(plan.guests.slice().sort(byOrder).map(g => ({"Сторона":sideOf(g), "№":g.no ?? "", "Имя":g.name, "Группа":g.group ?? "", "Стол":g.table ?? "", "Статус":g.status === "removed" ? "Удалён" : "Придёт", "Примечание":noteRu(g.note), "Схема":LAYOUT})), "Для импорта", [8, 5, 30, 7, 7, 10, 50, 7]);
   XLSX.writeFile(wb, `rassadka-${stamp()}.xlsx`);
 }
 function printLists(){
@@ -1154,7 +1191,7 @@ async function showHistory(){
     const x = await api("/api/toy/history?id=" + b.dataset.h);
     if (x.status !== 200) { toast("Не удалось загрузить эту версию."); return; }
     closeDlg(); selected = null;
-    commit({t:"replace", data:x.body.data}, `Восстановлена версия от ${new Date(x.body.savedAt).toLocaleString("ru-RU")}`);
+    commit({t:"replace", data:upgrade(x.body.data)}, `Восстановлена версия от ${new Date(x.body.savedAt).toLocaleString("ru-RU")}`);
     toast("Восстановлено. «Отменить» вернёт предыдущий план.");
   });
 }
@@ -1190,9 +1227,15 @@ async function boot(){
   if (r.status === 401) return showLogin();
   if (r.status === 503) return showLogin("Планировщик ещё не включён (не задан TOY_PASSWORD).");
   if (r.status !== 200) return showLogin("Сервер недоступен. Попробуйте чуть позже.");
-  plan = r.body.data || {guests:[], meta:{}};
+  plan = r.body.data || {guests:[], meta:{layout:LAYOUT}};
   plan.guests ||= [];
   version = r.body.version;
+  // First load after N11 was taken out: renumber and save once, outside undo.
+  if (plan.meta?.layout !== LAYOUT) {
+    const op = {t:"upgrade"};
+    applyOp(plan, op); pending.push(op);
+    lastNote = "Стол N11 убран, столы N12–N37 стали N11–N36";
+  }
   $("#loginView").classList.add("hidden"); $("#app").classList.remove("hidden");
   drawStatic($("#map"));
   render();
@@ -1202,6 +1245,7 @@ async function boot(){
     if (zoom > 1) { const box = $("#mapview"); box.scrollLeft = 0; box.scrollTop = (box.scrollHeight - box.clientHeight) * 0.45; }
   });
   if (r.body.updatedAt) setSave("Сохранено " + new Date(r.body.updatedAt).toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}));
+  if (pending.length) scheduleSave();
 }
 boot();
 </script>

@@ -22,6 +22,11 @@ export const PLAN_ID = "laman";
 export const HISTORY_KEEP = 200;
 /** A few hundred guests is ~60 KB of JSON; anything near this is not a plan. */
 export const MAX_PLAN_BYTES = 1_000_000;
+/**
+ * The hall layout the page's table numbers refer to (LAYOUT in the page).
+ * 2: the printed plan's N11 taken out and N12–N37 renumbered N11–N36.
+ */
+export const TOY_LAYOUT = 2;
 
 export function toyConfigured(): boolean {
   return Boolean(process.env.TOY_PASSWORD);

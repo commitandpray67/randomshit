@@ -4,6 +4,7 @@ import {
   HISTORY_KEEP,
   MAX_PLAN_BYTES,
   PLAN_ID,
+  TOY_LAYOUT,
   ensureToyTables,
   hasToySession,
   toyConfigured,
@@ -52,7 +53,7 @@ export async function PUT(req: NextRequest) {
   if (text.length > MAX_PLAN_BYTES) {
     return NextResponse.json({ error: "plan too large" }, { status: 413, headers: noStore });
   }
-  let body: { data?: unknown; baseVersion?: unknown; note?: unknown };
+  let body: { data?: unknown; baseVersion?: unknown; note?: unknown; layout?: unknown };
   try {
     body = JSON.parse(text);
   } catch {
@@ -60,6 +61,14 @@ export async function PUT(req: NextRequest) {
   }
   if (!validPlan(body.data)) {
     return NextResponse.json({ error: "bad plan" }, { status: 400, headers: noStore });
+  }
+  // The page sends the hall layout its table numbers refer to. A tab still open
+  // on an older page would save the old numbering over the new one.
+  if (body.layout !== TOY_LAYOUT) {
+    return NextResponse.json(
+      { error: "the planner was updated — reload the page" },
+      { status: 426, headers: noStore },
+    );
   }
   const base = Number(body.baseVersion);
   if (!Number.isInteger(base) || base < 0) {
