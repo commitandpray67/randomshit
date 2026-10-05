@@ -430,7 +430,8 @@ StreamElements and so on) never get one.
   Juntella: `juntella`, three tabbies; anyone not listed gets `DEFAULT_SET`,
   also `cats`), and which chatters always
   get one particular sprite in every chat (`skipperbtw` gets the whale,
-  `unemployedvera` the red car).
+  `unemployedvera` the red car, `siqaa666` the French car, `litmusq` the
+  British one).
   Sprites in the `special` set only ever go to a chatter named there. A name in
   that file that doesn't match a sprite fails the build, so a typo can't give
   someone the wrong pet on stream.
@@ -443,6 +444,10 @@ StreamElements and so on) never get one.
   npm run sprites -- path/to/sheet.png juntella/fox       # a set of Juntella's own
   npm run sprites -- path/to/sheet.png special/whale      # a sprite for one chatter
   ```
+
+  A sheet whose four frames all face right takes `--mirror` (walk left with
+  the top row flipped), and one on a solid black background takes
+  `--bg black`.
 
   That cuts the four frames out, lines them up so the feet sit on the ground and
   the nose doesn't jump between frames, and writes

@@ -13,6 +13,16 @@
 // index.ts is rewritten to list every strip in every set, so the new one is
 // picked up on the next build. Running it again with the same name replaces it.
 //
+// Two options, for sheets that don't come out that way:
+//
+//   --mirror     every frame faces right: walk right with the top row, and
+//                left with the same two frames flipped. The bottom row is
+//                ignored.
+//   --bg black   the background is solid black rather than transparent. Black
+//                connected to the sheet's edge is cleared, so the character's
+//                own blacks (which are never quite as dark) survive — clearing
+//                every black pixel would take the outline and dark clothes too.
+//
 // Each frame is cut out by its own bounding box, then placed so the feet sit on
 // the bottom edge and the nose stays put between frames (right-aligned for the
 // right-facing pair, left-aligned for the other) — otherwise the cat's head
@@ -46,10 +56,16 @@ const SOLID = 64;
 const SET = /^[a-z0-9_]{1,25}$/;
 const NAME = /^[a-z0-9-]{1,30}$/;
 
-const [sheet, rawId] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const MIRROR = args.includes("--mirror");
+const bgAt = args.indexOf("--bg");
+const BG = bgAt >= 0 ? args[bgAt + 1] : null;
+const [sheet, rawId] = args.filter((a, i) => !a.startsWith("--") && !(bgAt >= 0 && i === bgAt + 1));
 const [set, name] = String(rawId ?? "").toLowerCase().split("/");
-if (!sheet || !SET.test(set ?? "") || !NAME.test(name ?? "")) {
-  console.error("usage: npm run sprites -- <sheet.png|webp> <set>/<name>   e.g. cats/bell, special/whale");
+if (!sheet || !SET.test(set ?? "") || !NAME.test(name ?? "") || (BG !== null && BG !== "black")) {
+  console.error(
+    "usage: npm run sprites -- <sheet.png|webp> <set>/<name> [--mirror] [--bg black]   e.g. cats/bell, special/whale",
+  );
   process.exit(1);
 }
 
@@ -57,6 +73,33 @@ const { data, info } = await sharp(sheet).ensureAlpha().raw().toBuffer({ resolve
 const W = info.width;
 const H = info.height;
 const alpha = (x, y) => data[(y * W + x) * 4 + 3];
+
+if (BG === "black") {
+  // The background is 0–3 on every channel, give or take compression; the
+  // darkest a character gets is above that. Measured on the first black sheet:
+  // flooding up to 8 takes the background and stops at the outline, and by 16
+  // it has started eating into the outline.
+  const DARK = 8;
+  const darkest = (i) => Math.max(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+  const clear = new Uint8Array(W * H);
+  const stack = [];
+  for (let x = 0; x < W; x++) stack.push(x, (H - 1) * W + x);
+  for (let y = 0; y < H; y++) stack.push(y * W, y * W + W - 1);
+  while (stack.length) {
+    const i = stack.pop();
+    if (clear[i] || darkest(i) > DARK) continue;
+    clear[i] = 1;
+    data[i * 4 + 3] = 0;
+    const x = i % W;
+    if (x > 0) stack.push(i - 1);
+    if (x < W - 1) stack.push(i + 1);
+    if (i >= W) stack.push(i - W);
+    if (i < W * (H - 1)) stack.push(i + W);
+  }
+}
+
+/** The sheet as it now stands (background cleared, if it was asked for). */
+const source = () => sharp(data, { raw: { width: W, height: H, channels: 4 } });
 
 /** Bounding box of the solid pixels inside one quadrant. */
 function box(x0, y0, x1, y1) {
@@ -106,12 +149,11 @@ const solidInCol = (x, y0, y1) => { let n = 0; for (let y = y0; y < y1; y++) if 
 const my = gap(0, H, (y) => solidInRow(y, 0, W));
 const mxTop = gap(0, W, (x) => solidInCol(x, 0, my));
 const mxBottom = gap(0, W, (x) => solidInCol(x, my, H));
-const frames = [
-  box(0, 0, mxTop, my), // right 1
-  box(mxTop, 0, W, my), // right 2
-  box(0, my, mxBottom, H), // left 1
-  box(mxBottom, my, W, H), // left 2
-];
+const right = [box(0, 0, mxTop, my), box(mxTop, 0, W, my)];
+// Left-facing frames: the bottom row, or with --mirror the top row flipped.
+const frames = MIRROR
+  ? [...right, ...right]
+  : [...right, box(0, my, mxBottom, H), box(mxBottom, my, W, H)];
 
 const srcW = Math.max(...frames.map((f) => f.width));
 const srcH = Math.max(...frames.map((f) => f.height));
@@ -123,8 +165,13 @@ const cells = await Promise.all(
   frames.map(async (f, i) => {
     const w = Math.max(1, Math.round(f.width * scale));
     const h = Math.max(1, Math.round(f.height * scale));
-    const input = await sharp(sheet).extract(f).resize(w, h, { kernel: "lanczos3" }).png().toBuffer();
     const facingRight = i < 2;
+    // Extracted to a buffer first: sharp applies flop before extract within
+    // one pipeline, which would flip the whole sheet and cut the wrong frame.
+    const cut = await source().extract(f).png().toBuffer();
+    let img = sharp(cut).resize(w, h, { kernel: "lanczos3" });
+    if (MIRROR && !facingRight) img = img.flop();
+    const input = await img.png().toBuffer();
     return { input, left: i * cellW + (facingRight ? cellW - PAD - w : PAD), top: CELL_H - h };
   }),
 );

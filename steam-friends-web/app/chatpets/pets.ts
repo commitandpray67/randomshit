@@ -24,6 +24,8 @@ export const STREAMER_SETS: Record<string, string> = {
  * else.
  */
 export const CHATTER_SPRITES: Record<string, string> = {
+  litmusq: "special/british",
+  siqaa666: "special/french",
   skipperbtw: "special/whale",
   unemployedvera: "special/vera",
 };
