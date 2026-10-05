@@ -754,6 +754,7 @@ p  { margin: 0.75rem 0; }
   background: repeating-conic-gradient(#1b2129 0% 25%, #151a20 0% 50%) 0 0 / 14px 14px; border-radius: 6px;
 }
 .st-pets-list .st-sound-name .st-hint { margin: 0; }
+.st-pets-group { margin: 0.9rem 0 0.2rem; font-size: 0.8rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* The sound library. */
 .st-sound-upload { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }

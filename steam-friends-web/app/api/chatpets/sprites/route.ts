@@ -13,7 +13,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const channel = (req.nextUrl.searchParams.get("channel") ?? "").toLowerCase();
-  if (!/^[a-z0-9_]{1,25}$/.test(channel)) {
+  // No channel at all (the editor's demo before one is set, the sprite test)
+  // gets the default mix.
+  if (!/^[a-z0-9_]{0,25}$/.test(channel)) {
     return NextResponse.json(
       { ok: true, mix: [], chatters: {} },
       { headers: { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" } },

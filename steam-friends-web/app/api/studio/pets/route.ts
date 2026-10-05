@@ -7,22 +7,24 @@ import {
   deleteSprite,
   isSpriteId,
   listSprites,
+  setDefaultMix,
   updateSprite,
   MAX_SPRITE_BYTES,
 } from "@/lib/petsprites";
-import { CHATTER_SPRITES } from "@/app/chatpets/pets";
 
 /**
- * The studio's uploaded chat pet sprites (lib/petsprites.ts), for its editors.
+ * Chat pets for a studio's editors (lib/petsprites.ts).
  *
- *   GET    ?studio=<slug>                                   list
- *   POST   ?studio=<slug>&name=…&login=…&everywhere=1       upload; the body is the strip PNG
- *   PATCH  ?studio=<slug>   { id, name?, login?, everywhere? }
+ *   GET    ?studio=<slug>                               its sprites and the every-chat ones
+ *   POST   ?studio=<slug>&name=…&login=…&global=1       upload; the body is the strip PNG
+ *   PATCH  ?studio=<slug>   { id, name?, login?, global? }   change a sprite
+ *   PATCH  ?studio=<slug>   { defaultMix: boolean }          use the default mix in this chat or not
  *   DELETE ?studio=<slug>&id=<id>
  *
- * `everywhere` (every streamer's chat, not just this one) is for admins: it
- * puts something on other streamers' overlays, which their own editors should
- * otherwise be the only ones to do.
+ * Every-chat sprites (global: the default mix, and chatters' pets in every
+ * streamer's chat) are for admins to add, change and delete: they show on
+ * other streamers' overlays, which their own editors should otherwise be the
+ * only ones to touch. A studio's editors see them, read-only.
  */
 export const dynamic = "force-dynamic";
 
@@ -45,17 +47,9 @@ async function gate(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const g = await gate(req);
   if (g.res) return g.res;
-  const sprites = await listSprites(g.studio.id);
+  const { sprites, defaultMix } = await listSprites(g.studio.id);
   return NextResponse.json(
-    {
-      ok: true,
-      sprites,
-      admin: g.admin,
-      maxBytes: MAX_SPRITE_BYTES,
-      // The ones built into the app, shown read-only so it's clear why such a
-      // chatter already has a pet (an upload for them takes over).
-      builtIn: Object.entries(CHATTER_SPRITES).map(([login, id]) => ({ login, sprite: id })),
-    },
+    { ok: true, sprites, defaultMix, admin: g.admin, maxBytes: MAX_SPRITE_BYTES },
     { headers: NO_STORE },
   );
 }
@@ -68,12 +62,12 @@ export async function POST(req: NextRequest) {
   if (Number.isFinite(declared) && declared > MAX_SPRITE_BYTES) return fail("too_big", 413);
 
   const q = req.nextUrl.searchParams;
-  const everywhere = q.get("everywhere") === "1";
-  if (everywhere && !g.admin) return fail("admins_only", 403);
+  const global = q.get("global") === "1";
+  if (global && !g.admin) return fail("admins_only", 403);
   const r = await addSprite(g.studio.id, g.steamId, {
     name: q.get("name"),
     login: q.get("login"),
-    everywhere,
+    global,
     bytes: new Uint8Array(await req.arrayBuffer()),
   });
   if (!r.ok) return fail(r.error, r.error === "too_big" ? 413 : r.error === "full" ? 409 : 400);
@@ -84,14 +78,22 @@ export async function PATCH(req: NextRequest) {
   const g = await gate(req);
   if (g.res) return g.res;
   const body = await req.json().catch(() => null);
-  if (!body || !isSpriteId(body.id)) return fail("bad_id", 400);
-  if (body.everywhere === true && !g.admin) return fail("admins_only", 403);
-  const r = await updateSprite(g.studio.id, body.id, {
+  if (!body) return fail("bad_request", 400);
+
+  if (typeof body.defaultMix === "boolean") {
+    await setDefaultMix(g.studio.id, body.defaultMix);
+    return NextResponse.json({ ok: true }, { headers: NO_STORE });
+  }
+
+  if (!isSpriteId(body.id)) return fail("bad_id", 400);
+  if (body.global !== undefined && !g.admin) return fail("admins_only", 403);
+  const r = await updateSprite(g.studio.id, g.admin, body.id, {
     name: body.name,
     login: body.login,
-    everywhere: typeof body.everywhere === "boolean" ? body.everywhere : undefined,
+    global: typeof body.global === "boolean" ? body.global : undefined,
   });
   if (r === "bad_login") return fail("bad_login", 400);
+  // Not found and not yours to change look the same.
   if (!r) return fail("not_found", 404);
   return NextResponse.json({ ok: true, sprite: r }, { headers: NO_STORE });
 }
@@ -101,7 +103,7 @@ export async function DELETE(req: NextRequest) {
   if (g.res) return g.res;
   const id = req.nextUrl.searchParams.get("id");
   if (!isSpriteId(id)) return fail("bad_id", 400);
-  return (await deleteSprite(g.studio.id, id))
+  return (await deleteSprite(g.studio.id, g.admin, id))
     ? NextResponse.json({ ok: true }, { headers: NO_STORE })
     : fail("not_found", 404);
 }

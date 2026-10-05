@@ -14,7 +14,8 @@ type Sprite = {
   id: string;
   name: string;
   login: string | null;
-  everywhere: boolean;
+  /** Every chat (no studio) rather than this one. */
+  global: boolean;
   w: number;
   h: number;
   createdAt: string;
@@ -28,7 +29,8 @@ const ERRORS: Record<string, string> = {
   too_big: "That comes out too big. Try a smaller size.",
   full: "This studio has as many custom pets as it can hold. Delete one first.",
   bad_login: "That isn't a Twitch name (letters, numbers and _ only).",
-  admins_only: "Only admins can give a pet to someone in every streamer's chat.",
+  admins_only: "Only admins can change pets that apply in every chat.",
+  not_found: "That pet isn't this studio's to change.",
   slow_down: "Too many uploads at once. Wait a minute and try again.",
 };
 
@@ -57,8 +59,10 @@ function Thumb({ src, w, h, size = 44 }: { src: string; w: number; h: number; si
 }
 
 /**
- * Chat pets uploaded for this studio's chat (lib/petsprites.ts): add one from
- * a sheet, give it to someone or to the mix, try it, take it away.
+ * Every walking chat pet that applies in this studio's chat (lib/petsprites.ts):
+ * its own, and the every-chat ones (the default mix, and chatters' pets in
+ * every chat), which admins can change and everyone else can see. Add one
+ * from a sheet, give it to someone or to a mix, try it, take it away.
  *
  * The sheet is cut in this browser with the same rules as the built-in ones
  * (lib/spritesheet.ts), so what's tested here is exactly what's saved, and
@@ -77,7 +81,7 @@ export default function PetSprites({
   onClose: () => void;
 }) {
   const [sprites, setSprites] = useState<Sprite[] | null>(null);
-  const [builtIn, setBuiltIn] = useState<{ login: string; sprite: string }[]>([]);
+  const [defaultMix, setDefaultMix] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +93,7 @@ export default function PetSprites({
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [name, setName] = useState("");
   const [login, setLogin] = useState("");
-  const [everywhere, setEverywhere] = useState(false);
+  const [global, setGlobal] = useState(false);
   const [saving, setSaving] = useState(false);
 
   /** What the test strip is showing: the sheet being prepared, or a saved one. */
@@ -105,7 +109,7 @@ export default function PetSprites({
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data?.error ?? `failed (${res.status})`);
       setSprites(data.sprites);
-      setBuiltIn(data.builtIn ?? []);
+      setDefaultMix(Boolean(data.defaultMix));
       setAdmin(Boolean(data.admin));
     } catch (e: any) {
       setError(String(e?.message ?? e));
@@ -216,7 +220,7 @@ export default function PetSprites({
     setError(null);
     try {
       const q = new URLSearchParams({ name: name || "Pet", login: loginOf(login) });
-      if (everywhere && loginOf(login)) q.set("everywhere", "1");
+      if (global) q.set("global", "1");
       const res = await fetch(`${base}&${q}`, { method: "POST", headers: { "Content-Type": "image/png" }, body: prepared.blob });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
@@ -225,18 +229,18 @@ export default function PetSprites({
       }
       setSheet(null);
       setLogin("");
-      setEverywhere(false);
+      setGlobal(false);
       await load();
     } finally {
       setSaving(false);
     }
   }
 
-  async function patch(s: Sprite, change: Partial<Pick<Sprite, "login" | "everywhere" | "name">>) {
+  async function patch(s: Sprite | null, change: Record<string, unknown>) {
     const res = await fetch(base, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: s.id, ...change }),
+      body: JSON.stringify(s ? { id: s.id, ...change } : change),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) setError(ERRORS[data?.error] ?? data?.error ?? `Couldn't change it (${res.status}).`);
@@ -244,7 +248,7 @@ export default function PetSprites({
   }
 
   async function remove(s: Sprite) {
-    if (!window.confirm(`Delete “${s.name}”?${s.login ? ` ${s.login} goes back to an ordinary pet.` : ""}`)) return;
+    if (!window.confirm(`Delete “${s.name}”?${s.login ? ` ${s.login} goes back to an ordinary pet.` : ""}${s.global ? " This is in every chat." : ""}`)) return;
     const res = await fetch(`${base}&id=${s.id}`, { method: "DELETE" });
     if (!res.ok) setError(`Couldn't delete “${s.name}”.`);
     await load();
@@ -256,8 +260,18 @@ export default function PetSprites({
       s.login ?? "",
     );
     if (next === null) return;
-    void patch(s, { login: loginOf(next) || null, ...(loginOf(next) ? {} : { everywhere: false }) });
+    void patch(s, { login: loginOf(next) || null });
   }
+
+  /** May this person change it: their own studio's, or any if they're an admin. */
+  const mine = (s: Sprite) => admin || !s.global;
+  const groups: [string, Sprite[]][] = sprites
+    ? [
+        ["Given to people", sprites.filter((s) => s.login)],
+        ["This chat's mix", sprites.filter((s) => !s.login && !s.global)],
+        ["Default mix (every chat that uses it)", sprites.filter((s) => !s.login && s.global)],
+      ]
+    : [];
 
   return (
     <div className="st-modal-backdrop" onClick={onClose}>
@@ -271,14 +285,14 @@ export default function PetSprites({
         <iframe
           ref={testRef}
           className="st-pets-test"
-          src={`/chatpets?test=1&size=${petSize}`}
+          src={`/chatpets?test=1&size=${petSize}${channel ? `&channel=${channel}` : ""}`}
           sandbox="allow-scripts"
           onLoad={sendTest}
           title="Test"
         />
         <p className="st-hint">
           {testing
-            ? `Testing ${testing.name}, next to two ordinary pets at your chat pets' size.`
+            ? `Testing ${testing.name}, next to two pets from this chat's mix, at your chat pets' size.`
             : "Pick a sheet, or press Test on one below, to see it walk."}
         </p>
 
@@ -321,12 +335,14 @@ export default function PetSprites({
                 <input type="text" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="st-row"><span>Give it to (Twitch name)</span>
-                <input type="text" placeholder="empty = everyone's random mix" value={login} onChange={(e) => setLogin(e.target.value)} />
+                <input type="text" placeholder="empty = the random mix" value={login} onChange={(e) => setLogin(e.target.value)} />
               </label>
-              {admin && loginOf(login) && (
-                <label className="st-check">
-                  <input type="checkbox" checked={everywhere} onChange={(e) => setEverywhere(e.target.checked)} />
-                  <span>In every streamer&apos;s chat, not just this one</span>
+              {admin && (
+                <label className="st-row"><span>Where</span>
+                  <select value={global ? "all" : "here"} onChange={(e) => setGlobal(e.target.value === "all")}>
+                    <option value="here">This chat{channel ? ` (#${channel})` : ""}</option>
+                    <option value="all">{loginOf(login) ? "Every streamer's chat" : "The default mix (every chat that uses it)"}</option>
+                  </select>
                 </label>
               )}
               <div className="st-transport">
@@ -341,39 +357,53 @@ export default function PetSprites({
         {error && <p className="st-error">{error}</p>}
 
         {/* ---- what's there */}
-        {sprites && sprites.length > 0 && (
-          <ul className="st-sounds st-pets-list">
-            {sprites.map((s) => {
-              const src = `/api/chatpets/sprite/${s.id}`;
-              return (
-                <li key={s.id}>
-                  <Thumb src={src} w={s.w} h={s.h} />
-                  <span className="st-sound-name" title={s.name}>
-                    {s.name}
-                    <span className="st-hint">
-                      {" · "}
-                      {s.login ? `${s.login}'s${s.everywhere ? ", every chat" : ""}` : "random mix"}
-                    </span>
-                  </span>
-                  <button className="btn btn-ghost" onClick={() => setTesting({ src, w: s.w, h: s.h, name: s.login ?? s.name })}>Test</button>
-                  <button className="btn btn-ghost" onClick={() => reassign(s)}>Give to…</button>
-                  {admin && s.login && (
-                    <button className="btn btn-ghost" title="Every streamer's chat, or just this one" onClick={() => void patch(s, { everywhere: !s.everywhere })}>
-                      {s.everywhere ? "Just here" : "Everywhere"}
-                    </button>
-                  )}
-                  <button className="btn btn-ghost" title="Delete" onClick={() => void remove(s)}>✕</button>
-                </li>
-              );
-            })}
-          </ul>
+        <label className="st-check">
+          <input type="checkbox" checked={defaultMix} onChange={(e) => void patch(null, { defaultMix: e.target.checked })} />
+          <span>Use the default mix in this chat too, not only its own</span>
+        </label>
+        {groups.map(([title, list]) =>
+          list.length === 0 ? null : (
+            <div key={title}>
+              <h4 className="st-pets-group">{title}</h4>
+              <ul className="st-sounds st-pets-list">
+                {list.map((s) => {
+                  const src = `/api/chatpets/sprite/${s.id}`;
+                  return (
+                    <li key={s.id}>
+                      <Thumb src={src} w={s.w} h={s.h} />
+                      <span className="st-sound-name" title={s.name}>
+                        {s.name}
+                        <span className="st-hint">
+                          {s.login ? ` · ${s.login}` : ""}
+                          {s.global ? (s.login ? " · every chat" : "") : " · this chat"}
+                        </span>
+                      </span>
+                      <button className="btn btn-ghost" onClick={() => setTesting({ src, w: s.w, h: s.h, name: s.login ?? s.name })}>Test</button>
+                      {mine(s) && (
+                        <>
+                          <button className="btn btn-ghost" onClick={() => reassign(s)}>Give to…</button>
+                          {admin && (
+                            <button
+                              className="btn btn-ghost"
+                              title={s.global ? "Make it this chat's only" : "Make it apply in every chat"}
+                              onClick={() => void patch(s, { global: !s.global })}
+                            >
+                              {s.global ? "This chat only" : "Every chat"}
+                            </button>
+                          )}
+                          <button className="btn btn-ghost" title="Delete" onClick={() => void remove(s)}>✕</button>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ),
         )}
-        {sprites?.length === 0 && !sheet && <p className="st-hint">No custom pets yet.</p>}
-        {builtIn.length > 0 && (
-          <p className="st-hint">
-            Built into the app, in every chat: {builtIn.map((b) => `${b.login} (${b.sprite.split("/").pop()})`).join(", ")}.
-            A pet uploaded for one of them here takes over.
-          </p>
+        {sprites?.length === 0 && !sheet && <p className="st-hint">No pets yet.</p>}
+        {!admin && sprites?.some((s) => s.global) && (
+          <p className="st-hint">Pets that apply in every chat are managed by admins.</p>
         )}
         <p className="st-hint">
           Changes reach the stream within a minute, without reloading OBS.

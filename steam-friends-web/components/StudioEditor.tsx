@@ -1608,7 +1608,7 @@ export default function StudioEditor({
                       </button>
                       <label className="st-row"><span>Pets</span>
                         <select value={selected.props.set === "emoji" || selected.props.set === "round" ? selected.props.set : "walk"} onChange={(e) => setProp("set", e.target.value)}>
-                          <option value="walk">Walking cats</option>
+                          <option value="walk">Walking pets</option>
                           <option value="round">Round kittens</option>
                           <option value="emoji">Emoji animals</option>
                         </select>

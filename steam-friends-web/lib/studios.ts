@@ -79,6 +79,11 @@ export function forgetStudios(): void {
   S.cache.clear();
 }
 
+/** The studio tables exist (and the original studio is adopted). For tables that refer to them. */
+export function studiosReady(): Promise<void> {
+  return ready();
+}
+
 function ready(): Promise<void> {
   if (!S.ready) {
     S.ready = setup().catch((err) => {

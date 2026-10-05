@@ -15,15 +15,16 @@
  *   max      most pets on screen at once; the quietest leaves first (default 30)
  *   colors   0 to draw every name in white instead of the chatter's colour
  *   ignore   comma-separated logins that never get a pet (default: common bots)
- *   set      which pets: the streamer's walking set (default, see pets.ts),
- *            "round" for the round kitten badges, or "emoji" for emoji animals
+ *   set      which pets: walking ones (default), "round" for the round kitten
+ *            badges, or "emoji" for emoji animals
  *   demo     1 to add made-up chatters, for placing it in the editor
  *   test     1 for the studio's sprite test: no chat, just the pet the studio
  *            sends in a message, walking about with two ordinary ones
  *
- * Sprites uploaded in the studio (lib/petsprites.ts) are fetched from
- * /api/chatpets/sprites on load and every minute after, so a new or changed
- * one turns up without a rebuild or a reload of the OBS source.
+ * The walking pets, and who gets which, all come from the studio's database
+ * (lib/petsprites.ts): fetched from /api/chatpets/sprites on load and every
+ * minute after, so a new or changed one turns up without a rebuild or a
+ * reload of the OBS source. Nothing about them is built in here.
  *
  * Chat comes straight from Twitch's IRC websocket as an anonymous "justinfan"
  * user, which needs no token and can read any public channel.
@@ -38,28 +39,9 @@ import kitten2 from "./sprites/kitten-2.png";
 import kitten3 from "./sprites/kitten-3.png";
 import kitten4 from "./sprites/kitten-4.png";
 import kitten5 from "./sprites/kitten-5.png";
-import { WALK_SETS, CAT_H, type Walker } from "./sprites/walk";
-import { DEFAULT_SET, STREAMER_SETS, CHATTER_SPRITES } from "./pets";
+import { CAT_H } from "@/lib/spritesheet";
 
 const KITTENS = [kitten1, kitten2, kitten3, kitten4, kitten5].map((k) => k.src);
-
-// pets.ts is edited by hand, so a name in it that doesn't match a sprite stops
-// the build here rather than quietly giving someone the wrong pet on stream.
-const BY_ID = new Map<string, Walker>(Object.values(WALK_SETS).flat().map((w) => [w.id, w]));
-if (!WALK_SETS[DEFAULT_SET]) throw new Error(`chatpets/pets.ts: DEFAULT_SET "${DEFAULT_SET}" has no sprites`);
-const CHATTERS: Record<string, Walker> = {};
-for (const [login, id] of Object.entries(CHATTER_SPRITES)) {
-  const w = BY_ID.get(id);
-  if (!w) throw new Error(`chatpets/pets.ts: ${login}'s sprite "${id}" doesn't exist`);
-  CHATTERS[login.toLowerCase()] = w;
-}
-// A streamer's set is only offered if it exists; until then they get the default.
-const STREAMERS: Record<string, string> = Object.fromEntries(
-  Object.entries(STREAMER_SETS).filter(([, set]) => WALK_SETS[set]).map(([ch, set]) => [ch.toLowerCase(), set]),
-);
-// The special set is never anyone's whole set: its sprites are only ever given
-// to a chatter by name.
-const SETS = Object.fromEntries(Object.entries(WALK_SETS).filter(([set]) => set !== "special"));
 
 const HTML = String.raw`<!doctype html>
 <html><head><meta charset="utf-8">
@@ -86,24 +68,20 @@ function n(k,d,lo,hi){var v=+Q.get(k);return v>0?Math.min(hi,Math.max(lo,v)):d;}
 var CH=(Q.get("channel")||"").toLowerCase().replace(/[^a-z0-9_]/g,"");
 var SIZE=n("size",56,16,256),IDLE=n("idle",10,1,240)*60000,MAX=Math.round(n("max",30,1,200));
 var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1",TEST=Q.get("test")==="1";
-// Walking cats unless asked otherwise. "kittens" is what the editor used to
+// Walking pets unless asked otherwise. "kittens" is what the editor used to
 // call the default, so it means the default still.
-var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,WALK=null,MINE={},K=SIZE/${CAT_H};
+var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,WALK=SET!=="round"&&SET!=="emoji",K=SIZE/${CAT_H};
 function own(o,k){return Object.prototype.hasOwnProperty.call(o,k);}
-// This streamer's set (pets.ts), or the default; and the chatters who always
-// get a sprite of their own.
-if(SET!=="round"&&SET!=="emoji"){var WS=${JSON.stringify(SETS)},SS=${JSON.stringify(STREAMERS)};
-WALK=WS[own(SS,CH)?SS[CH]:${JSON.stringify(DEFAULT_SET)}];MINE=${JSON.stringify(CHATTERS)};}
-// What the studio has uploaded for this chat, added once it arrives: more for
-// the mix, and chatters' own sprites, which win over the built-in ones. TESTS
-// is the sprite test's pet, which wins over everything.
-var MIX=WALK,UP=Object.create(null),TESTS=Object.create(null);
-// Until the uploads have arrived, a pick from the mix is provisional: whoever
+// What the studio has for this chat, once it arrives: the mix everyone is
+// picked from, and chatters' own sprites. TESTS is the sprite test's pet,
+// which wins over everything.
+var MIX=[],UP=Object.create(null),TESTS=Object.create(null);
+// Until the sprites have arrived, a pick from the mix is provisional: whoever
 // chats in the first moment after a load would otherwise keep a pick made
-// from the built-in mix alone.
-var LOADED=TEST||!CH||!WALK;
-/** A chatter's own sprite (test, uploaded, built in, in that order), or null. */
-function personal(login){return own(TESTS,login)?TESTS[login]:own(UP,login)?UP[login]:own(MINE,login)?MINE[login]:null;}
+// before the mix was known.
+var LOADED=!WALK;
+/** A chatter's own sprite (being tested, or given to them), or null. */
+function personal(login){return own(TESTS,login)?TESTS[login]:own(UP,login)?UP[login]:null;}
 // Keyed by login, so no inherited keys: a chatter called "constructor" is real.
 var IGNORE=Object.create(null);
 (Q.has("ignore")?Q.get("ignore"):"nightbot,streamelements,streamlabs,moobot,fossabot,wizebot,soundalerts,sery_bot")
@@ -155,8 +133,14 @@ p.last=now;p.hop=now;}
 // a whole chat's worth of pets changing at once is no fun to watch. Only
 // someone's own sprite changing, or theirs leaving the mix, swaps a pet.
 function skin(p){var c=personal(p.login),mine=!!c;
-if(!mine){if(p.cid&&!p.mine&&p.sure&&MIX.some(function(m){return m.id===p.cid;}))return;c=pick(p.login,MIX);}
-p.mine=mine;p.sure=LOADED;if(!c||p.cid===c.id)return;p.cid=c.id;p.frame=-1;var s=p.sp.style;
+if(!mine){if(p.cid&&!p.mine&&p.sure&&MIX.some(function(m){return m.id===p.cid;}))return;c=MIX.length?pick(p.login,MIX):null;}
+p.mine=mine;p.sure=LOADED;var s=p.sp.style;
+// Nothing to wear: unseen until the sprites arrive, and an emoji animal if
+// they arrive and there are none (an empty database, say) rather than a name
+// walking about with no body.
+if(!c){if(!LOADED){s.visibility="hidden";return;}if(p.cid==="emoji")return;p.cid="emoji";
+s.visibility="";s.backgroundImage="";s.width=s.height="";p.sp.textContent=pick(p.login,ANIMALS);return;}
+if(p.cid===c.id)return;p.cid=c.id;p.frame=-1;s.visibility="";p.sp.textContent="";
 s.width=(c.w*K).toFixed(1)+"px";s.height=(c.h*K).toFixed(1)+"px";s.backgroundImage="url("+c.src+")";
 if(p.el.parentNode)p.half=Math.max(SIZE,p.el.offsetWidth)/2;}
 
@@ -228,12 +212,12 @@ else if(cmd==="RECONNECT"){ws.close();}}
 if(TEST){}else if(CH){status("#"+CH+" · connecting…");connect();}else status("No channel set");
 
 // ---- uploads from the studio ------------------------------------------------
-function uploads(){if(!WALK||!CH)return;var x=new XMLHttpRequest();
+function uploads(){if(!WALK)return;var x=new XMLHttpRequest();
 x.open("GET","/api/chatpets/sprites?channel="+CH,true);
 x.onload=function(){try{var d=JSON.parse(x.responseText);if(!d.ok)return;
-MIX=WALK.concat(d.mix||[]);UP=Object.create(null);LOADED=true;for(var k in d.chatters)if(own(d.chatters,k))UP[k]=d.chatters[k];
+MIX=d.mix||[];UP=Object.create(null);LOADED=true;for(var k in d.chatters)if(own(d.chatters,k))UP[k]=d.chatters[k];
 for(var l in P)skin(P[l]);}catch(_){}};x.send();}
-if(!TEST){uploads();setInterval(uploads,60000);}
+uploads();setInterval(uploads,60000);
 
 // ---- the studio's sprite test -------------------------------------------------
 // The studio sends the sprite being tried — not saved yet, so as a data: URL —

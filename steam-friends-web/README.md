@@ -420,68 +420,56 @@ StreamElements and so on) never get one.
 
 - **Same pet every time.** The pet is picked from a hash of the login, so a
   regular keeps theirs from stream to stream.
-- **Walking cats, round kittens or emoji.** The walking cats are the default:
+- **Walking pets, round kittens or emoji.** Walking pets are the default:
   each has two frames facing right and two facing left, and steps through them
-  as it walks, a step per distance covered so slow cats take slow steps. The
+  as it walks, a step per distance covered so slow ones take slow steps. The
   round kitten badges and emoji animals are the other two choices. Emoji look
-  like whatever emoji font OBS has (Segoe UI Emoji on Windows).
-- **Uploading pets in the studio.** Select the chat pets box and press
-  **Custom pets…**. Upload a sheet, give it to a chatter by Twitch name (or
-  leave that empty to add it to everyone's random mix), and **Save**. It
-  reaches the stream within a minute, with no rebuild and no OBS reload: the
-  pets page asks `/api/chatpets/sprites` on load and every minute after.
-  - The sheet is cut in your browser with the same rules as the built-in
-    sprites (`lib/spritesheet.ts`, shared with the script below), with the
-    same options: background (transparent, black or white — guessed from the
+  like whatever emoji font OBS has (Segoe UI Emoji on Windows), and are also
+  what a chat gets if it has no walking pets at all.
+- **All managed in the studio.** Select the chat pets box and press **Custom
+  pets…**. Every walking pet that applies in that chat is listed there, and
+  each can be tested, given to someone else or deleted. Nothing about them is
+  built into the app: they live in the studio's database (`pet_sprites`,
+  `lib/petsprites.ts`, so the nightly backup has them), and the pets page asks
+  `/api/chatpets/sprites` on load and every minute after. A change reaches the
+  stream within a minute, with no rebuild and no OBS reload.
+  - A pet belongs to one studio (that streamer's chat) or to none (every
+    chat), and is given to one chatter by Twitch name or, with no name, is in
+    a mix that everyone else is picked from:
+
+    |              | one studio            | every chat (admins)   |
+    |---|---|---|
+    | **a name**   | that chatter, here    | that chatter, in every chat |
+    | **no name**  | this chat's own mix   | the default mix       |
+
+  - In a chat, a chatter gets their own pet for this chat, else their
+    every-chat one, else a pick from the mix: the chat's own, plus the default
+    mix unless the studio has unticked *Use the default mix in this chat too*.
+  - A studio's editors manage its own pets; the every-chat ones are listed for
+    them but only admins can change them.
+  - **Uploading:** pick a 2×2 sheet; it's cut in your browser
+    (`lib/spritesheet.ts`, the same rules the build script uses) with options
+    for the background (transparent, black or white — guessed from the
     corners), *all frames face right*, and a size relative to a cat. Only the
-    finished strip is uploaded, and stored in the studio's database
-    (`pet_sprites`, `lib/petsprites.ts`), so the nightly backup has it.
+    finished strip is uploaded.
   - **The test strip** at the top is the real pets page, sent the unsaved
-    sprite, walking next to two ordinary pets at your chat pets' size. Saved
-    ones have a **Test** button too.
-  - Uploads belong to the studio: they show in that streamer's chat, and its
-    editors manage them. Admins can also put a chatter's pet in **every**
-    streamer's chat.
-  - Who gets what, first match wins: an upload for them in this chat, one for
-    them everywhere, one built into the app, else a pick from the mix (the
-    built-in set plus this chat's uploads).
-  - A pet already on screen changes when *their own* sprite changes. Changes
-    to the mix only affect pets that arrive after, so the whole chat doesn't
+    sprite, walking next to two pets from this chat's mix at your chat pets'
+    size. Saved ones have a **Test** button too.
+  - A pet already on screen changes when *their own* pet changes. Changes to
+    the mix only affect pets that arrive after, so the whole chat doesn't
     change costume at once.
-- **Sets per streamer, and sprites per chatter.** `app/chatpets/pets.ts`
-  says which set each streamer's chat gets (Nayomy_cs and Qiyarah: `cats`;
-  Juntella: `juntella`, three tabbies; anyone not listed gets `DEFAULT_SET`,
-  also `cats`), and which chatters always
-  get one particular sprite in every chat (`skipperbtw` gets the whale,
-  `unemployedvera` the red car, `siqaa666` the French car, `litmusq` the
-  British one).
-  Sprites in the `special` set only ever go to a chatter named there. A name in
-  that file that doesn't match a sprite fails the build, so a typo can't give
-  someone the wrong pet on stream.
-- **Adding a sprite.** Draw (or generate) a 2×2 sheet on a transparent
-  background: top row walking right, bottom row walking left, two frames each.
-  Then:
-
-  ```sh
-  npm run sprites -- path/to/sheet.png cats/bell          # one more cat
-  npm run sprites -- path/to/sheet.png juntella/fox       # a set of Juntella's own
-  npm run sprites -- path/to/sheet.png special/whale      # a sprite for one chatter
-  ```
-
-  A sheet whose four frames all face right takes `--mirror` (walk left with
-  the top row flipped), and one on a solid black background takes
-  `--bg black`.
-
-  That cuts the four frames out, lines them up so the feet sit on the ground and
-  the nose doesn't jump between frames, and writes
-  `app/chatpets/sprites/walk/<set>/<name>.png` and the `index.ts` list beside
-  the sets. A new set is used once `pets.ts` maps a streamer to it. Every sheet
-  is stored at the same scale, so a cat in a tall hat is taller rather than
-  smaller; the *pet size* setting is how tall an ordinary cat is. Adding a
-  sprite to a set reshuffles who in that chat gets which, once.
-- **Served from the build.** Sprites are imported by the route rather than put
-  in `public/` (which the studio host's image doesn't ship), so they're served
-  from `.next/static` under hashed names, from whichever host serves the scene.
+- **Where the first ones came from.** The pets used to be built into the app
+  (`app/chatpets/sprites/walk`, assigned in `app/chatpets/pets.ts`). The
+  first time this version runs, they're copied into the database with the
+  assignments they had — the cats as the default mix; Juntella's tabbies as
+  Juntella's own mix, with the default mix off there; the whale, the two cars
+  and the British character as those four chatters' pets in every chat — and
+  the app's copies are never read again. Editing those files changes nothing
+  on a server that has done this.
+- **The build script** (`npm run sprites -- sheet.png set/name [--mirror]
+  [--bg black|white]`) still cuts a sheet the same way, into
+  `app/chatpets/sprites/walk`, but those only reach a stream through that
+  first copy. To add a pet now, upload it in the studio.
 - **Spread out.** A new pet appears in the emptiest part of the strip, so a
   burst of chatters doesn't land in one pile. They can still cross paths.
 - **No server side.** The pets are a few KB of plain JS at `/chatpets`

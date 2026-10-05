@@ -1,6 +1,12 @@
 /**
- * Who gets which chat pet. Edit this by hand; the sprites themselves are made
- * with `npm run sprites -- <sheet> <set>/<name>` (see app/chatpets/sprites/walk).
+ * NOT where chat pets are set up any more: that's the studio (chat pets →
+ * Custom pets…), and the studio's database.
+ *
+ * This is who had which pet when they were built into the app. The database
+ * is filled from it, and from the sprites in app/chatpets/sprites/walk, once,
+ * the first time the new version runs (lib/petsprites.ts, seedBuiltIns), and
+ * neither is read again after that. Changing this file changes nothing on a
+ * server that has already done that.
  *
  * Everything is keyed by Twitch login: lower case, as in twitch.tv/<login>.
  */
