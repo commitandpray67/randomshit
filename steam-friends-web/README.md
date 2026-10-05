@@ -329,6 +329,17 @@ safe. An absolutely positioned child outside its parent still paints, so
 without that clip an element dropped just off the edge would go out on stream
 anyway.
 
+**New elements start there.** Anything added (text, image, video, widget,
+emote, sound) lands parked just right of the frame, and chat pets just below
+it, so nothing half set up goes out on a live stream. The editor selects the
+new element and scrolls to it; drag it into the frame to put it on. Off the
+right and bottom edges specifically, because the viewport can scroll that way
+to reach anything bigger than the parking space, and not up or left.
+
+**Hide** (the eye in the layer list) takes an element off stream without
+deleting it. A hidden element isn't drawn at all, in the browser source and
+in `/lite`, and showing it again puts it straight back.
+
 Zoom is bottom-left of the canvas; **Fit** returns to tracking the window.
 
 ### Stream preview

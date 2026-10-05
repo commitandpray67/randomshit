@@ -29,10 +29,15 @@ import { MotionBuffer, applyMotion, motionOf, type Motion } from "./sceneMotion"
  * Everything about an element except where it is. Re-render on this changing,
  * and only on this: position, size, rotation and opacity are the animated
  * fields, and they belong to the frame loop.
+ *
+ * Hidden belongs here, not with opacity: a hidden element isn't drawn at all
+ * (ElementBox renders nothing), so showing or hiding one is a change to which
+ * elements exist. Leaving it out is what made the studio's hide button do
+ * nothing on stream until OBS reloaded the page.
  */
 function shapeOf(els: RElement[]): string {
   return els
-    .map((e) => `${e.id}${e.kind}${e.zIndex}${e.clip ?? ""}${JSON.stringify(e.props)}`)
+    .map((e) => `${e.id}${e.kind}${e.hidden ? "h" : ""}${e.zIndex}${e.clip ?? ""}${JSON.stringify(e.props)}`)
     .join("");
 }
 

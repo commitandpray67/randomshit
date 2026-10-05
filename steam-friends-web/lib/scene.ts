@@ -231,21 +231,31 @@ export async function addElement(
 ): Promise<SceneElement> {
   const d = defaultsFor(kind);
   const stats = await sql`
-    SELECT COALESCE(MAX(z_index), 0) + 1 AS z, COUNT(*) AS n
+    SELECT COALESCE(MAX(z_index), 0) + 1 AS z, COUNT(*) AS n,
+           (SELECT canvas_w FROM scenes WHERE id = ${sceneId}) AS canvas_w
     FROM scene_elements WHERE scene_id = ${sceneId}
   `;
   const props = { ...d.props, ...(overrides.props ?? {}) };
 
-  // Cascade each new element instead of stacking them all on the same spot —
-  // otherwise the newest one covers the others and you can't grab what's under
-  // it. Wraps so a long session doesn't march off the canvas.
+  // A new element starts parked just to the right of the frame, in the space
+  // the editor keeps round it, rather than on it: the scene may be live, and
+  // something half set up shouldn't go out on stream the moment it's made.
+  // Dragging it into the frame is what puts it on. Off the right edge
+  // specifically, because the editor scrolls that way to reach anything wider
+  // than the parking space, and can't scroll to anything above or left of it.
+  //
+  // Cascaded instead of stacked on one spot, or the newest covers the others
+  // and you can't grab what's under it. Wraps so a long session doesn't march
+  // off down the page.
   const step = (Number(stats[0].n) % 10) * 32;
+  const parkX = Number(stats[0].canvas_w ?? 1920) + 40 + step;
+  const parkY = 40 + step;
 
   const rows = await sql`
     INSERT INTO scene_elements (scene_id, kind, x, y, w, h, z_index, props)
     VALUES (
       ${sceneId}, ${kind},
-      ${overrides.x ?? 80 + step}, ${overrides.y ?? 80 + step},
+      ${overrides.x ?? parkX}, ${overrides.y ?? parkY},
       ${overrides.w ?? d.w}, ${overrides.h ?? d.h},
       ${Number(stats[0].z)}, ${sql.json(props as any)}
     )

@@ -147,7 +147,11 @@ s.zIndex=e.zIndex||0;s.opacity=e.opacity==null?1:e.opacity;
 s.clipPath=e.clip||"";}
 
 function render(list){var seen={};
-for(var i=0;i<list.length;i++){var e=list[i],id=e.id,g=sig(e),rec=N[id];seen[id]=1;
+for(var i=0;i<list.length;i++){var e=list[i],id=e.id,g,rec=N[id];
+// Hidden is not drawn. The first page leaves hidden elements out, but the
+// update feed carries them, so they're skipped here: being unseen, an element
+// that was showing is removed below.
+if(e.hidden)continue;g=sig(e);seen[id]=1;
 if(!rec){var h=document.createElement("div");h.className="e";h.appendChild(build(e));
 C.appendChild(h);rec=N[id]={h:h,sig:g};}
 else if(rec.sig!==g){delete PL[id];if(SND[id])SND[id].a.pause();delete SND[id];rec.h.innerHTML="";rec.h.appendChild(build(e));rec.sig=g;}

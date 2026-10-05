@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
         y: typeof body.y === "number" ? body.y : undefined,
       });
       noteElements(scene.id, [el.id]);
+      created = [el];
       break;
     }
 

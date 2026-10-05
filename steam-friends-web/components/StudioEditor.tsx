@@ -375,6 +375,18 @@ export default function StudioEditor({
       if (data.elements) mergeRemote(data.elements);
       if (data.canvas) setCanvas(data.canvas);
       if (data.sceneKey) setSceneKey(data.sceneKey);
+      if (payload.action === "add" && data.created?.length) {
+        // A new element starts parked off the frame (see addElement), which
+        // is often past the edge of the viewport. Select it and bring it into
+        // view, or it's made somewhere you can't see.
+        const id = data.created[0].id;
+        setSelectedIds([id]);
+        requestAnimationFrame(() => {
+          viewportRef.current
+            ?.querySelector(`[data-element-id="${id}"]`)
+            ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        });
+      }
       return data;
     } catch (e: any) {
       setError(String(e?.message ?? e));
@@ -1050,10 +1062,12 @@ export default function StudioEditor({
                 selectOnly(existing.id);
                 return;
               }
-              // Full width along the bottom of the frame, which is where they belong.
+              // Full width, parked just below the frame like every new element
+              // (see addElement): too wide for the space beside it, and the
+              // bottom edge is where it goes anyway, so it's a short drag up.
               const h = 200;
               void call({
-                action: "add", kind: "widget", x: 0, y: Math.max(0, canvas.h - h), w: canvas.w, h,
+                action: "add", kind: "widget", x: 0, y: canvas.h + 40, w: canvas.w, h,
                 props: { mode: "chatpets", channel: studio.channel ?? "", ...CHATPETS_DEFAULTS, colors: true },
               });
             }}
@@ -1109,6 +1123,9 @@ export default function StudioEditor({
             <button className="st-undo-x" title="Dismiss" onClick={() => setUndoable(null)}>✕</button>
           </div>
         )}
+        {/* The viewport scrolls; the stage around it doesn't, so what floats
+            over the canvas (the zoom bar) stays put when it does. */}
+        <div className="st-stage">
         <div className="st-viewport" ref={viewportRef} onPointerDown={() => setSelectedIds([])}>
           {/* A box big enough for the frame plus a margin of parking space, so
               the viewport has something to scroll and elements dragged off the
@@ -1158,6 +1175,7 @@ export default function StudioEditor({
               {elements.map((el) => (
               <div
                 key={el.id}
+                data-element-id={el.id}
                 onPointerDown={(e) => startDrag(e, el)}
                 style={{
                   position: "absolute",
@@ -1230,6 +1248,7 @@ export default function StudioEditor({
               ))}
             </div>
           </div>
+        </div>
 
           {/* Floating rather than in the toolbar: it belongs to the canvas, and
               the toolbar is already carrying the add buttons and the size. */}
