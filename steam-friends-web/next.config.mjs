@@ -57,6 +57,8 @@ const nextConfig = {
       { source: "/api/scene/:path*", destination: `${studioOrigin}/api/scene/:path*`, permanent: false },
       // Sound files live in the studio's database too.
       { source: "/api/media/:path*", destination: `${studioOrigin}/api/media/:path*`, permanent: false },
+      // Uploaded chat pets, likewise.
+      { source: "/api/chatpets/:path*", destination: `${studioOrigin}/api/chatpets/:path*`, permanent: false },
     ];
   },
 

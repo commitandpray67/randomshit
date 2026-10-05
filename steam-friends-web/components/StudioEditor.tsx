@@ -9,6 +9,7 @@ import StreamBackdrop from "./StreamBackdrop";
 import { imageCandidates } from "@/lib/imagesrc";
 import { CHATPETS_DEFAULTS, chatPetsChannel } from "@/lib/chatpets";
 import SoundLibrary, { type MediaItem } from "./SoundLibrary";
+import PetSprites from "./PetSprites";
 import { soundPlaying, soundVolume } from "@/lib/sound";
 
 type Canvas = { w: number; h: number };
@@ -96,6 +97,8 @@ export default function StudioEditor({
   const [showEmotes, setShowEmotes] = useState(false);
   /** The sound library, open to add a sound element or to change the selected one's file. */
   const [soundPick, setSoundPick] = useState<null | "add" | "swap">(null);
+  /** The custom pets dialog, open at this chat pets widget's size. */
+  const [petsAt, setPetsAt] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedLite, setCopiedLite] = useState(false);
   // Keep tracking the viewport until someone picks a zoom of their own.
@@ -1600,6 +1603,9 @@ export default function StudioEditor({
                           onChange={(e) => setProp("channel", e.target.value)}
                         />
                       </label>
+                      <button className="btn" onClick={() => setPetsAt(Number(selected.props.size) || CHATPETS_DEFAULTS.size)}>
+                        Custom pets…
+                      </button>
                       <label className="st-row"><span>Pets</span>
                         <select value={selected.props.set === "emoji" || selected.props.set === "round" ? selected.props.set : "walk"} onChange={(e) => setProp("set", e.target.value)}>
                           <option value="walk">Walking cats</option>
@@ -1651,6 +1657,10 @@ export default function StudioEditor({
           )}
         </aside>
       </div>
+
+      {petsAt !== null && (
+        <PetSprites studio={studio.slug} channel={studio.channel} petSize={petsAt} onClose={() => setPetsAt(null)} />
+      )}
 
       {soundPick && (
         <SoundLibrary

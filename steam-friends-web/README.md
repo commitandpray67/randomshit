@@ -425,6 +425,29 @@ StreamElements and so on) never get one.
   as it walks, a step per distance covered so slow cats take slow steps. The
   round kitten badges and emoji animals are the other two choices. Emoji look
   like whatever emoji font OBS has (Segoe UI Emoji on Windows).
+- **Uploading pets in the studio.** Select the chat pets box and press
+  **Custom pets…**. Upload a sheet, give it to a chatter by Twitch name (or
+  leave that empty to add it to everyone's random mix), and **Save**. It
+  reaches the stream within a minute, with no rebuild and no OBS reload: the
+  pets page asks `/api/chatpets/sprites` on load and every minute after.
+  - The sheet is cut in your browser with the same rules as the built-in
+    sprites (`lib/spritesheet.ts`, shared with the script below), with the
+    same options: background (transparent, black or white — guessed from the
+    corners), *all frames face right*, and a size relative to a cat. Only the
+    finished strip is uploaded, and stored in the studio's database
+    (`pet_sprites`, `lib/petsprites.ts`), so the nightly backup has it.
+  - **The test strip** at the top is the real pets page, sent the unsaved
+    sprite, walking next to two ordinary pets at your chat pets' size. Saved
+    ones have a **Test** button too.
+  - Uploads belong to the studio: they show in that streamer's chat, and its
+    editors manage them. Admins can also put a chatter's pet in **every**
+    streamer's chat.
+  - Who gets what, first match wins: an upload for them in this chat, one for
+    them everywhere, one built into the app, else a pick from the mix (the
+    built-in set plus this chat's uploads).
+  - A pet already on screen changes when *their own* sprite changes. Changes
+    to the mix only affect pets that arrive after, so the whole chat doesn't
+    change costume at once.
 - **Sets per streamer, and sprites per chatter.** `app/chatpets/pets.ts`
   says which set each streamer's chat gets (Nayomy_cs and Qiyarah: `cats`;
   Juntella: `juntella`, three tabbies; anyone not listed gets `DEFAULT_SET`,

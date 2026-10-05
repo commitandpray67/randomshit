@@ -18,6 +18,12 @@
  *   set      which pets: the streamer's walking set (default, see pets.ts),
  *            "round" for the round kitten badges, or "emoji" for emoji animals
  *   demo     1 to add made-up chatters, for placing it in the editor
+ *   test     1 for the studio's sprite test: no chat, just the pet the studio
+ *            sends in a message, walking about with two ordinary ones
+ *
+ * Sprites uploaded in the studio (lib/petsprites.ts) are fetched from
+ * /api/chatpets/sprites on load and every minute after, so a new or changed
+ * one turns up without a rebuild or a reload of the OBS source.
  *
  * Chat comes straight from Twitch's IRC websocket as an anonymous "justinfan"
  * user, which needs no token and can read any public channel.
@@ -79,7 +85,7 @@ var Q=new URLSearchParams(location.search);
 function n(k,d,lo,hi){var v=+Q.get(k);return v>0?Math.min(hi,Math.max(lo,v)):d;}
 var CH=(Q.get("channel")||"").toLowerCase().replace(/[^a-z0-9_]/g,"");
 var SIZE=n("size",56,16,256),IDLE=n("idle",10,1,240)*60000,MAX=Math.round(n("max",30,1,200));
-var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1";
+var COLORS=Q.get("colors")!=="0",DEMO=Q.get("demo")==="1",TEST=Q.get("test")==="1";
 // Walking cats unless asked otherwise. "kittens" is what the editor used to
 // call the default, so it means the default still.
 var SET=Q.get("set"),SPRITES=SET==="round"?${JSON.stringify(KITTENS)}:null,WALK=null,MINE={},K=SIZE/${CAT_H};
@@ -88,6 +94,16 @@ function own(o,k){return Object.prototype.hasOwnProperty.call(o,k);}
 // get a sprite of their own.
 if(SET!=="round"&&SET!=="emoji"){var WS=${JSON.stringify(SETS)},SS=${JSON.stringify(STREAMERS)};
 WALK=WS[own(SS,CH)?SS[CH]:${JSON.stringify(DEFAULT_SET)}];MINE=${JSON.stringify(CHATTERS)};}
+// What the studio has uploaded for this chat, added once it arrives: more for
+// the mix, and chatters' own sprites, which win over the built-in ones. TESTS
+// is the sprite test's pet, which wins over everything.
+var MIX=WALK,UP=Object.create(null),TESTS=Object.create(null);
+// Until the uploads have arrived, a pick from the mix is provisional: whoever
+// chats in the first moment after a load would otherwise keep a pick made
+// from the built-in mix alone.
+var LOADED=TEST||!CH||!WALK;
+/** A chatter's own sprite (test, uploaded, built in, in that order), or null. */
+function personal(login){return own(TESTS,login)?TESTS[login]:own(UP,login)?UP[login]:own(MINE,login)?MINE[login]:null;}
 // Keyed by login, so no inherited keys: a chatter called "constructor" is real.
 var IGNORE=Object.create(null);
 (Q.has("ignore")?Q.get("ignore"):"nightbot,streamelements,streamlabs,moobot,fossabot,wizebot,soundalerts,sery_bot")
@@ -116,8 +132,7 @@ x:0,dir:Math.random()<.5?-1:1,speed:rand(.35,.8)*SIZE,walking:false,until:now+ra
 p.el.className="pet";p.nm.className="n";p.bd.className="b";
 p.el.style.opacity="0";p.nm.style.fontSize=Math.max(10,Math.round(SIZE*.24))+"px";
 p.bd.style.fontSize=SIZE+"px";
-if(WALK){var c=own(MINE,login)?MINE[login]:pick(login,WALK),s=p.sp.style;p.sp.className="w";p.frame=-1;p.dist=0;
-s.width=(c.w*K).toFixed(1)+"px";s.height=(c.h*K).toFixed(1)+"px";s.backgroundImage="url("+c.src+")";}
+if(WALK){p.sp.className="w";p.dist=0;skin(p);}
 else if(SPRITES){p.sp.src=pick(login,SPRITES);p.sp.alt="";p.sp.width=p.sp.height=SIZE;}
 else p.sp.textContent=pick(login,ANIMALS);
 p.bd.appendChild(p.sp);p.el.appendChild(p.nm);p.el.appendChild(p.bd);S.appendChild(p.el);count++;
@@ -127,8 +142,23 @@ requestAnimationFrame(function(){p.el.style.opacity="1";});
 if(count>MAX){var old=null;for(var k in P)if(P[k]!==p&&(!old||P[k].last<old.last))old=P[k];if(old)drop(old.login);}
 }
 if(p.nm.textContent!==name){p.nm.textContent=name;p.half=Math.max(SIZE,p.el.offsetWidth)/2;}
+if(WALK)skin(p);
 p.nm.style.color=COLORS&&/^#[0-9a-f]{6}$/i.test(color||"")?color:"#fff";
 p.last=now;p.hop=now;}
+
+// Dress a walking pet in whatever it should be wearing now. Run on every
+// message and whenever the uploads change, so a sprite given to someone who's
+// already on screen takes effect without them having to leave first.
+//
+// A pet from the mix keeps the one it has while it's on screen, though:
+// adding to or taking from the mix changes what everyone's name picks, and
+// a whole chat's worth of pets changing at once is no fun to watch. Only
+// someone's own sprite changing, or theirs leaving the mix, swaps a pet.
+function skin(p){var c=personal(p.login),mine=!!c;
+if(!mine){if(p.cid&&!p.mine&&p.sure&&MIX.some(function(m){return m.id===p.cid;}))return;c=pick(p.login,MIX);}
+p.mine=mine;p.sure=LOADED;if(!c||p.cid===c.id)return;p.cid=c.id;p.frame=-1;var s=p.sp.style;
+s.width=(c.w*K).toFixed(1)+"px";s.height=(c.h*K).toFixed(1)+"px";s.backgroundImage="url("+c.src+")";
+if(p.el.parentNode)p.half=Math.max(SIZE,p.el.offsetWidth)/2;}
 
 // Somewhere with room: of a dozen random spots, the one furthest from every
 // other pet, so a burst of chatters spreads out instead of piling up.
@@ -143,7 +173,9 @@ var prev=performance.now();
 function tick(now){var dt=Math.min(.1,(now-prev)/1000),W=innerWidth;prev=now;
 for(var k in P){var p=P[k];
 if(now>p.until){p.walking=!p.walking;
-if(p.walking){if(Math.random()<.6)p.dir=-p.dir;p.until=now+rand(2000,7000);}else p.until=now+rand(800,4000);}
+if(p.walking){if(Math.random()<.6)p.dir=-p.dir;p.until=now+rand(2000,7000);}
+// Under test, it's the walking that's being looked at, so less standing about.
+else p.until=now+(p.test?rand(300,900):rand(800,4000));}
 if(p.walking){p.x+=p.dir*p.speed*dt;p.dist+=p.speed*dt;
 if(p.x<p.half){p.x=p.half;p.dir=1;}else if(p.x>W-p.half){p.x=W-p.half;p.dir=-1;}}
 if(W<=p.half*2)p.x=W/2;
@@ -193,7 +225,31 @@ else if(cmd==="CLEARCHAT"){i=l.indexOf(" :");if(i>0)drop(l.slice(i+2).trim().toL
 else if(cmd==="366"){wait=1000;status("#"+CH+" · connected");}
 else if(cmd==="RECONNECT"){ws.close();}}
 
-if(CH){status("#"+CH+" · connecting…");connect();}else status("No channel set");
+if(TEST){}else if(CH){status("#"+CH+" · connecting…");connect();}else status("No channel set");
+
+// ---- uploads from the studio ------------------------------------------------
+function uploads(){if(!WALK||!CH)return;var x=new XMLHttpRequest();
+x.open("GET","/api/chatpets/sprites?channel="+CH,true);
+x.onload=function(){try{var d=JSON.parse(x.responseText);if(!d.ok)return;
+MIX=WALK.concat(d.mix||[]);UP=Object.create(null);LOADED=true;for(var k in d.chatters)if(own(d.chatters,k))UP[k]=d.chatters[k];
+for(var l in P)skin(P[l]);}catch(_){}};x.send();}
+if(!TEST){uploads();setInterval(uploads,60000);}
+
+// ---- the studio's sprite test -------------------------------------------------
+// The studio sends the sprite being tried — not saved yet, so as a data: URL —
+// and this shows it on a chatter of that name next to two ordinary pets. Only
+// ever listened for with test=1, which nothing but the studio's test asks for.
+var testN=0;
+if(TEST&&WALK){chat("pixelfrog","PixelFrog","#00ff7f");chat("mochi_fan","mochi_fan","#ffd700");
+for(var t in P)P[t].demo=P[t].test=1;
+addEventListener("message",function(ev){var m=ev.data;if(!m||m.type!=="chatpets-test"||!m.sprite)return;
+var sp=m.sprite,src=String(sp.src||"");if(!/^(data:image\/png;base64,|\/api\/chatpets\/sprite\/[0-9a-f]{32}$)/.test(src))return;
+var login=String(m.name||"test").toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,25)||"test";
+for(var k in TESTS)if(k!==login)drop(k);TESTS=Object.create(null);
+TESTS[login]={id:"test:"+(++testN),src:src,w:Math.min(800,+sp.w||1),h:Math.min(800,+sp.h||1)};
+chat(login,String(m.name||login).slice(0,25),"#ff8fbe");P[login].demo=P[login].test=1;});
+// A hop now and then, staggered, as if they were chatting.
+setInterval(function(){for(var k in P)if(P[k].test)(function(p){setTimeout(function(){p.hop=performance.now();},rand(0,900));})(P[k]);},5000);}
 
 // ---- demo chatters, editor only --------------------------------------------
 if(DEMO){

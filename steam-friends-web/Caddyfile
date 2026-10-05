@@ -14,7 +14,7 @@
 	# between them until the browser gives up.
 	#
 	# After changing this file on the server: docker compose restart caddy
-	@studio path /studio /studio/* /scene/* /lite/* /chatpets /api/studio /api/studio/* /api/scene/* /api/media/* /api/emotes /api/emotes/* /api/auth/* /diag /api/diag/* /api/version /_next/* /icon.svg /favicon.ico
+	@studio path /studio /studio/* /scene/* /lite/* /chatpets /api/studio /api/studio/* /api/scene/* /api/media/* /api/chatpets/* /api/emotes /api/emotes/* /api/auth/* /diag /api/diag/* /api/version /_next/* /icon.svg /favicon.ico
 
 	handle @studio {
 		reverse_proxy app:3000 {

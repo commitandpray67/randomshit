@@ -12,7 +12,7 @@
     "test:embed": "node --experimental-strip-types scripts/test-embed.ts",
     "test:image": "node --experimental-strip-types scripts/test-imagesrc.ts",
     "test:login": "node --experimental-strip-types scripts/test-login.ts",
-    "sprites": "node scripts/chatpets-sprites.mjs"
+    "sprites": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/chatpets-sprites.mjs"
   },
   "dependencies": {
     "next": "^15.1.0",
