@@ -332,10 +332,11 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 <script>
 "use strict";
 /* =====================================================================
-   Hall layout — traced from the printed plan. N1–N10 and N29–N36 are the
-   rectangular outer tables (10 seats), N11–N28 the round inner ones (12).
-   The printed plan had a long table N11 at the top of the left arc; it was
-   taken out and everything after it moved down a number (see upgrade()).
+   Hall layout — traced from the printed plan. N1–N11 and N30–N37 are the
+   rectangular outer tables (10 seats), N12–N29 the round inner ones (12).
+   Since the printed plan, its N11 at the top of the left arc was taken out
+   and a new long table N7 put in between N6 and N7; the numbers after each
+   change moved along with it (see upgrade()).
    ===================================================================== */
 const SIDES = {
   PAPA:  {label:"Папа",  c:"var(--papa)",  t:"var(--papa-t)",  s:"P"},
@@ -348,7 +349,7 @@ const SIDES = {
 // on two rings inside it, the dance-floor mandala in the middle.
 const CX = 640, CY = 800, R = 545, RING_A = 390, RING_B = 265;
 const rad = d => d * Math.PI / 180;
-function outerSlot(k){ // k = 1 (bottom) … 10 (top) on the left arc
+function outerSlot(k){ // k = 1 (bottom) … 11 (top) on the left arc
   const th = rad(116 + (k - 1) * 12.8);
   // Long side points at the middle of the hall, chairs along the arc.
   return {x:CX + R * Math.cos(th), y:CY + R * Math.sin(th), rot:th * 180 / Math.PI};
@@ -356,37 +357,44 @@ function outerSlot(k){ // k = 1 (bottom) … 10 (top) on the left arc
 function ringSlot(r, deg){ return {x:CX + r * Math.cos(rad(deg)), y:CY + r * Math.sin(rad(deg))}; }
 const mirror = p => ({x:2 * CX - p.x, y:p.y, rot:p.rot == null ? 0 : 180 - p.rot});
 const TABLES = [];
-for (let k = 1; k <= 10; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, ...s}); }
-// Left inner tables: outer ring N11–N15 (bottom → top), inner ring N16–N19.
-const LEFT_ROUND = {11:[RING_A,139],12:[RING_A,159],13:[RING_A,179],14:[RING_A,199],15:[RING_A,219],
-                    16:[RING_B,136],17:[RING_B,162],18:[RING_B,188],19:[RING_B,214]};
+for (let k = 1; k <= 11; k++) { const s = outerSlot(k); TABLES.push({n:k, kind:"rect", seats:10, ...s}); }
+// Left inner tables: outer ring N12–N16 (bottom → top), inner ring N17–N20.
+const LEFT_ROUND = {12:[RING_A,139],13:[RING_A,159],14:[RING_A,179],15:[RING_A,199],16:[RING_A,219],
+                    17:[RING_B,136],18:[RING_B,162],19:[RING_B,188],20:[RING_B,214]};
 for (const [n, [r, d]] of Object.entries(LEFT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...ringSlot(r, d), rot:0});
-// Right inner tables mirror the left: N24–N28 outer ring, N20–N23 inner ring.
-const RIGHT_ROUND = {24:[RING_A,139],25:[RING_A,159],26:[RING_A,179],27:[RING_A,199],28:[RING_A,219],
-                     20:[RING_B,136],21:[RING_B,162],22:[RING_B,188],23:[RING_B,214]};
+// Right inner tables mirror the left: N25–N29 outer ring, N21–N24 inner ring.
+const RIGHT_ROUND = {25:[RING_A,139],26:[RING_A,159],27:[RING_A,179],28:[RING_A,199],29:[RING_A,219],
+                     21:[RING_B,136],22:[RING_B,162],23:[RING_B,188],24:[RING_B,214]};
 for (const [n, [r, d]] of Object.entries(RIGHT_ROUND)) TABLES.push({n:+n, kind:"round", seats:12, ...mirror(ringSlot(r, d)), rot:0});
-for (let n = 29; n <= 36; n++) TABLES.push({n, kind:"rect", seats:10, ...mirror(outerSlot(39 - n))});
+for (let n = 30; n <= 37; n++) TABLES.push({n, kind:"rect", seats:10, ...mirror(outerSlot(40 - n))});
 const MUSIC = mirror(outerSlot(2));
 const TBL = Object.fromEntries(TABLES.map(t => [t.n, t]));
 
-// Which numbering a plan's table numbers are in. Plans saved before N11 was
-// taken out carry no marker and use the printed plan's N1–N37; upgrade()
-// renumbers them so every guest stays at the same physical table. The server
-// refuses saves from pages that don't send this, so a tab left open on the
-// old numbering can't write it back over the new one.
-const LAYOUT = 2;
+// Which numbering a plan's table numbers are in. Plans saved before the first
+// change carry no marker and use the printed plan's numbers (layout 1);
+// upgrade() renumbers older plans step by step so every guest stays at the
+// same table. The server refuses saves from pages that don't send the current
+// layout, so a tab left open on an old numbering can't write it back.
+const LAYOUT = 3;
+const RENUMBER = {
+  2: {note:"Стол N11 убран, столы N12–N37 стали N11–N36", table:t => t === 11 ? null : t > 11 ? t - 1 : t},
+  3: {note:"Добавлен пустой стол N7, столы N7–N36 стали N8–N37", table:t => t >= 7 ? t + 1 : t},
+};
+function layoutOf(data){ return data?.meta?.layout || 1; }
 function upgrade(data){
   if (!data) return data;
   data.meta ||= {};
-  if (data.meta.layout === LAYOUT) return data;
+  const from = layoutOf(data);
+  if (from >= LAYOUT) return data;
   const unseated = [];
   for (const g of data.guests || []) {
-    if (g.table == null) continue;
-    if (g.table === 11) { g.table = null; if (g.status !== "removed") unseated.push(g.name); }
-    else if (g.table > 11) g.table -= 1;
+    for (let v = from + 1; v <= LAYOUT && g.table != null; v++) {
+      g.table = RENUMBER[v].table(g.table);
+      if (g.table == null && g.status !== "removed") unseated.push(g.name);
+    }
   }
   data.meta.layout = LAYOUT;
-  if (unseated.length) setTimeout(() => toast(`Стола N11 больше нет — без стола: ${unseated.join(", ")}.`), 0);
+  if (unseated.length) setTimeout(() => toast(`Стол N11 со старого плана убран — без стола: ${unseated.join(", ")}.`), 0);
   return data;
 }
 
@@ -1078,7 +1086,7 @@ function rowsToPlan(rows){
   const guests = [], seen = new Set();
   let layout = null;
   rows.map(key).forEach((r, i) => {
-    if (r["схема"] !== undefined && +r["схема"] === LAYOUT) layout = LAYOUT;
+    if (r["схема"] !== undefined && +r["схема"] >= 2 && +r["схема"] <= LAYOUT) layout = +r["схема"];
     for (const [ru, en] of [["сторона","side"],["№","no"],["имя","name"],["группа","group"],["стол","table"],["статус","status"],["примечание","note"]]) if (r[ru] !== undefined && r[en] === undefined) r[en] = r[ru];
     const name = String(r.name ?? r["ad"] ?? "").trim(); if (!name) return;
     const side = SIDE_ALIASES[String(r.side ?? "").trim().toLowerCase()] || (SIDES[String(r.side ?? "").trim().toUpperCase()] ? String(r.side).trim().toUpperCase() : "OTHER");
@@ -1230,11 +1238,11 @@ async function boot(){
   plan = r.body.data || {guests:[], meta:{layout:LAYOUT}};
   plan.guests ||= [];
   version = r.body.version;
-  // First load after N11 was taken out: renumber and save once, outside undo.
-  if (plan.meta?.layout !== LAYOUT) {
-    const op = {t:"upgrade"};
+  // First load after the hall changed: renumber and save once, outside undo.
+  if (layoutOf(plan) < LAYOUT) {
+    const from = layoutOf(plan), op = {t:"upgrade"};
     applyOp(plan, op); pending.push(op);
-    lastNote = "Стол N11 убран, столы N12–N37 стали N11–N36";
+    lastNote = Object.entries(RENUMBER).filter(([v]) => +v > from).map(([, r]) => r.note).join("; ");
   }
   $("#loginView").classList.add("hidden"); $("#app").classList.remove("hidden");
   drawStatic($("#map"));
