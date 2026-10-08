@@ -90,10 +90,12 @@ lists and download an Excel copy.
 - Every save is kept in `toy_plan_history` (latest 200), and **More → History**
   restores any of them. Two people editing at once don't overwrite each other:
   a stale save gets a 409, and the page replays its own changes on top.
-- The hall has 36 tables: the printed plan's N11 was taken out and N12–N37
-  became N11–N36. Plans, history versions and backups from before that are
-  renumbered when loaded, so guests keep their physical table; the server
-  refuses saves from a page still on the old numbering (`TOY_LAYOUT`).
+- The hall has 37 tables. Since the printed plan, its N11 was taken out
+  (N12–N37 became N11–N36), then a new long table N7 was put in between N6
+  and N7 (N7–N36 became N8–N37). Plans, history versions and backups from
+  before a change are renumbered when loaded, so guests keep their table;
+  the server refuses saves from a page still on an old numbering
+  (`TOY_LAYOUT`).
 
 ## Deploy (Vercel)
 

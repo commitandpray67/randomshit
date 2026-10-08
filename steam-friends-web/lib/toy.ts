@@ -25,8 +25,9 @@ export const MAX_PLAN_BYTES = 1_000_000;
 /**
  * The hall layout the page's table numbers refer to (LAYOUT in the page).
  * 2: the printed plan's N11 taken out and N12–N37 renumbered N11–N36.
+ * 3: a new empty long table N7 put in between N6 and N7, N7–N36 → N8–N37.
  */
-export const TOY_LAYOUT = 2;
+export const TOY_LAYOUT = 3;
 
 export function toyConfigured(): boolean {
   return Boolean(process.env.TOY_PASSWORD);
