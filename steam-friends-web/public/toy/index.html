@@ -30,6 +30,8 @@ header h1{font-size:17px;margin:0 8px 0 0;font-weight:650;letter-spacing:.2px;wh
 .stat{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
 .stat b{font-weight:650}
 .stat.bad{border-color:#e7b3ad;background:#fbeceb;color:var(--danger)}
+button.stat{font:inherit;font-size:12.5px;color:var(--ok);border-color:#b9dcc6;background:#eef7f1}
+button.stat:hover{filter:brightness(.97)}
 .spacer{flex:1}
 .search{position:relative}
 .search input{width:200px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
@@ -115,6 +117,22 @@ table.lt{border-collapse:collapse;width:100%;font-size:13.5px}
 .lt .del{border:1px solid transparent;background:none;color:var(--danger);border-radius:6px;padding:5px 8px}
 .lt .del:hover{border-color:#e7b3ad;background:#fbeceb}
 .lt tr.flash td{animation:flash 1.6s ease}
+.lt .c-gift{width:260px}
+.gin{display:flex;gap:4px}
+.gin .gc{display:flex;align-items:center;gap:3px;flex:1;min-width:0;margin:0}
+.gin input{width:100%;min-width:0;text-align:right}
+.gin .gc span{font-size:11px;color:var(--muted)}
+.giftline{padding:7px 12px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);flex:none}
+.giftline b{color:var(--ok);font-weight:600}
+.g .gf{color:var(--ok);font-size:11.5px;white-space:nowrap;flex:none}
+table.gt{border-collapse:collapse;width:100%;font-size:13.5px}
+.gt th,.gt td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.gt th:first-child,.gt td:first-child{text-align:left}
+.gt th{font-weight:600;color:var(--muted);font-size:12.5px}
+.gt tr[data-t]{cursor:pointer}
+.gt tr[data-t]:hover td{background:var(--bg)}
+.gt tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--line2)}
+.gt .z{color:#c3bbb0}
 
 /* ---------- guest rows ---------- */
 .g{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 4px;border-bottom:1px solid #f1ede6;background:#fff}
@@ -222,6 +240,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   .lt td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted);margin:0 0 2px 2px}
   .lt td.c-name{grid-column:1 / -1}
   .lt td.c-note{grid-column:1 / -1}
+  .lt td.c-gift{grid-column:1 / -1}
   .lt td.c-act{grid-column:1 / -1;text-align:left}
   .lt input,.lt select{border-color:var(--line2);background:#fff;padding:9px 8px}
   .lt .del{border-color:#e7b3ad;padding:9px 12px}
@@ -287,6 +306,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
       <div class="drop hidden" id="moreMenu">
         <button data-act="import">Импорт таблицы…</button>
         <button data-act="xlsx">Скачать Excel (.xlsx)</button>
+        <button data-act="gifts">Подарки по столам</button>
         <button data-act="print">Печать списков по столам</button>
         <button data-act="json">Скачать резервную копию (.json)</button>
         <button data-act="history">История / восстановить…</button>
@@ -457,6 +477,34 @@ function tag(g){
   const s = SIDES[sideOf(g)];
   return s.label + (g.group != null && g.group !== "" ? " · " + g.group : "");
 }
+// Money each guest gave, kept per currency as g.gift = {AZN, USD, EUR} (only
+// the ones given). Currencies are never converted into each other.
+const CURS = ["AZN", "USD", "EUR"];
+const nf = new Intl.NumberFormat("ru-RU", {maximumFractionDigits:2});
+const hasGift = g => CURS.some(c => g.gift?.[c]);
+function giftSum(guests){
+  const s = {AZN:0, USD:0, EUR:0};
+  for (const g of guests) for (const c of CURS) s[c] += +(g.gift?.[c] || 0);
+  for (const c of CURS) s[c] = Math.round(s[c] * 100) / 100;
+  return s;
+}
+function fmtGift(s, empty = "—"){
+  const parts = CURS.filter(c => s && s[c]).map(c => `${nf.format(s[c])} ${c}`);
+  return parts.length ? parts.join(" · ") : empty;
+}
+// "1 200,50" or "1200.5" → 1200.5, "" → 0, anything else → NaN
+function parseAmount(v){
+  const t = String(v ?? "").replace(/[\s\u00a0]/g, "").replace(",", ".");
+  if (t === "") return 0;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN;
+}
+// Sets just the currencies given (0 clears one); undefined when nothing is left.
+function mergeGift(old, add){
+  const g = {...(old || {})};
+  for (const [c, v] of Object.entries(add)) { if (v) g[c] = v; else delete g[c]; }
+  return Object.keys(g).length ? g : undefined;
+}
 
 /* =====================================================================
    Operations — every change goes through here so it can be saved,
@@ -468,7 +516,10 @@ function applyOp(p, op){
   switch (op.t) {
     case "move":   op.moves.forEach(([id, table]) => { const g = find(id); if (g) g.table = table; }); break;
     case "add":    if (!find(op.guest.id)) p.guests.push(clone(op.guest)); break;
-    case "edit":   { const g = find(op.id); if (g) Object.assign(g, op.fields); } break;
+    case "edit":   { const g = find(op.id); if (!g) break;
+      Object.assign(g, op.fields || {});
+      // Per currency, so two people entering different currencies don't overwrite each other.
+      if (op.gift) { const m = mergeGift(g.gift, op.gift); if (m) g.gift = m; else delete g.gift; } } break;
     case "remove": { const g = find(op.id); if (g) { g.status = "removed"; g.table = null; } } break;
     case "restore":{ const g = find(op.id); if (g) g.status = "active"; } break;
     case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
@@ -633,7 +684,7 @@ function renderMap(){
     g.classList.toggle("hit", !!q && gs.some(x => x.name.toLocaleLowerCase().includes(q)));
     const chairs = g.querySelectorAll(".chair");
     chairs.forEach((c, i) => c.style.fill = gs[i] ? SIDES[sideOf(gs[i])].c : "#fff");
-    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
+    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.some(hasGift) ? `\nПодарки: ${fmtGift(giftSum(gs))}` : "") + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
   }
 }
 
@@ -654,6 +705,7 @@ function guestRow(g){
     <span class="handle" title="Перетащить или нажать">⋮⋮</span>
     <span class="dot" style="background:${s.c}"></span>
     <span class="nm" title="${esc(g.name)} — ${esc(tag(g))}">${esc(g.name)}<small>${esc(tag(g))}</small></span>
+    ${hasGift(g) ? `<span class="gf" title="Подарок">${esc(fmtGift(g.gift))}</span>` : ""}
     ${g.note ? `<span class="nt" title="${esc(noteRu(g.note))}">ⓘ</span>` : ""}
     <select class="mv" aria-label="Пересадить за стол">${tableOptions(g.table)}</select>
     <button class="ed" title="Изменить">✎</button>
@@ -668,7 +720,8 @@ function renderStats(){
     `<span class="stat"><b>${seated}</b> рассажено</span>` +
     `<span class="stat${a.length - seated ? " bad" : ""}"><b>${a.length - seated}</b> без стола</span>` +
     (over ? `<span class="stat bad"><b>${over}</b> переполнено</span>` : "") +
-    `<span class="stat">${seats - seated} свободных мест</span>`;
+    `<span class="stat">${seats - seated} свободных мест</span>` +
+    `<button class="stat" id="giftBtn" title="Подарки по столам">Подарки: <b>${esc(fmtGift(giftSum(plan.guests), "—"))}</b></button>`;
   $("#undoBtn").disabled = !undoStack.length;
 }
 function renderTable(){
@@ -691,7 +744,8 @@ function renderTable(){
       <span class="pill ${cls}">${gs.length}/${t.seats}</span>
       <span style="color:var(--muted);font-size:12.5px">${t.kind === "round" ? "круглый · внутренний" : "длинный · внешний"}</span>
       <span class="spacer"></span><button class="btn" id="closeTbl" title="Закрыть" style="margin-left:auto">✕</button></div>
-    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>` : ""}
+    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>
+      <div class="giftline">Подарки за столом: <b>${esc(fmtGift(giftSum(gs)))}</b> · дали ${gs.filter(hasGift).length} из ${gs.length}</div>` : ""}
     <div class="sec-b tray-drop" data-drop="${t.n}">${gs.length ? gs.map(guestRow).join("") :
       `<div class="hint">Здесь пока никого нет. Перетащите имена из «Без стола» на этот стол на плане или сюда.</div>`}</div>
     <form class="addrow" id="addHere"><input placeholder="Новый гость за стол N${t.n}…" id="addName">
@@ -778,6 +832,11 @@ function listRows(){
   rows.sort((a, b) => key ? ((key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * lf.dir || byOrder(a, b)) : byOrder(a, b) * lf.dir);
   return rows;
 }
+// One amount box per currency; empty means nothing given in it.
+function giftInputs(g, cls){
+  return `<div class="gin">${CURS.map(c => `<span class="gc"><input class="${cls}" data-cur="${c}" value="${g.gift?.[c] ?? ""}"
+    inputmode="decimal" placeholder="0" aria-label="${c}"><span>${c}</span></span>`).join("")}</div>`;
+}
 function renderList(){
   const box = $("#listView");
   const focusId = document.activeElement?.closest?.("#lq") ? "lq" : null;
@@ -798,13 +857,14 @@ function renderList(){
       <select id="lTable">${tblFilter}</select>
       <label style="font-size:13px;white-space:nowrap"><input type="checkbox" id="lRemoved"${lf.removed ? " checked" : ""}> удалённые</label>
     </div>
-    <div class="lt-count">Показано ${rows.length} · всего гостей ${total}, без стола ${active().filter(g => g.table == null).length}</div>
+    <div class="lt-count">Показано ${rows.length} · всего гостей ${total}, без стола ${active().filter(g => g.table == null).length} · подарки показанных: ${esc(fmtGift(giftSum(rows)))}</div>
     <div class="lt-wrap"><table class="lt"><thead><tr>
       <th class="c-no nosort">№</th>
       <th data-sort="name">Имя${arrow("name")}</th>
       <th class="c-side" data-sort="side">Чей гость${arrow("side")}</th>
       <th class="c-grp" data-sort="group">Группа${arrow("group")}</th>
       <th class="c-tbl" data-sort="table">Стол${arrow("table")}</th>
+      <th class="c-gift nosort">Подарок</th>
       <th class="nosort">Примечание</th>
       <th class="c-act nosort"></th></tr></thead><tbody>
       ${rows.map((g, i) => `<tr data-id="${esc(g.id)}" class="${g.status === "removed" ? "removed" : ""}${flashId === g.id ? " flash" : ""}">
@@ -813,6 +873,7 @@ function renderList(){
         <td class="c-side" data-l="Чей гость">${sideSelect(sideOf(g), "f-side")}</td>
         <td class="c-grp" data-l="Группа"><input class="f-group" value="${esc(g.group ?? "")}" placeholder="—" inputmode="numeric" aria-label="Группа"></td>
         <td class="c-tbl" data-l="Стол">${g.status === "removed" ? `<span style="color:var(--muted)">удалён</span>` : `<select class="f-table" aria-label="Стол">${tableOptions(g.table)}</select>`}</td>
+        <td class="c-gift" data-l="Подарок">${giftInputs(g, "f-gift")}</td>
         <td class="c-note" data-l="Примечание"><input class="f-note" value="${esc(noteRu(g.note))}" placeholder="—" aria-label="Примечание"></td>
         <td class="c-act">${g.status === "removed" ? `<button class="btn f-restore">Вернуть</button>` : `<button class="del f-del" title="Удалить из списка">Удалить</button>`}</td>
       </tr>`).join("")}
@@ -839,6 +900,10 @@ $("#listView").addEventListener("change", e => {
     commit({t:"edit", id, fields:{side:t.value}}, `${g.name}: ${SIDES[t.value].label}`);
   } else if (t.classList.contains("f-group")) {
     const v = t.value.trim(); commit({t:"edit", id, fields:{group:v === "" ? null : (isNaN(+v) ? v : +v)}}, `${g.name}: группа ${v || "—"}`);
+  } else if (t.classList.contains("f-gift")) {
+    const c = t.dataset.cur, v = parseAmount(t.value), was = g.gift?.[c] || 0;
+    if (isNaN(v)) { t.value = was || ""; toast("Сумма — это число, например 100 или 50,5."); return; }
+    if (v !== was) commit({t:"edit", id, gift:{[c]:v}}, `${g.name}: ${v ? nf.format(v) + " " + c : "без " + c}`);
   } else if (t.classList.contains("f-note")) {
     if (t.value.trim() !== noteRu(g.note)) commit({t:"edit", id, fields:{note:t.value.trim()}}, `${g.name}: примечание`);
   }
@@ -928,6 +993,7 @@ document.addEventListener("click", e => {
   else if (t.classList.contains("ed")) editGuest(t.closest(".g").dataset.id);
   else if (t.classList.contains("restore")) { const id = t.closest(".g").dataset.rid; const g = plan.guests.find(x => x.id === id); commit({t:"restore", id}, `Возвращён: ${g.name}`); }
   else if (t.id === "addUnseated") editGuest(null);
+  else if (t.closest("#giftBtn")) showGifts();
   if (!t.closest(".menu")) $("#moreMenu").classList.add("hidden");
   if (!t.closest(".search")) $("#results").classList.add("hidden");
 });
@@ -1050,6 +1116,7 @@ function editGuest(id){
     <label>Чей гость</label><select id="gSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${sideOf(g) === k ? " selected" : ""}>${v.label}</option>`).join("")}</select>
     <label>Номер группы (необязательно)</label><input id="gGroup" inputmode="numeric" value="${esc(g.group ?? "")}">
     <label>Стол</label><select id="gTable">${tableOptions(g.table)}</select>
+    <label>Подарок</label>${giftInputs(g, "g-gift")}
     <label>Примечание</label><textarea id="gNote" rows="2">${esc(noteRu(g.note || ""))}</textarea></form>
     <div class="row">${id ? `<button class="btn danger" id="gDel" style="margin-right:auto">Удалить из списка</button>` : ""}
       <button class="btn" id="gCancel">Отмена</button><button class="btn primary" id="gOk">${id ? "Сохранить" : "Добавить"}</button></div>`);
@@ -1057,16 +1124,48 @@ function editGuest(id){
   s.querySelector("#gCancel").onclick = closeDlg;
   const ok = () => {
     const name = s.querySelector("#gName").value.trim(); if (!name) return;
+    const gift = {};
+    for (const inp of s.querySelectorAll(".g-gift")) gift[inp.dataset.cur] = parseAmount(inp.value);
+    if (Object.values(gift).some(isNaN)) { toast("Сумма — это число, например 100 или 50,5."); return; }
     const grp = s.querySelector("#gGroup").value.trim();
     const fields = {name, side:s.querySelector("#gSide").value, group:grp === "" ? null : (isNaN(+grp) ? grp : +grp),
       table:s.querySelector("#gTable").value === "" ? null : +s.querySelector("#gTable").value, note:s.querySelector("#gNote").value.trim()};
     closeDlg();
-    if (id) commit({t:"edit", id, fields}, `Изменён: ${name}`);
-    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields}}, `Добавлен: ${name}`);
+    // Only the currencies changed here, so someone else's entry in another one stays.
+    if (id) commit({t:"edit", id, fields, gift:Object.fromEntries(Object.entries(gift).filter(([c, v]) => v !== (g.gift?.[c] || 0)))}, `Изменён: ${name}`);
+    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields,
+      ...(mergeGift(null, gift) ? {gift:mergeGift(null, gift)} : {})}}, `Добавлен: ${name}`);
   };
   s.querySelector("#gOk").onclick = ok;
   s.querySelector("#gForm").onsubmit = e => { e.preventDefault(); ok(); };
   if (id) s.querySelector("#gDel").onclick = () => { closeDlg(); commit({t:"remove", id}, `Удалён: ${g.name}`); toast(`${g.name} удалён(а) — вернуть можно в «Удалены из списка».`); };
+}
+
+/* ---------- gifts by table ---------- */
+// Every table with someone at it, then the unseated, then removed guests who
+// still have a gift recorded, so the rows always add up to the header total.
+function giftRows(){
+  const rows = [];
+  for (const t of TABLES) { const gs = at(t.n); if (gs.length) rows.push({label:"N" + t.n, n:t.n, guests:gs}); }
+  const un = active().filter(g => g.table == null); if (un.length) rows.push({label:"Без стола", guests:un});
+  const rm = plan.guests.filter(g => g.status === "removed" && hasGift(g)); if (rm.length) rows.push({label:"Удалены из списка", guests:rm});
+  return rows.map(r => ({...r, sum:giftSum(r.guests), gave:r.guests.filter(hasGift).length}));
+}
+function showGifts(){
+  const rows = giftRows(), total = giftSum(plan.guests);
+  const cell = v => v ? `<td>${nf.format(v)}</td>` : `<td class="z">—</td>`;
+  const s = dlg(`<h3>Подарки по столам</h3><div class="in">
+    <p style="margin:0 0 8px">Всего: <b>${esc(fmtGift(total))}</b><br><small style="color:var(--muted)">Валюты считаются отдельно, без пересчёта. Нажмите на стол, чтобы открыть его.</small></p>
+    <table class="gt"><thead><tr><th>Стол</th><th>Дали</th>${CURS.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(r => `<tr${r.n ? ` data-t="${r.n}"` : ""}><td>${esc(r.label)}</td><td>${r.gave}/${r.guests.length}</td>${CURS.map(c => cell(r.sum[c])).join("")}</tr>`).join("")}
+    </tbody><tfoot><tr><td>Итого</td><td>${plan.guests.filter(hasGift).length}</td>${CURS.map(c => cell(total[c])).join("")}</tr></tfoot></table></div>
+    <div class="row"><button class="btn" id="gtClose">Закрыть</button></div>`);
+  s.querySelector("#gtClose").onclick = closeDlg;
+  s.querySelectorAll("tr[data-t]").forEach(tr => tr.onclick = () => {
+    const n = +tr.dataset.t; closeDlg();
+    if (view !== "map") setView("map");
+    selectTable(n); requestAnimationFrame(() => showTableOnMap(n));
+  });
 }
 
 /* =====================================================================
@@ -1088,6 +1187,7 @@ function rowsToPlan(rows){
   rows.map(key).forEach((r, i) => {
     if (r["схема"] !== undefined && +r["схема"] >= 2 && +r["схема"] <= LAYOUT) layout = +r["схема"];
     for (const [ru, en] of [["сторона","side"],["№","no"],["имя","name"],["группа","group"],["стол","table"],["статус","status"],["примечание","note"]]) if (r[ru] !== undefined && r[en] === undefined) r[en] = r[ru];
+    const gift = mergeGift(null, Object.fromEntries(CURS.map(c => [c, parseAmount(r[c.toLowerCase()]) || 0])));
     const name = String(r.name ?? r["ad"] ?? "").trim(); if (!name) return;
     const side = SIDE_ALIASES[String(r.side ?? "").trim().toLowerCase()] || (SIDES[String(r.side ?? "").trim().toUpperCase()] ? String(r.side).trim().toUpperCase() : "OTHER");
     const no = r.no === "" || r.no == null ? null : +r.no;
@@ -1096,7 +1196,7 @@ function rowsToPlan(rows){
     const status = /del|remov|sil|удал/i.test(String(r.status ?? "")) ? "removed" : "active";
     const tbl = r.table === "" || r.table == null ? null : parseInt(String(r.table).replace(/\D/g, ""), 10);
     const group = r.group === "" || r.group == null ? null : (isNaN(+r.group) ? String(r.group) : +r.group);
-    guests.push({id, no, name, side, group, table:status === "active" && Number.isFinite(tbl) ? tbl : null, note:String(r.note ?? "").trim(), status});
+    guests.push({id, no, name, side, group, table:status === "active" && Number.isFinite(tbl) ? tbl : null, note:String(r.note ?? "").trim(), status, ...(gift ? {gift} : {})});
   });
   // Without the «Схема» column the table numbers are the printed plan's; readFile upgrades them.
   return {guests, meta:{importedAt:new Date().toISOString(), ...(layout ? {layout} : {})}};
@@ -1167,14 +1267,20 @@ async function exportXlsx(){
   sheet(aoa, "Список гостей", [11, 28, 7, 28, 7, 28, 7, 24, 7], true);
   // 2. Table by table, in seat order — what the hall staff need.
   const byTable = [];
-  const row = (tbl, seats, i, g) => ({"Стол":tbl, "Мест":seats, "№":i, "Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", "Примечание":noteRu(g.note)});
+  const money = g => Object.fromEntries(CURS.map(c => [c, g.gift?.[c] || ""]));
+  const row = (tbl, seats, i, g) => ({"Стол":tbl, "Мест":seats, "№":i, "Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", ...money(g), "Примечание":noteRu(g.note)});
   for (const t of TABLES) at(t.n).forEach((g, i) => byTable.push(row("N" + t.n, t.seats, i + 1, g)));
   act.filter(g => g.table == null).sort(byOrder).forEach(g => byTable.push(row("Без стола", "", "", g)));
-  sheet(byTable, "По столам", [11, 6, 4, 30, 8, 7, 50]);
+  sheet(byTable, "По столам", [11, 6, 4, 30, 8, 7, 9, 9, 9, 50]);
+  // 2b. Gifts per table, with the grand total.
+  const gr = giftRows().map(r => ({"Стол":r.label, "Гостей":r.guests.length, "Дали":r.gave, ...Object.fromEntries(CURS.map(c => [c, r.sum[c] || ""]))}));
+  const tot = giftSum(plan.guests);
+  gr.push({"Стол":"Итого", "Гостей":"", "Дали":plan.guests.filter(hasGift).length, ...Object.fromEntries(CURS.map(c => [c, tot[c] || ""]))});
+  sheet(gr, "Подарки", [18, 8, 7, 11, 11, 11]);
   // 3. Occupancy of every table.
   sheet(TABLES.map(t => ({"Стол":"N" + t.n, "Тип":t.kind === "round" ? "Круглый (внутр.)" : "Длинный (внешн.)", "Мест":t.seats, "Занято":at(t.n).length, "Свободно":t.seats - at(t.n).length})), "Столы", [8, 18, 7, 8, 9]);
   // 4. Re-importable copy (More → Import reads this sheet).
-  sheet(plan.guests.slice().sort(byOrder).map(g => ({"Сторона":sideOf(g), "№":g.no ?? "", "Имя":g.name, "Группа":g.group ?? "", "Стол":g.table ?? "", "Статус":g.status === "removed" ? "Удалён" : "Придёт", "Примечание":noteRu(g.note), "Схема":LAYOUT})), "Для импорта", [8, 5, 30, 7, 7, 10, 50, 7]);
+  sheet(plan.guests.slice().sort(byOrder).map(g => ({"Сторона":sideOf(g), "№":g.no ?? "", "Имя":g.name, "Группа":g.group ?? "", "Стол":g.table ?? "", "Статус":g.status === "removed" ? "Удалён" : "Придёт", ...money(g), "Примечание":noteRu(g.note), "Схема":LAYOUT})), "Для импорта", [8, 5, 30, 7, 7, 10, 9, 9, 9, 50, 7]);
   XLSX.writeFile(wb, `rassadka-${stamp()}.xlsx`);
 }
 function printLists(){
@@ -1211,6 +1317,7 @@ $("#moreMenu").addEventListener("click", async e => {
   if (a === "xlsx") exportXlsx().catch(err => toast(err.message));
   if (a === "json") download(`rassadka-kopiya-${stamp()}.json`, new Blob([JSON.stringify(plan, null, 1)], {type:"application/json"}));
   if (a === "print") printLists();
+  if (a === "gifts") showGifts();
   if (a === "history") showHistory();
   if (a === "logout") { await api("/api/toy/logout", {method:"POST"}); location.reload(); }
 });
