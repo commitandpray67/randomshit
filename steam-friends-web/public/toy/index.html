@@ -750,7 +750,20 @@ function renderStats(){
     `<span class="stat">${seats - seated} свободных мест</span>`;
   $("#undoBtn").disabled = !undoStack.length;
 }
-function renderTable(){
+// Rebuilding a panel's HTML would put its list back at the top after every
+// edit. Keep it where it was while the panel still shows the same thing (ctx);
+// a different table or tab starts at the top as before.
+function keepScroll(el, ctx, build){
+  const old = el.querySelector(".sec-b, .lt-wrap");
+  const top = old && el.dataset.sctx === String(ctx) ? old.scrollTop : 0, y = window.scrollY;
+  build();
+  el.dataset.sctx = ctx;
+  const box = el.querySelector(".sec-b, .lt-wrap");
+  if (box && top) box.scrollTop = top;
+  if (window.scrollY !== y) window.scrollTo(0, y);
+}
+function renderTable(){ keepScroll($("#tablePanel"), "plan:" + selected, buildTable); }
+function buildTable(){
   const p = $("#tablePanel");
   p.dataset.key = "";
   p.classList.toggle("closed", selected == null);
@@ -778,7 +791,8 @@ function renderTable(){
       <select id="addSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
       <button class="btn">Добавить</button></form>`;
 }
-function renderTray(){
+function renderTray(){ keepScroll($("#trayPanel"), "tray", buildTray); }
+function buildTray(){
   const q = $("#q").value.trim().toLocaleLowerCase();
   const un = active().filter(g => g.table == null).sort(byOrder);
   const removed = plan.guests.filter(g => g.status === "removed").sort(byOrder);
@@ -861,7 +875,8 @@ function listRows(){
   rows.sort((a, b) => key ? ((key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * lf.dir || byOrder(a, b)) : byOrder(a, b) * lf.dir);
   return rows;
 }
-function renderList(){
+function renderList(){ keepScroll($("#listView"), "list", buildList); }
+function buildList(){
   const box = $("#listView");
   const focusId = document.activeElement?.closest?.("#lq") ? "lq" : null;
   const rows = listRows();
@@ -1235,7 +1250,8 @@ function giftRow(g){
     <select aria-label="Валюта">${CURS.map(c => `<option${c === cur ? " selected" : ""}>${c}</option>`).join("")}</select>
   </div>`;
 }
-function renderGiftEntry(){
+function renderGiftEntry(){ keepScroll($("#tablePanel"), "gifts:" + giftSel, buildGiftEntry); }
+function buildGiftEntry(){
   const p = $("#tablePanel");
   p.classList.toggle("closed", giftSel == null);
   if (giftSel == null) {
@@ -1308,7 +1324,8 @@ $("#tablePanel").addEventListener("change", e => {
   else { const g = plan.guests.find(x => x.id === row.dataset.gid); inp.value = g?.gift?.[e.target.value] || ""; }
   inp.focus(); inp.select();
 });
-function renderGiftReport(){
+function renderGiftReport(){ keepScroll($("#trayPanel"), "report", buildGiftReport); }
+function buildGiftReport(){
   const all = giftPool(), total = giftSum(all), gave = all.filter(hasGift).length;
   const cell = v => v ? `<td>${nf.format(v)}</td>` : `<td class="z">—</td>`;
   const az = sum => { const a = inAzn(sum); return a.v ? `<td>${nf.format(a.v)}${a.missing ? "*" : ""}</td>` : `<td class="z">—</td>`; };
