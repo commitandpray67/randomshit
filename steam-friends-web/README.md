@@ -90,11 +90,14 @@ lists and download an Excel copy.
 - Every save is kept in `toy_plan_history` (latest 200), and **More → History**
   restores any of them. Two people editing at once don't overwrite each other:
   a stale save gets a 409, and the page replays its own changes on top.
-- Each guest can have the money they gave recorded in AZN, USD and EUR
-  (guest list, or ✎ on a guest). The header shows the total; clicking it (or
-  **More → Gifts by table**) opens the per-table breakdown. Currencies are
-  kept apart, never converted. The Excel download has a «Подарки» sheet and
-  the amounts per guest, and re-importing it keeps them.
+- The **Подарки** tab is for recording the money each guest gave, and
+  nothing else (no reseating there). Click a table, type an amount, Enter
+  goes to the next guest; AZN by default, USD/EUR from the menu beside it,
+  «+50» adds to what's there. Reports: total, per side and per table, with
+  an approximate AZN total at exchange rates entered on the tab (shared,
+  stored in the plan). Amounts are kept per currency in `guest.gift`; the
+  Excel download has «Подарки» and «Подарки — гости» sheets, and
+  re-importing it keeps the amounts.
 - The hall has 37 tables. Since the printed plan, its N11 was taken out
   (N12–N37 became N11–N36), then a new long table N7 was put in between N6
   and N7 (N7–N36 became N8–N37). Plans, history versions and backups from

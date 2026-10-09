@@ -30,8 +30,6 @@ header h1{font-size:17px;margin:0 8px 0 0;font-weight:650;letter-spacing:.2px;wh
 .stat{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;white-space:nowrap}
 .stat b{font-weight:650}
 .stat.bad{border-color:#e7b3ad;background:#fbeceb;color:var(--danger)}
-button.stat{font:inherit;font-size:12.5px;color:var(--ok);border-color:#b9dcc6;background:#eef7f1}
-button.stat:hover{filter:brightness(.97)}
 .spacer{flex:1}
 .search{position:relative}
 .search input{width:200px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff}
@@ -117,14 +115,37 @@ table.lt{border-collapse:collapse;width:100%;font-size:13.5px}
 .lt .del{border:1px solid transparent;background:none;color:var(--danger);border-radius:6px;padding:5px 8px}
 .lt .del:hover{border-color:#e7b3ad;background:#fbeceb}
 .lt tr.flash td{animation:flash 1.6s ease}
-.lt .c-gift{width:260px}
-.gin{display:flex;gap:4px}
-.gin .gc{display:flex;align-items:center;gap:3px;flex:1;min-width:0;margin:0}
-.gin input{width:100%;min-width:0;text-align:right}
-.gin .gc span{font-size:11px;color:var(--muted)}
-.giftline{padding:7px 12px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);flex:none}
-.giftline b{color:var(--ok);font-weight:600}
-.g .gf{color:var(--ok);font-size:11.5px;white-space:nowrap;flex:none}
+/* ---------- gifts tab ---------- */
+body.gifts #legPlan,body:not(.gifts) #legGift{display:none}
+body.gifts #tablePanel:not(.closed){flex:3 1 0}
+body.gifts #trayPanel{flex:3 1 0}
+.gsum{padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
+.gsum .big{font-size:17px;font-weight:700;color:var(--ok);line-height:1.3}
+.gsum small{color:var(--muted)}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) 100px 72px;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1ede6;background:#fff}
+.gr .who{min-width:0}
+.gr .who b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr .who small{color:var(--muted);font-size:11.5px}
+.gr .who .gv{color:var(--ok);font-weight:600;margin-left:4px}
+.gr .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.gr input{width:100%;padding:7px 8px;border:1px solid var(--line2);border-radius:7px;text-align:right;background:#fff}
+.gr input:focus{border-color:var(--ok);outline:none;box-shadow:0 0 0 2px #cfe9d9}
+.gr select{width:100%;padding:6px 4px;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.gr.gave{background:#f3faf6}
+.gr.saved{animation:saved 1.2s ease}
+@keyframes saved{0%,40%{background:#cdeedb}100%{background:#f3faf6}}
+.rep h3{display:flex;align-items:center;gap:8px;font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:14px 12px 4px;font-weight:600}
+.rep .gt{font-size:12.5px}
+.rep .gt th,.rep .gt td{padding:5px 5px}
+.rep .gt th:first-child,.rep .gt td:first-child{padding-left:12px}
+.rep .gt th:last-child,.rep .gt td:last-child{padding-right:12px}
+.gt tr.on td{background:#fff3cd}
+.gt .sd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.rates{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 12px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line)}
+.rates input{width:64px;padding:4px 6px;border:1px solid var(--line2);border-radius:6px;text-align:right;background:#fff}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden;margin-left:auto;text-transform:none;letter-spacing:0}
+.seg button{border:0;background:#fff;padding:3px 8px;font-size:12px;color:var(--muted)}
+.seg button.on{background:var(--bg);color:var(--ink);font-weight:600}
 table.gt{border-collapse:collapse;width:100%;font-size:13.5px}
 .gt th,.gt td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 .gt th:first-child,.gt td:first-child{text-align:left}
@@ -240,7 +261,6 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   .lt td[data-l]::before{content:attr(data-l);display:block;font-size:11.5px;color:var(--muted);margin:0 0 2px 2px}
   .lt td.c-name{grid-column:1 / -1}
   .lt td.c-note{grid-column:1 / -1}
-  .lt td.c-gift{grid-column:1 / -1}
   .lt td.c-act{grid-column:1 / -1;text-align:left}
   .lt input,.lt select{border-color:var(--line2);background:#fff;padding:9px 8px}
   .lt .del{border-color:#e7b3ad;padding:9px 12px}
@@ -306,7 +326,6 @@ body.dragging,body.dragging *{cursor:grabbing!important}
       <div class="drop hidden" id="moreMenu">
         <button data-act="import">Импорт таблицы…</button>
         <button data-act="xlsx">Скачать Excel (.xlsx)</button>
-        <button data-act="gifts">Подарки по столам</button>
         <button data-act="print">Печать списков по столам</button>
         <button data-act="json">Скачать резервную копию (.json)</button>
         <button data-act="history">История / восстановить…</button>
@@ -325,13 +344,19 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   <nav class="tabs hidden" id="tabs">
     <button data-view="map" class="on">План зала</button>
     <button data-view="list">Список гостей</button>
+    <button data-view="gifts">Подарки</button>
   </nav>
   <section class="card hidden" id="listView"></section>
   <main id="mainView" class="hidden">
     <section class="card mapwrap">
       <div class="mapview" id="mapview"><svg id="map" viewBox="0 80 1280 1480" role="img" aria-label="План зала"></svg></div>
       <div class="zoom"><button id="zIn" title="Приблизить" aria-label="Приблизить">+</button><button id="zOut" title="Отдалить" aria-label="Отдалить">−</button><button id="zFit" title="Весь зал" aria-label="Показать весь зал" style="font-size:16px">⤢</button></div>
-      <div class="legend">
+      <div class="legend" id="legGift">
+        <span><i style="background:var(--ok)"></i>уже дал(а)</span>
+        <span><i style="background:#ddd5c9"></i>ещё нет</span>
+        <span>Число на столе — сколько гостей за ним уже дали. Нажмите на стол и впишите суммы.</span>
+      </div>
+      <div class="legend" id="legPlan">
         <span><i style="background:var(--papa)"></i>Папа</span>
         <span><i style="background:var(--mama)"></i>Мама</span>
         <span><i style="background:var(--laman)"></i>Ляман</span>
@@ -524,6 +549,7 @@ function applyOp(p, op){
     case "restore":{ const g = find(op.id); if (g) g.status = "active"; } break;
     case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
     case "upgrade": upgrade(p); break;
+    case "meta":    p.meta = {...(p.meta || {}), ...op.fields}; break;
   }
 }
 function commit(op, note){
@@ -595,7 +621,8 @@ async function save(){
 }
 async function poll(){
   if (document.hidden || saving || pending.length || !plan) return;
-  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#listView") && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#listView, .gr, .rates") && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  if (document.querySelector(".gr[data-dirty]")) return;
   const r = await api("/api/toy/state").catch(() => null);
   if (r && r.status === 200 && r.body.version > version && !pending.length) {
     plan = upgrade(r.body.data); version = r.body.version; undoStack = [];
@@ -675,16 +702,17 @@ function renderMap(){
   for (const t of TABLES) {
     const g = document.querySelector(`#tables [data-table="${t.n}"]`);
     const gs = at(t.n);
+    g.classList.toggle("hit", !!q && gs.some(x => x.name.toLocaleLowerCase().includes(q)));
+    if (view === "gifts") { giftMapTable(t, g, gs); continue; }
     g.querySelector(".body").setAttribute("fill", tint(gs));
     const texts = g.querySelectorAll("text");
     texts[0].textContent = "N" + t.n;
     texts[1].textContent = `${gs.length}/${t.seats}`;
     g.classList.toggle("over", gs.length > t.seats);
     g.classList.toggle("sel", selected === t.n);
-    g.classList.toggle("hit", !!q && gs.some(x => x.name.toLocaleLowerCase().includes(q)));
     const chairs = g.querySelectorAll(".chair");
     chairs.forEach((c, i) => c.style.fill = gs[i] ? SIDES[sideOf(gs[i])].c : "#fff");
-    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.some(hasGift) ? `\nПодарки: ${fmtGift(giftSum(gs))}` : "") + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
+    g.querySelector("title").textContent = `N${t.n} — ${gs.length}/${t.seats}` + (gs.length ? "\n" + gs.map(x => "• " + x.name).join("\n") : "");
   }
 }
 
@@ -705,7 +733,6 @@ function guestRow(g){
     <span class="handle" title="Перетащить или нажать">⋮⋮</span>
     <span class="dot" style="background:${s.c}"></span>
     <span class="nm" title="${esc(g.name)} — ${esc(tag(g))}">${esc(g.name)}<small>${esc(tag(g))}</small></span>
-    ${hasGift(g) ? `<span class="gf" title="Подарок">${esc(fmtGift(g.gift))}</span>` : ""}
     ${g.note ? `<span class="nt" title="${esc(noteRu(g.note))}">ⓘ</span>` : ""}
     <select class="mv" aria-label="Пересадить за стол">${tableOptions(g.table)}</select>
     <button class="ed" title="Изменить">✎</button>
@@ -720,12 +747,12 @@ function renderStats(){
     `<span class="stat"><b>${seated}</b> рассажено</span>` +
     `<span class="stat${a.length - seated ? " bad" : ""}"><b>${a.length - seated}</b> без стола</span>` +
     (over ? `<span class="stat bad"><b>${over}</b> переполнено</span>` : "") +
-    `<span class="stat">${seats - seated} свободных мест</span>` +
-    `<button class="stat" id="giftBtn" title="Подарки по столам">Подарки: <b>${esc(fmtGift(giftSum(plan.guests), "—"))}</b></button>`;
+    `<span class="stat">${seats - seated} свободных мест</span>`;
   $("#undoBtn").disabled = !undoStack.length;
 }
 function renderTable(){
   const p = $("#tablePanel");
+  p.dataset.key = "";
   p.classList.toggle("closed", selected == null);
   if (selected == null) {
     p.innerHTML = `<div class="sec-h"><h2>Столы</h2></div>
@@ -744,8 +771,7 @@ function renderTable(){
       <span class="pill ${cls}">${gs.length}/${t.seats}</span>
       <span style="color:var(--muted);font-size:12.5px">${t.kind === "round" ? "круглый · внутренний" : "длинный · внешний"}</span>
       <span class="spacer"></span><button class="btn" id="closeTbl" title="Закрыть" style="margin-left:auto">✕</button></div>
-    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>
-      <div class="giftline">Подарки за столом: <b>${esc(fmtGift(giftSum(gs)))}</b> · дали ${gs.filter(hasGift).length} из ${gs.length}</div>` : ""}
+    ${gs.length ? `<div class="tools"><select id="swapSel">${swap}</select><select id="allSel">${moveAll}</select></div>` : ""}
     <div class="sec-b tray-drop" data-drop="${t.n}">${gs.length ? gs.map(guestRow).join("") :
       `<div class="hint">Здесь пока никого нет. Перетащите имена из «Без стола» на этот стол на плане или сюда.</div>`}</div>
     <form class="addrow" id="addHere"><input placeholder="Новый гость за стол N${t.n}…" id="addName">
@@ -779,13 +805,15 @@ function render(){
   const has = plan.guests.length > 0;
   $("#emptyView").classList.toggle("hidden", has);
   $("#tabs").classList.toggle("hidden", !has);
-  $("#mainView").classList.toggle("hidden", !has || view !== "map");
+  $("#mainView").classList.toggle("hidden", !has || view === "list");
+  document.body.classList.toggle("gifts", view === "gifts");
   $("#listView").classList.toggle("hidden", !has || view !== "list");
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
   if (!has) { renderStats(); return; }
   renderStats();
   if (view === "list") { renderList(); flashId = null; return; }
-  renderMap(); renderTable(); renderTray();
+  renderMap();
+  if (view === "gifts") { renderGiftEntry(); renderGiftReport(); } else { renderTable(); renderTray(); }
   if (!$("#map").style.width) requestAnimationFrame(() => applyZoom(false));
   flashId = null;
 }
@@ -798,6 +826,7 @@ $("#map").addEventListener("click", e => {
   const g = e.target.closest(".tbl"); if (!g) return;
   const n = +g.dataset.table;
   if (pick) { finishPick(n); return; }
+  if (view === "gifts") { openGiftTable(giftSel === n ? null : n); return; }
   selectTable(selected === n ? null : n);
 });
 
@@ -806,12 +835,12 @@ $("#map").addEventListener("click", e => {
    seat anyone. Every edit is an ordinary change, so the hall plan, other
    devices and the history all follow it.
    ===================================================================== */
-let view = /list/.test(location.hash) ? "list" : "map";
+let view = /list/.test(location.hash) ? "list" : /gifts/.test(location.hash) ? "gifts" : "map";
 const lf = {q:"", side:"", table:"", removed:false, sort:"side", dir:1};
 function setView(v){
-  view = v; history.replaceState(null, "", v === "list" ? "#list" : "#plan");
+  view = v; history.replaceState(null, "", v === "list" ? "#list" : v === "gifts" ? "#gifts" : "#plan");
   endPick(); render();
-  if (v === "map") requestAnimationFrame(() => applyZoom(true));
+  if (v !== "list") requestAnimationFrame(() => applyZoom(true));
 }
 $("#tabs").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (b) setView(b.dataset.view); });
 function sideSelect(cur, cls){
@@ -831,11 +860,6 @@ function listRows(){
   }[lf.sort];
   rows.sort((a, b) => key ? ((key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * lf.dir || byOrder(a, b)) : byOrder(a, b) * lf.dir);
   return rows;
-}
-// One amount box per currency; empty means nothing given in it.
-function giftInputs(g, cls){
-  return `<div class="gin">${CURS.map(c => `<span class="gc"><input class="${cls}" data-cur="${c}" value="${g.gift?.[c] ?? ""}"
-    inputmode="decimal" placeholder="0" aria-label="${c}"><span>${c}</span></span>`).join("")}</div>`;
 }
 function renderList(){
   const box = $("#listView");
@@ -857,14 +881,13 @@ function renderList(){
       <select id="lTable">${tblFilter}</select>
       <label style="font-size:13px;white-space:nowrap"><input type="checkbox" id="lRemoved"${lf.removed ? " checked" : ""}> удалённые</label>
     </div>
-    <div class="lt-count">Показано ${rows.length} · всего гостей ${total}, без стола ${active().filter(g => g.table == null).length} · подарки показанных: ${esc(fmtGift(giftSum(rows)))}</div>
+    <div class="lt-count">Показано ${rows.length} · всего гостей ${total}, без стола ${active().filter(g => g.table == null).length}</div>
     <div class="lt-wrap"><table class="lt"><thead><tr>
       <th class="c-no nosort">№</th>
       <th data-sort="name">Имя${arrow("name")}</th>
       <th class="c-side" data-sort="side">Чей гость${arrow("side")}</th>
       <th class="c-grp" data-sort="group">Группа${arrow("group")}</th>
       <th class="c-tbl" data-sort="table">Стол${arrow("table")}</th>
-      <th class="c-gift nosort">Подарок</th>
       <th class="nosort">Примечание</th>
       <th class="c-act nosort"></th></tr></thead><tbody>
       ${rows.map((g, i) => `<tr data-id="${esc(g.id)}" class="${g.status === "removed" ? "removed" : ""}${flashId === g.id ? " flash" : ""}">
@@ -873,7 +896,6 @@ function renderList(){
         <td class="c-side" data-l="Чей гость">${sideSelect(sideOf(g), "f-side")}</td>
         <td class="c-grp" data-l="Группа"><input class="f-group" value="${esc(g.group ?? "")}" placeholder="—" inputmode="numeric" aria-label="Группа"></td>
         <td class="c-tbl" data-l="Стол">${g.status === "removed" ? `<span style="color:var(--muted)">удалён</span>` : `<select class="f-table" aria-label="Стол">${tableOptions(g.table)}</select>`}</td>
-        <td class="c-gift" data-l="Подарок">${giftInputs(g, "f-gift")}</td>
         <td class="c-note" data-l="Примечание"><input class="f-note" value="${esc(noteRu(g.note))}" placeholder="—" aria-label="Примечание"></td>
         <td class="c-act">${g.status === "removed" ? `<button class="btn f-restore">Вернуть</button>` : `<button class="del f-del" title="Удалить из списка">Удалить</button>`}</td>
       </tr>`).join("")}
@@ -900,10 +922,6 @@ $("#listView").addEventListener("change", e => {
     commit({t:"edit", id, fields:{side:t.value}}, `${g.name}: ${SIDES[t.value].label}`);
   } else if (t.classList.contains("f-group")) {
     const v = t.value.trim(); commit({t:"edit", id, fields:{group:v === "" ? null : (isNaN(+v) ? v : +v)}}, `${g.name}: группа ${v || "—"}`);
-  } else if (t.classList.contains("f-gift")) {
-    const c = t.dataset.cur, v = parseAmount(t.value), was = g.gift?.[c] || 0;
-    if (isNaN(v)) { t.value = was || ""; toast("Сумма — это число, например 100 или 50,5."); return; }
-    if (v !== was) commit({t:"edit", id, gift:{[c]:v}}, `${g.name}: ${v ? nf.format(v) + " " + c : "без " + c}`);
   } else if (t.classList.contains("f-note")) {
     if (t.value.trim() !== noteRu(g.note)) commit({t:"edit", id, fields:{note:t.value.trim()}}, `${g.name}: примечание`);
   }
@@ -993,7 +1011,6 @@ document.addEventListener("click", e => {
   else if (t.classList.contains("ed")) editGuest(t.closest(".g").dataset.id);
   else if (t.classList.contains("restore")) { const id = t.closest(".g").dataset.rid; const g = plan.guests.find(x => x.id === id); commit({t:"restore", id}, `Возвращён: ${g.name}`); }
   else if (t.id === "addUnseated") editGuest(null);
-  else if (t.closest("#giftBtn")) showGifts();
   if (!t.closest(".menu")) $("#moreMenu").classList.add("hidden");
   if (!t.closest(".search")) $("#results").classList.add("hidden");
 });
@@ -1013,7 +1030,7 @@ document.addEventListener("keydown", e => {
 /* ---------- search ---------- */
 $("#q").addEventListener("input", () => {
   const q = $("#q").value.trim().toLocaleLowerCase(), box = $("#results");
-  renderMap(); renderTray();
+  renderMap(); if (view !== "gifts") renderTray();
   if (!q) { box.classList.add("hidden"); return; }
   const hits = plan.guests.filter(g => g.name.toLocaleLowerCase().includes(q)).sort(byOrder).slice(0, 40);
   box.innerHTML = hits.length ? hits.map(g => `<div data-id="${esc(g.id)}"><span>${esc(g.name)}</span><small>${g.status === "removed" ? "удалён" : g.table == null ? "без стола" : "N" + g.table} · ${esc(tag(g))}</small></div>`).join("")
@@ -1025,6 +1042,11 @@ $("#results").addEventListener("click", e => {
   const d = e.target.closest("[data-id]"); if (!d) return;
   const g = plan.guests.find(x => x.id === d.dataset.id);
   $("#results").classList.add("hidden");
+  if (view === "gifts") {
+    if (g.status === "removed") { toast(`${g.name} удалён(а) из списка гостей.`); return; }
+    openGiftTable(g.table ?? "none", g.id);
+    return;
+  }
   if (view === "list") { view = "map"; history.replaceState(null, "", "#plan"); requestAnimationFrame(() => applyZoom(true)); }
   flashId = g.id;
   if (g.table != null) { selectTable(g.table); showTableOnMap(g.table); } else render();
@@ -1116,7 +1138,6 @@ function editGuest(id){
     <label>Чей гость</label><select id="gSide">${Object.entries(SIDES).map(([k, v]) => `<option value="${k}"${sideOf(g) === k ? " selected" : ""}>${v.label}</option>`).join("")}</select>
     <label>Номер группы (необязательно)</label><input id="gGroup" inputmode="numeric" value="${esc(g.group ?? "")}">
     <label>Стол</label><select id="gTable">${tableOptions(g.table)}</select>
-    <label>Подарок</label>${giftInputs(g, "g-gift")}
     <label>Примечание</label><textarea id="gNote" rows="2">${esc(noteRu(g.note || ""))}</textarea></form>
     <div class="row">${id ? `<button class="btn danger" id="gDel" style="margin-right:auto">Удалить из списка</button>` : ""}
       <button class="btn" id="gCancel">Отмена</button><button class="btn primary" id="gOk">${id ? "Сохранить" : "Добавить"}</button></div>`);
@@ -1124,49 +1145,206 @@ function editGuest(id){
   s.querySelector("#gCancel").onclick = closeDlg;
   const ok = () => {
     const name = s.querySelector("#gName").value.trim(); if (!name) return;
-    const gift = {};
-    for (const inp of s.querySelectorAll(".g-gift")) gift[inp.dataset.cur] = parseAmount(inp.value);
-    if (Object.values(gift).some(isNaN)) { toast("Сумма — это число, например 100 или 50,5."); return; }
     const grp = s.querySelector("#gGroup").value.trim();
     const fields = {name, side:s.querySelector("#gSide").value, group:grp === "" ? null : (isNaN(+grp) ? grp : +grp),
       table:s.querySelector("#gTable").value === "" ? null : +s.querySelector("#gTable").value, note:s.querySelector("#gNote").value.trim()};
     closeDlg();
-    // Only the currencies changed here, so someone else's entry in another one stays.
-    if (id) commit({t:"edit", id, fields, gift:Object.fromEntries(Object.entries(gift).filter(([c, v]) => v !== (g.gift?.[c] || 0)))}, `Изменён: ${name}`);
-    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields,
-      ...(mergeGift(null, gift) ? {gift:mergeGift(null, gift)} : {})}}, `Добавлен: ${name}`);
+    if (id) commit({t:"edit", id, fields}, `Изменён: ${name}`);
+    else commit({t:"add", guest:{id:"X-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), status:"active", no:null, ...fields}}, `Добавлен: ${name}`);
   };
   s.querySelector("#gOk").onclick = ok;
   s.querySelector("#gForm").onsubmit = e => { e.preventDefault(); ok(); };
   if (id) s.querySelector("#gDel").onclick = () => { closeDlg(); commit({t:"remove", id}, `Удалён: ${g.name}`); toast(`${g.name} удалён(а) — вернуть можно в «Удалены из списка».`); };
 }
 
-/* ---------- gifts by table ---------- */
+/* =====================================================================
+   Gifts tab — money only. Click a table, type each guest's amount, Enter
+   moves to the next guest. Nobody can be reseated from here: the rows have
+   no drag handles or table menus, and the map only opens tables.
+   ===================================================================== */
+let giftSel = null;          // table number, "none" for the unseated, or null
+let repSort = "num";
+const finePointer = window.matchMedia("(pointer:fine)").matches;
+// Exchange rates for the "≈ AZN" figures, shared in plan.meta.rates. USD
+// starts at the official peg; EUR is blank until someone enters it.
+function rateOf(c){
+  if (c === "AZN") return 1;
+  const r = plan.meta?.rates?.[c];
+  return r === undefined ? (c === "USD" ? 1.7 : null) : r;
+}
+function inAzn(sum){
+  let v = 0, missing = false;
+  for (const c of CURS) { if (!sum[c]) continue; const r = rateOf(c); if (r) v += sum[c] * r; else missing = true; }
+  return {v:Math.round(v), missing};
+}
+function fmtAzn(sum){
+  if (!CURS.some(c => c !== "AZN" && sum[c])) return "";   // all AZN already
+  const a = inAzn(sum);
+  return a.v || a.missing ? `≈ ${nf.format(a.v)} AZN${a.missing ? "*" : ""}` : "";
+}
+// Removed guests count only if a gift was recorded for them, so nothing given goes missing.
+const giftPool = () => plan.guests.filter(g => g.status !== "removed" || hasGift(g));
+const giftGuests = sel => sel === "none" ? active().filter(g => g.table == null).sort(byOrder) : at(sel);
 // Every table with someone at it, then the unseated, then removed guests who
-// still have a gift recorded, so the rows always add up to the header total.
+// still have a gift recorded, so the rows always add up to the total.
 function giftRows(){
   const rows = [];
-  for (const t of TABLES) { const gs = at(t.n); if (gs.length) rows.push({label:"N" + t.n, n:t.n, guests:gs}); }
-  const un = active().filter(g => g.table == null); if (un.length) rows.push({label:"Без стола", guests:un});
+  for (const t of TABLES) { const gs = at(t.n); if (gs.length) rows.push({label:"N" + t.n, sel:t.n, guests:gs}); }
+  const un = active().filter(g => g.table == null); if (un.length) rows.push({label:"Без стола", sel:"none", guests:un});
   const rm = plan.guests.filter(g => g.status === "removed" && hasGift(g)); if (rm.length) rows.push({label:"Удалены из списка", guests:rm});
   return rows.map(r => ({...r, sum:giftSum(r.guests), gave:r.guests.filter(hasGift).length}));
 }
-function showGifts(){
-  const rows = giftRows(), total = giftSum(plan.guests);
-  const cell = v => v ? `<td>${nf.format(v)}</td>` : `<td class="z">—</td>`;
-  const s = dlg(`<h3>Подарки по столам</h3><div class="in">
-    <p style="margin:0 0 8px">Всего: <b>${esc(fmtGift(total))}</b><br><small style="color:var(--muted)">Валюты считаются отдельно, без пересчёта. Нажмите на стол, чтобы открыть его.</small></p>
-    <table class="gt"><thead><tr><th>Стол</th><th>Дали</th>${CURS.map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>
-    ${rows.map(r => `<tr${r.n ? ` data-t="${r.n}"` : ""}><td>${esc(r.label)}</td><td>${r.gave}/${r.guests.length}</td>${CURS.map(c => cell(r.sum[c])).join("")}</tr>`).join("")}
-    </tbody><tfoot><tr><td>Итого</td><td>${plan.guests.filter(hasGift).length}</td>${CURS.map(c => cell(total[c])).join("")}</tr></tfoot></table></div>
-    <div class="row"><button class="btn" id="gtClose">Закрыть</button></div>`);
-  s.querySelector("#gtClose").onclick = closeDlg;
-  s.querySelectorAll("tr[data-t]").forEach(tr => tr.onclick = () => {
-    const n = +tr.dataset.t; closeDlg();
-    if (view !== "map") setView("map");
-    selectTable(n); requestAnimationFrame(() => showTableOnMap(n));
-  });
+function sideRows(){
+  const all = giftPool();
+  return Object.keys(SIDES).map(k => {
+    const guests = all.filter(g => sideOf(g) === k);
+    return {label:SIDES[k].label, side:k, guests, sum:giftSum(guests), gave:guests.filter(hasGift).length};
+  }).filter(r => r.guests.length);
 }
+function giftMapTable(t, g, gs){
+  const gave = gs.filter(hasGift).length;
+  g.querySelector(".body").setAttribute("fill", !gs.length ? "#fff" : gave === gs.length ? "#cdeedb" : gave ? "#edf7f1" : "#fff");
+  const texts = g.querySelectorAll("text");
+  texts[0].textContent = "N" + t.n;
+  texts[1].textContent = gs.length ? `${gave}/${gs.length}` : "—";
+  g.classList.remove("over");
+  g.classList.toggle("sel", giftSel === t.n);
+  g.querySelectorAll(".chair").forEach((c, i) => c.style.fill = !gs[i] ? "#fff" : hasGift(gs[i]) ? "var(--ok)" : "#ddd5c9");
+  const sum = giftSum(gs);
+  g.querySelector("title").textContent = `N${t.n} — дали ${gave} из ${gs.length}` + (gave ? `\n${fmtGift(sum)} ${fmtAzn(sum)}` : "") +
+    gs.map(x => `\n• ${x.name}${hasGift(x) ? " — " + fmtGift(x.gift) : ""}`).join("");
+}
+// Opens a table (or "none") for entry; focuses the given guest, or on a
+// computer the first one who hasn't given yet. Phones wait for a tap so the
+// keyboard doesn't cover the list.
+function openGiftTable(sel, focusId){
+  giftSel = sel; render();
+  if (typeof sel === "number") showTableOnMap(sel);
+  if (sel == null) return;
+  const gs = giftGuests(sel);
+  const id = focusId || (finePointer ? (gs.find(g => !hasGift(g)) || gs[0])?.id : null);
+  const inp = id && $(`#tablePanel .gr[data-gid="${CSS.escape(id)}"] input`);
+  if (inp) { inp.focus(); inp.select(); inp.closest(".gr").scrollIntoView({block:"nearest"}); }
+}
+function giftRow(g){
+  // The box shows AZN unless this guest gave only in another currency.
+  const cur = g.gift?.AZN || !hasGift(g) ? "AZN" : CURS.find(c => g.gift[c]);
+  return `<div class="gr${hasGift(g) ? " gave" : ""}" data-gid="${esc(g.id)}">
+    <div class="who"><b title="${esc(g.name)}">${esc(g.name)}</b><small><span class="dot" style="background:${SIDES[sideOf(g)].c}"></span>${esc(tag(g))}<span class="gv">${hasGift(g) ? esc(fmtGift(g.gift)) : ""}</span></small></div>
+    <input inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="0" value="${g.gift?.[cur] || ""}" aria-label="Сумма от ${esc(g.name)}">
+    <select aria-label="Валюта">${CURS.map(c => `<option${c === cur ? " selected" : ""}>${c}</option>`).join("")}</select>
+  </div>`;
+}
+function renderGiftEntry(){
+  const p = $("#tablePanel");
+  p.classList.toggle("closed", giftSel == null);
+  if (giftSel == null) {
+    p.dataset.key = "";
+    p.innerHTML = `<div class="sec-h"><h2>Подарки</h2></div>
+      <div class="hint">Нажмите на стол на плане — откроется список гостей за ним. Впишите сумму и нажмите Enter: курсор перейдёт к следующему гостю.<br><br>
+      Валюта по умолчанию — AZN, другую можно выбрать рядом с суммой. «+50» прибавит 50 к уже записанному, пустое поле — убрать сумму.<br><br>
+      Гостя можно найти по имени в поиске вверху. Пересаживать здесь нельзя — только на «Плане зала».</div>`;
+    return;
+  }
+  const gs = giftGuests(giftSel), sum = giftSum(gs), gave = gs.filter(hasGift).length;
+  const head = `<div class="big">${esc(fmtGift(sum, "Пока ничего"))}</div><small>${fmtAzn(sum) ? fmtAzn(sum) + " · " : ""}дали ${gave} из ${gs.length}</small>`;
+  const pill = `${gave}/${gs.length}`, pillCls = "pill" + (gs.length && gave === gs.length ? " full" : "");
+  const key = giftSel + ":" + gs.map(g => g.id).join(",");
+  if (p.dataset.key === key) {
+    // Same guests as on screen: update in place, so the box being typed in keeps focus.
+    p.querySelector(".gsum").innerHTML = head;
+    const pl = p.querySelector(".sec-h .pill"); pl.textContent = pill; pl.className = pillCls;
+    for (const g of gs) {
+      const row = p.querySelector(`.gr[data-gid="${CSS.escape(g.id)}"]`); if (!row) continue;
+      row.classList.toggle("gave", hasGift(g));
+      row.querySelector(".gv").textContent = hasGift(g) ? fmtGift(g.gift) : "";
+      const inp = row.querySelector("input");
+      if (document.activeElement !== inp && !row.dataset.dirty) inp.value = g.gift?.[row.querySelector("select").value] || "";
+    }
+    return;
+  }
+  p.dataset.key = key;
+  p.innerHTML = `<div class="sec-h"><h2>${giftSel === "none" ? "Без стола" : "N" + giftSel}</h2><span class="${pillCls}">${pill}</span>
+      <span style="color:var(--muted);font-size:12.5px">подарки</span>
+      <span class="spacer"></span><button class="btn" id="closeGift" title="Закрыть" style="margin-left:auto">✕</button></div>
+    <div class="gsum">${head}</div>
+    <div class="sec-b">${gs.length ? gs.map(giftRow).join("") : `<div class="hint">Здесь никого нет.</div>`}</div>`;
+}
+// Saves what's typed in a row, in the currency chosen next to it. false when it isn't a number.
+function saveGiftRow(row){
+  const id = row.dataset.gid, g = plan.guests.find(x => x.id === id); if (!g) return true;
+  const inp = row.querySelector("input"), cur = row.querySelector("select").value, was = g.gift?.[cur] || 0;
+  const raw = inp.value.trim(), plus = raw.startsWith("+");
+  let v = parseAmount(plus ? raw.slice(1) : raw);
+  if (isNaN(v)) { toast("Сумма — это число, например 100, 50,5 или +20."); inp.focus(); return false; }
+  if (plus) v = Math.round((was + v) * 100) / 100;
+  delete row.dataset.dirty;
+  inp.value = v || "";
+  if (v === was) return true;
+  commit({t:"edit", id, gift:{[cur]:v}}, `Подарок: ${g.name} — ${v ? nf.format(v) + " " + cur : "без " + cur}`);
+  row.classList.remove("saved"); void row.offsetWidth; row.classList.add("saved");
+  return true;
+}
+$("#tablePanel").addEventListener("input", e => { if (e.target.matches(".gr input")) e.target.closest(".gr").dataset.dirty = "1"; });
+$("#tablePanel").addEventListener("keydown", e => {
+  if (e.key !== "Enter" || !e.target.matches(".gr input")) return;
+  e.preventDefault();
+  const row = e.target.closest(".gr");
+  if (!saveGiftRow(row)) return;
+  const next = row.nextElementSibling?.querySelector("input");
+  if (next) { next.focus(); next.select(); next.closest(".gr").scrollIntoView({block:"nearest"}); } else e.target.blur();
+});
+// Leaving a row saves it; moving from the amount to its own currency menu
+// doesn't, so "100, then USD" is saved as 100 USD.
+$("#tablePanel").addEventListener("focusout", e => {
+  const row = e.target.closest?.(".gr"); if (!row || !row.dataset.dirty) return;
+  if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+  saveGiftRow(row);
+});
+$("#tablePanel").addEventListener("change", e => {
+  if (!e.target.matches(".gr select")) return;
+  const row = e.target.closest(".gr"), inp = row.querySelector("input");
+  if (row.dataset.dirty) saveGiftRow(row);
+  else { const g = plan.guests.find(x => x.id === row.dataset.gid); inp.value = g?.gift?.[e.target.value] || ""; }
+  inp.focus(); inp.select();
+});
+function renderGiftReport(){
+  const all = giftPool(), total = giftSum(all), gave = all.filter(hasGift).length;
+  const cell = v => v ? `<td>${nf.format(v)}</td>` : `<td class="z">—</td>`;
+  const az = sum => { const a = inAzn(sum); return a.v ? `<td>${nf.format(a.v)}${a.missing ? "*" : ""}</td>` : `<td class="z">—</td>`; };
+  const tbl = (rows, first) => `<table class="gt"><thead><tr><th>${first}</th><th>Дали</th>${CURS.map(c => `<th>${c}</th>`).join("")}<th>≈AZN</th></tr></thead><tbody>
+    ${rows.map(r => `<tr${r.sel != null ? ` data-t="${r.sel}"` : ""}${r.sel != null && r.sel === giftSel ? ' class="on"' : ""}>
+      <td>${r.side ? `<i class="sd" style="background:${SIDES[r.side].c}"></i>` : ""}${esc(r.label)}</td><td>${r.gave}/${r.guests.length}</td>${CURS.map(c => cell(r.sum[c])).join("")}${az(r.sum)}</tr>`).join("")}
+    </tbody><tfoot><tr><td>Итого</td><td>${gave}/${all.length}</td>${CURS.map(c => cell(total[c])).join("")}${az(total)}</tr></tfoot></table>`;
+  let tables = giftRows();
+  if (repSort === "sum") tables = tables.slice().sort((a, b) => inAzn(b.sum).v - inAzn(a.sum).v || a.label.localeCompare(b.label));
+  const missing = CURS.filter(c => total[c] && !rateOf(c));
+  const focused = document.activeElement?.dataset?.rate;
+  $("#trayPanel").innerHTML = `<div class="sec-h"><h2>Итоги</h2><span class="spacer"></span><button class="btn" id="giftXlsx" title="Скачать Excel со всеми итогами">⬇ Excel</button></div>
+    <div class="sec-b rep">
+      <div class="gsum"><div class="big">${esc(fmtGift(total, "Пока ничего"))}</div><small>${fmtAzn(total) ? fmtAzn(total) + " · " : ""}дали ${gave} из ${all.length} гостей</small></div>
+      <div class="rates">Курс: 1 USD = <input data-rate="USD" inputmode="decimal" value="${rateOf("USD") ?? ""}" placeholder="?"> · 1 EUR = <input data-rate="EUR" inputmode="decimal" value="${rateOf("EUR") ?? ""}" placeholder="?"> AZN
+        ${missing.length ? `<br><span>* без ${missing.join(", ")} — впишите курс</span>` : ""}</div>
+      <h3>По сторонам</h3>${tbl(sideRows(), "Сторона")}
+      <h3>По столам <span class="seg"><button data-rsort="num" class="${repSort === "num" ? "on" : ""}">по номеру</button><button data-rsort="sum" class="${repSort === "sum" ? "on" : ""}">по сумме</button></span></h3>${tbl(tables, "Стол")}
+    </div>`;
+  if (focused) $(`#trayPanel [data-rate="${focused}"]`)?.focus();
+}
+$("#trayPanel").addEventListener("click", e => {
+  if (view !== "gifts") return;
+  const tr = e.target.closest("tr[data-t]");
+  if (tr) { const v = tr.dataset.t; openGiftTable(v === "none" ? "none" : +v); return; }
+  const sb = e.target.closest("[data-rsort]");
+  if (sb) { repSort = sb.dataset.rsort; renderGiftReport(); return; }
+  if (e.target.id === "giftXlsx") exportXlsx().catch(err => toast(err.message));
+});
+$("#trayPanel").addEventListener("change", e => {
+  const c = e.target.dataset?.rate; if (!c) return;
+  const v = parseAmount(e.target.value);
+  if (isNaN(v)) { e.target.value = rateOf(c) ?? ""; toast("Курс — это число, например 1,7."); return; }
+  commit({t:"meta", fields:{rates:{...(plan.meta?.rates || {}), [c]:v || null}}}, `Курс ${c}: ${v ? nf.format(v) : "—"}`);
+});
+document.addEventListener("click", e => { if (e.target.id === "closeGift") openGiftTable(null); });
 
 /* =====================================================================
    Import / export
@@ -1272,11 +1450,18 @@ async function exportXlsx(){
   for (const t of TABLES) at(t.n).forEach((g, i) => byTable.push(row("N" + t.n, t.seats, i + 1, g)));
   act.filter(g => g.table == null).sort(byOrder).forEach(g => byTable.push(row("Без стола", "", "", g)));
   sheet(byTable, "По столам", [11, 6, 4, 30, 8, 7, 9, 9, 9, 50]);
-  // 2b. Gifts per table, with the grand total.
-  const gr = giftRows().map(r => ({"Стол":r.label, "Гостей":r.guests.length, "Дали":r.gave, ...Object.fromEntries(CURS.map(c => [c, r.sum[c] || ""]))}));
-  const tot = giftSum(plan.guests);
-  gr.push({"Стол":"Итого", "Гостей":"", "Дали":plan.guests.filter(hasGift).length, ...Object.fromEntries(CURS.map(c => [c, tot[c] || ""]))});
-  sheet(gr, "Подарки", [18, 8, 7, 11, 11, 11]);
+  // 2b. Gifts: per table and per side with the grand total, then everyone who gave.
+  const giftLine = (label, r, head = "Стол") => ({[head]: label, "Гостей":r.guests.length, "Дали":r.gave, ...Object.fromEntries(CURS.map(c => [c, r.sum[c] || ""])), "≈ AZN":inAzn(r.sum).v || ""});
+  const pool = giftPool(), all = {guests:pool, sum:giftSum(pool), gave:pool.filter(hasGift).length};
+  const gaoa = rows => [Object.keys(rows[0]), ...rows.map(Object.values)];
+  const gsheet = [
+    ...gaoa([...giftRows().map(r => giftLine(r.label, r)), giftLine("Итого", all)]), [],
+    ...gaoa([...sideRows().map(r => giftLine(r.label, r, "Сторона")), giftLine("Итого", all, "Сторона")]), [],
+    ["Курс", ...CURS.filter(c => c !== "AZN").map(c => `1 ${c} = ${rateOf(c) ?? "?"} AZN`)],
+  ];
+  sheet(gsheet, "Подарки", [18, 8, 7, 11, 11, 11, 11], true);
+  sheet(pool.filter(hasGift).sort(byOrder).map(g => ({"Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", "Стол":g.table == null ? "" : "N" + g.table, ...money(g), "≈ AZN":inAzn(giftSum([g])).v || ""})),
+    "Подарки — гости", [30, 9, 7, 7, 10, 10, 10, 10]);
   // 3. Occupancy of every table.
   sheet(TABLES.map(t => ({"Стол":"N" + t.n, "Тип":t.kind === "round" ? "Круглый (внутр.)" : "Длинный (внешн.)", "Мест":t.seats, "Занято":at(t.n).length, "Свободно":t.seats - at(t.n).length})), "Столы", [8, 18, 7, 8, 9]);
   // 4. Re-importable copy (More → Import reads this sheet).
@@ -1317,7 +1502,6 @@ $("#moreMenu").addEventListener("click", async e => {
   if (a === "xlsx") exportXlsx().catch(err => toast(err.message));
   if (a === "json") download(`rassadka-kopiya-${stamp()}.json`, new Blob([JSON.stringify(plan, null, 1)], {type:"application/json"}));
   if (a === "print") printLists();
-  if (a === "gifts") showGifts();
   if (a === "history") showHistory();
   if (a === "logout") { await api("/api/toy/logout", {method:"POST"}); location.reload(); }
 });
