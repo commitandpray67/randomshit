@@ -809,7 +809,7 @@ const VICTORY_CAST_ROWS = [
   ['jayc', 'cait', 'werder', 'harold', 'mustie', 'mochi', 'squid'],
   ['alexso', 'dom', 'connor', 'winston', 'freddie', 'fraser'],
   ['nico', 'rico', 'nile', 'olive', 'sparth', 'sewfie'],
-  ['hammy', 'ashe', 'marcus', 'mia', 'ed', 'callum', 'eevie'],
+  ['hammy', 'marcus', 'mia', 'ed', 'callum', 'eevie'],
 ];
 const CAST_HEIGHT = 24;
 const CAST_AVATAR_GRID = G(16, [
@@ -1888,9 +1888,6 @@ const QUOTE_BANK = [
   { id: 'hammy_vc', who: 'HAMMY', text: 'GET IN VC MATES.' },
   { id: 'hammy_calendar', who: 'HAMMY', text: 'I NEED EVENTS PLANNED OUT IN MY CALENDAR.' },
   { id: 'hammy_genz', who: 'HAMMY', text: 'GEN Z MOMENT.' },
-  { id: 'ashe_minecraft', who: 'ASHE', text: 'I AM NOT PLAY. I AM MEINCRAFT.' },
-  { id: 'ashe_ace', who: 'ASHE', text: 'FIRST ACE.' },
-  { id: 'ashe_tesco', who: 'ASHE', text: 'I MEANT TO SAY TESCO.' },
   { id: 'marcus_wonking', who: 'MARCUS', text: 'WHO WONKING THEY WILLY RN?' },
 ];
 
@@ -1977,8 +1974,8 @@ const FLOOR_WAVE_BARKS = {
       { s: 'OLIVE', t: 'YOU TOO JAMIE.' },
     ],
     [
-      { s: 'ASHE', t: 'I AM NOT PLAY. I AM MEINCRAFT.' },
-      { s: 'JAYC', t: 'CAN YOU CRAFT US ONE AVAILABLE HUMAN?' },
+      { s: 'CALLUM', t: 'COME FRIDAY I SHALL BE GAMING.' },
+      { s: 'JAYC', t: 'IT IS 4AM ON A TUESDAY. FRIDAY IS A RUMOUR.' },
     ],
     [
       { s: 'FRASER', t: 'GOOD THINGS COME TO THOSE WHO WAIT JAYC.' },
@@ -2033,7 +2030,6 @@ const FLOOR_WAVE_BARKS = {
 
 const CAMEOS = [
   { id: 'hammy', level: 0, name: 'HAMMY', text: 'GET IN VC MATES.', color: '#ffcf68', effect: 'team' },
-  { id: 'ashe', level: 1, name: 'ASHE', text: 'I AM NOT PLAY. I AM MEINCRAFT.', color: '#7bd7ff', effect: 'ammo' },
   { id: 'marcus', level: 3, name: 'MARCUS', text: 'THIS FKIN SODA MOB BRO.', color: '#ff7b8e', effect: 'soda' },
   { id: 'mia', level: 4, name: 'MIA', text: 'CONSISTENTLY ONE-CLIP PEOPLE.', color: '#ff8de0', effect: 'oneclip' },
   { id: 'ed', level: 5, name: 'ED', text: 'VAL BETTER ANYWAY.', color: '#78a7ff', effect: 'clarity' },
@@ -2158,7 +2154,6 @@ const SPEAKERS = {
   dom:     { name: 'DOM',             color: '#7db0ff', portrait: null },
   marcus:  { name: 'MARCUS',          color: '#ff7b8e', portrait: null },
   hammy:   { name: 'HAMMY',           color: '#ffcf68', portrait: null },
-  ashe:    { name: 'ASHE',            color: '#7bd7ff', portrait: null },
   nico:    { name: 'NICO',            color: '#ffc998', portrait: null },
   rico:    { name: 'RICO',            color: '#b2dcfa', portrait: null },
   fraser:  { name: 'FRASER',          color: '#ddaaff', portrait: null },
@@ -2495,9 +2490,7 @@ function triggerCameo(c) {
   Game.cameosSeen.push(c.id);
   const p = Game.player;
   if (c.effect === 'team') Game.teamBuff = Math.max(Game.teamBuff, 360);
-  else if (c.effect === 'ammo') {
-    for (let i = 1; i < p.ammo.length; i++) if (p.unlocked[i]) p.ammo[i] = Math.min(WEAPONS[i].maxAmmo, p.ammo[i] + Math.ceil(WEAPONS[i].maxAmmo * 0.2));
-  } else if (c.effect === 'soda') {
+  else if (c.effect === 'soda') {
     for (let i = 0; i < 7; i++) {
       const pt = findSpawnPoint(74);
       const soda = spawnEnemy('popper', pt.x, pt.y);
