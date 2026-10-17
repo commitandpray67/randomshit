@@ -624,6 +624,9 @@ async function poll(){
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#listView, .gr, .rates") && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   if (document.querySelector(".gr[data-dirty]")) return;
   const r = await api("/api/toy/state").catch(() => null);
+  // Signed out (the password was changed): reload to the login screen so the
+  // plan doesn't stay on screen. Nothing is lost — this only runs with no unsaved edits.
+  if (r && r.status === 401) { location.reload(); return; }
   if (r && r.status === 200 && r.body.version > version && !pending.length) {
     plan = upgrade(r.body.data); version = r.body.version; undoStack = [];
     render(); toast("План обновлён: изменения с другого устройства.");
