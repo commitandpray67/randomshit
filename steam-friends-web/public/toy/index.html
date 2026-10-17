@@ -122,7 +122,7 @@ body.gifts #trayPanel{flex:3 1 0}
 .gsum{padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
 .gsum .big{font-size:17px;font-weight:700;color:var(--ok);line-height:1.3}
 .gsum small{color:var(--muted)}
-.gr{display:grid;grid-template-columns:minmax(0,1fr) 100px 72px;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1ede6;background:#fff}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) 100px 72px 34px;gap:6px;align-items:center;padding:6px 10px;border-bottom:1px solid #f1ede6;background:#fff}
 .gr .who{min-width:0}
 .gr .who b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gr .who small{color:var(--muted);font-size:11.5px}
@@ -131,6 +131,12 @@ body.gifts #trayPanel{flex:3 1 0}
 .gr input{width:100%;padding:7px 8px;border:1px solid var(--line2);border-radius:7px;text-align:right;background:#fff}
 .gr input:focus{border-color:var(--ok);outline:none;box-shadow:0 0 0 2px #cfe9d9}
 .gr select{width:100%;padding:6px 4px;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.gr .lk{border:1px solid transparent;background:none;border-radius:7px;padding:5px 0;font-size:16px;line-height:1;opacity:.45}
+.gr .lk:hover{opacity:1;background:var(--bg)}
+.gr.locked .lk{opacity:1}
+.gr.locked input,.gr.locked select{background:#f1efea;color:#555;border-color:#e3ddd3}
+.gr.locked .who b::after{content:" · сверено";font-size:11px;font-weight:600;color:var(--ok)}
+.gsum .btn{float:right;margin-top:2px;font-size:12.5px;padding:4px 9px}
 .gr.gave{background:#f3faf6}
 .gr.saved{animation:saved 1.2s ease}
 @keyframes saved{0%,40%{background:#cdeedb}100%{background:#f3faf6}}
@@ -550,6 +556,7 @@ function applyOp(p, op){
     case "replace": p.guests = clone(op.data.guests); p.meta = clone(op.data.meta || {}); break;
     case "upgrade": upgrade(p); break;
     case "meta":    p.meta = {...(p.meta || {}), ...op.fields}; break;
+    case "giftlock": op.ids.forEach(id => { const g = find(id); if (!g) return; if (op.on) g.giftLocked = true; else delete g.giftLocked; }); break;
   }
 }
 function commit(op, note){
@@ -1210,13 +1217,13 @@ function giftRows(){
   for (const t of TABLES) { const gs = at(t.n); if (gs.length) rows.push({label:"N" + t.n, sel:t.n, guests:gs}); }
   const un = active().filter(g => g.table == null); if (un.length) rows.push({label:"Без стола", sel:"none", guests:un});
   const rm = plan.guests.filter(g => g.status === "removed" && hasGift(g)); if (rm.length) rows.push({label:"Удалены из списка", guests:rm});
-  return rows.map(r => ({...r, sum:giftSum(r.guests), gave:r.guests.filter(hasGift).length}));
+  return rows.map(r => ({...r, sum:giftSum(r.guests), gave:r.guests.filter(hasGift).length, locked:r.guests.filter(g => g.giftLocked).length}));
 }
 function sideRows(){
   const all = giftPool();
   return Object.keys(SIDES).map(k => {
     const guests = all.filter(g => sideOf(g) === k);
-    return {label:SIDES[k].label, side:k, guests, sum:giftSum(guests), gave:guests.filter(hasGift).length};
+    return {label:SIDES[k].label, side:k, guests, sum:giftSum(guests), gave:guests.filter(hasGift).length, locked:guests.filter(g => g.giftLocked).length};
   }).filter(r => r.guests.length);
 }
 function giftMapTable(t, g, gs){
@@ -1240,17 +1247,24 @@ function openGiftTable(sel, focusId){
   if (typeof sel === "number") showTableOnMap(sel);
   if (sel == null) return;
   const gs = giftGuests(sel);
-  const id = focusId || (finePointer ? (gs.find(g => !hasGift(g)) || gs[0])?.id : null);
+  const open = gs.filter(g => !g.giftLocked);
+  const id = focusId || (finePointer ? (open.find(g => !hasGift(g)) || open[0])?.id : null);
   const inp = id && $(`#tablePanel .gr[data-gid="${CSS.escape(id)}"] input`);
   if (inp) { inp.focus(); inp.select(); inp.closest(".gr").scrollIntoView({block:"nearest"}); }
 }
+// Reconciled guests are locked: their amount can't be changed until unlocked.
+const lockBtn = g => g.giftLocked
+  ? `<button class="lk" title="Сверено. Нажмите, чтобы разблокировать">🔒</button>`
+  : `<button class="lk" title="Отметить как сверено и заблокировать">🔓</button>`;
 function giftRow(g){
   // The box shows AZN unless this guest gave only in another currency.
   const cur = g.gift?.AZN || !hasGift(g) ? "AZN" : CURS.find(c => g.gift[c]);
-  return `<div class="gr${hasGift(g) ? " gave" : ""}" data-gid="${esc(g.id)}">
+  const off = g.giftLocked ? " disabled" : "";
+  return `<div class="gr${hasGift(g) ? " gave" : ""}${g.giftLocked ? " locked" : ""}" data-gid="${esc(g.id)}">
     <div class="who"><b title="${esc(g.name)}">${esc(g.name)}</b><small><span class="dot" style="background:${SIDES[sideOf(g)].c}"></span>${esc(tag(g))}<span class="gv">${hasGift(g) ? esc(fmtGift(g.gift)) : ""}</span></small></div>
-    <input inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="0" value="${g.gift?.[cur] || ""}" aria-label="Сумма от ${esc(g.name)}">
-    <select aria-label="Валюта">${CURS.map(c => `<option${c === cur ? " selected" : ""}>${c}</option>`).join("")}</select>
+    <input inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="0" value="${g.gift?.[cur] || ""}" aria-label="Сумма от ${esc(g.name)}"${off}>
+    <select aria-label="Валюта"${off}>${CURS.map(c => `<option${c === cur ? " selected" : ""}>${c}</option>`).join("")}</select>
+    ${lockBtn(g)}
   </div>`;
 }
 function renderGiftEntry(){ keepScroll($("#tablePanel"), "gifts:" + giftSel, buildGiftEntry); }
@@ -1262,11 +1276,15 @@ function buildGiftEntry(){
     p.innerHTML = `<div class="sec-h"><h2>Подарки</h2></div>
       <div class="hint">Нажмите на стол на плане — откроется список гостей за ним. Впишите сумму и нажмите Enter: курсор перейдёт к следующему гостю.<br><br>
       Валюта по умолчанию — AZN, другую можно выбрать рядом с суммой. «+50» прибавит 50 к уже записанному, пустое поле — убрать сумму.<br><br>
+      Когда сумма гостя сверена, нажмите 🔓 рядом с ней — она заблокируется (🔒) и её нельзя будет случайно изменить.<br><br>
       Гостя можно найти по имени в поиске вверху. Пересаживать здесь нельзя — только на «Плане зала».</div>`;
     return;
   }
-  const gs = giftGuests(giftSel), sum = giftSum(gs), gave = gs.filter(hasGift).length;
-  const head = `<div class="big">${esc(fmtGift(sum, "Пока ничего"))}</div><small>${fmtAzn(sum) ? fmtAzn(sum) + " · " : ""}дали ${gave} из ${gs.length}</small>`;
+  const gs = giftGuests(giftSel), sum = giftSum(gs), gave = gs.filter(hasGift).length, locked = gs.filter(g => g.giftLocked).length;
+  const lockAll = !gs.length ? "" : locked < gs.length
+    ? `<button class="btn" id="lockAll" title="Отметить всех за этим столом как сверенных">🔒 Сверить всех</button>`
+    : `<button class="btn" id="unlockAll" title="Разблокировать всех за этим столом">🔓 Открыть всех</button>`;
+  const head = `${lockAll}<div class="big">${esc(fmtGift(sum, "Пока ничего"))}</div><small>${fmtAzn(sum) ? fmtAzn(sum) + " · " : ""}дали ${gave} из ${gs.length} · сверено ${locked}</small>`;
   const pill = `${gave}/${gs.length}`, pillCls = "pill" + (gs.length && gave === gs.length ? " full" : "");
   const key = giftSel + ":" + gs.map(g => g.id).join(",");
   if (p.dataset.key === key) {
@@ -1278,6 +1296,12 @@ function buildGiftEntry(){
       row.classList.toggle("gave", hasGift(g));
       row.querySelector(".gv").textContent = hasGift(g) ? fmtGift(g.gift) : "";
       const inp = row.querySelector("input");
+      if (row.classList.contains("locked") !== !!g.giftLocked) {
+        row.classList.toggle("locked", !!g.giftLocked);
+        inp.disabled = row.querySelector("select").disabled = !!g.giftLocked;
+        row.querySelector(".lk").outerHTML = lockBtn(g);
+        if (g.giftLocked) delete row.dataset.dirty;
+      }
       if (document.activeElement !== inp && !row.dataset.dirty) inp.value = g.gift?.[row.querySelector("select").value] || "";
     }
     return;
@@ -1293,6 +1317,10 @@ function buildGiftEntry(){
 function saveGiftRow(row){
   const id = row.dataset.gid, g = plan.guests.find(x => x.id === id); if (!g) return true;
   const inp = row.querySelector("input"), cur = row.querySelector("select").value, was = g.gift?.[cur] || 0;
+  if (g.giftLocked) {   // locked meanwhile, e.g. on another device
+    delete row.dataset.dirty; inp.value = was || "";
+    toast(`${g.name}: сумма сверена и заблокирована — сначала нажмите 🔒.`); return true;
+  }
   const raw = inp.value.trim(), plus = raw.startsWith("+");
   let v = parseAmount(plus ? raw.slice(1) : raw);
   if (isNaN(v)) { toast("Сумма — это число, например 100, 50,5 или +20."); inp.focus(); return false; }
@@ -1310,7 +1338,9 @@ $("#tablePanel").addEventListener("keydown", e => {
   e.preventDefault();
   const row = e.target.closest(".gr");
   if (!saveGiftRow(row)) return;
-  const next = row.nextElementSibling?.querySelector("input");
+  let nr = row.nextElementSibling;
+  while (nr && nr.classList.contains("locked")) nr = nr.nextElementSibling;
+  const next = nr?.querySelector("input");
   if (next) { next.focus(); next.select(); next.closest(".gr").scrollIntoView({block:"nearest"}); } else e.target.blur();
 });
 // Leaving a row saves it; moving from the amount to its own currency menu
@@ -1329,12 +1359,12 @@ $("#tablePanel").addEventListener("change", e => {
 });
 function renderGiftReport(){ keepScroll($("#trayPanel"), "report", buildGiftReport); }
 function buildGiftReport(){
-  const all = giftPool(), total = giftSum(all), gave = all.filter(hasGift).length;
+  const all = giftPool(), total = giftSum(all), gave = all.filter(hasGift).length, locked = all.filter(g => g.giftLocked).length;
   const cell = v => v ? `<td>${nf.format(v)}</td>` : `<td class="z">—</td>`;
   const az = sum => { const a = inAzn(sum); return a.v ? `<td>${nf.format(a.v)}${a.missing ? "*" : ""}</td>` : `<td class="z">—</td>`; };
   const tbl = (rows, first) => `<table class="gt"><thead><tr><th>${first}</th><th>Дали</th>${CURS.map(c => `<th>${c}</th>`).join("")}<th>≈AZN</th></tr></thead><tbody>
     ${rows.map(r => `<tr${r.sel != null ? ` data-t="${r.sel}"` : ""}${r.sel != null && r.sel === giftSel ? ' class="on"' : ""}>
-      <td>${r.side ? `<i class="sd" style="background:${SIDES[r.side].c}"></i>` : ""}${esc(r.label)}</td><td>${r.gave}/${r.guests.length}</td>${CURS.map(c => cell(r.sum[c])).join("")}${az(r.sum)}</tr>`).join("")}
+      <td>${r.side ? `<i class="sd" style="background:${SIDES[r.side].c}"></i>` : ""}${esc(r.label)}${r.locked && r.locked === r.guests.length ? ` <span title="Все сверены">🔒</span>` : ""}</td><td>${r.gave}/${r.guests.length}</td>${CURS.map(c => cell(r.sum[c])).join("")}${az(r.sum)}</tr>`).join("")}
     </tbody><tfoot><tr><td>Итого</td><td>${gave}/${all.length}</td>${CURS.map(c => cell(total[c])).join("")}${az(total)}</tr></tfoot></table>`;
   let tables = giftRows();
   if (repSort === "sum") tables = tables.slice().sort((a, b) => inAzn(b.sum).v - inAzn(a.sum).v || a.label.localeCompare(b.label));
@@ -1342,7 +1372,7 @@ function buildGiftReport(){
   const focused = document.activeElement?.dataset?.rate;
   $("#trayPanel").innerHTML = `<div class="sec-h"><h2>Итоги</h2><span class="spacer"></span><button class="btn" id="giftXlsx" title="Скачать Excel со всеми итогами">⬇ Excel</button></div>
     <div class="sec-b rep">
-      <div class="gsum"><div class="big">${esc(fmtGift(total, "Пока ничего"))}</div><small>${fmtAzn(total) ? fmtAzn(total) + " · " : ""}дали ${gave} из ${all.length} гостей</small></div>
+      <div class="gsum"><div class="big">${esc(fmtGift(total, "Пока ничего"))}</div><small>${fmtAzn(total) ? fmtAzn(total) + " · " : ""}дали ${gave} из ${all.length} гостей · сверено ${locked}</small></div>
       <div class="rates">Курс: 1 USD = <input data-rate="USD" inputmode="decimal" value="${rateOf("USD") ?? ""}" placeholder="?"> · 1 EUR = <input data-rate="EUR" inputmode="decimal" value="${rateOf("EUR") ?? ""}" placeholder="?"> AZN
         ${missing.length ? `<br><span>* без ${missing.join(", ")} — впишите курс</span>` : ""}</div>
       <h3>По сторонам</h3>${tbl(sideRows(), "Сторона")}
@@ -1365,6 +1395,32 @@ $("#trayPanel").addEventListener("change", e => {
   commit({t:"meta", fields:{rates:{...(plan.meta?.rates || {}), [c]:v || null}}}, `Курс ${c}: ${v ? nf.format(v) : "—"}`);
 });
 document.addEventListener("click", e => { if (e.target.id === "closeGift") openGiftTable(null); });
+$("#tablePanel").addEventListener("click", e => {
+  if (view !== "gifts") return;
+  const lk = e.target.closest(".gr .lk");
+  if (lk) {
+    const row = lk.closest(".gr"), g = plan.guests.find(x => x.id === row.dataset.gid); if (!g) return;
+    if (g.giftLocked) {
+      if (!confirm(`Разблокировать сумму для «${g.name}»? После этого её можно будет изменить.`)) return;
+      commit({t:"giftlock", ids:[g.id], on:false}, `Разблокирован подарок: ${g.name}`);
+    } else {
+      if (row.dataset.dirty && !saveGiftRow(row)) return;   // keep what was just typed
+      commit({t:"giftlock", ids:[g.id], on:true}, `Сверено: ${g.name}`);
+    }
+    return;
+  }
+  if (e.target.id === "lockAll" || e.target.id === "unlockAll") {
+    const on = e.target.id === "lockAll", gs = giftGuests(giftSel);
+    const where = giftSel === "none" ? "без стола" : "за столом N" + giftSel;
+    if (on) {
+      for (const row of $("#tablePanel").querySelectorAll(".gr[data-dirty]")) if (!saveGiftRow(row)) return;
+      const ids = gs.filter(g => !g.giftLocked).map(g => g.id);
+      if (ids.length) commit({t:"giftlock", ids, on:true}, `Сверены все ${where}`);
+    } else if (confirm(`Разблокировать всех ${where}?`)) {
+      commit({t:"giftlock", ids:gs.map(g => g.id), on:false}, `Разблокированы все ${where}`);
+    }
+  }
+});
 
 /* =====================================================================
    Import / export
@@ -1480,8 +1536,8 @@ async function exportXlsx(){
     ["Курс", ...CURS.filter(c => c !== "AZN").map(c => `1 ${c} = ${rateOf(c) ?? "?"} AZN`)],
   ];
   sheet(gsheet, "Подарки", [18, 8, 7, 11, 11, 11, 11], true);
-  sheet(pool.filter(hasGift).sort(byOrder).map(g => ({"Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", "Стол":g.table == null ? "" : "N" + g.table, ...money(g), "≈ AZN":inAzn(giftSum([g])).v || ""})),
-    "Подарки — гости", [30, 9, 7, 7, 10, 10, 10, 10]);
+  sheet(pool.filter(hasGift).sort(byOrder).map(g => ({"Имя":g.name, "Чей гость":SIDES[sideOf(g)].label, "Группа":g.group ?? "", "Стол":g.table == null ? "" : "N" + g.table, ...money(g), "≈ AZN":inAzn(giftSum([g])).v || "", "Сверено":g.giftLocked ? "да" : ""})),
+    "Подарки — гости", [30, 9, 7, 7, 10, 10, 10, 10, 9]);
   // 3. Occupancy of every table.
   sheet(TABLES.map(t => ({"Стол":"N" + t.n, "Тип":t.kind === "round" ? "Круглый (внутр.)" : "Длинный (внешн.)", "Мест":t.seats, "Занято":at(t.n).length, "Свободно":t.seats - at(t.n).length})), "Столы", [8, 18, 7, 8, 9]);
   // 4. Re-importable copy (More → Import reads this sheet).
