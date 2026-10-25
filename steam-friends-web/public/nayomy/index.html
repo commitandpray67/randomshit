@@ -4,14 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Naomi "Nayomy" Janssen</title>
-<meta name="description" content="Nayomy, Dutch professional Counter-Strike 2 player. Gear, settings, crosshair and socials.">
-<meta property="og:title" content="NAYOMY — Gear, Settings &amp; Socials">
-<meta property="og:description" content="Dutch professional CS2 player. Mouse settings, hardware, crosshair code and where to follow.">
+<meta name="description" content="Nayomy, Dutch professional Counter-Strike 2 player. Live stream, gear, settings, crosshair and socials.">
+<meta property="og:title" content="NAYOMY — Stream, Gear &amp; Settings">
+<meta property="og:description" content="Dutch professional CS2 player. Watch live, grab the crosshair, copy the settings.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="NAYOMY">
 <meta property="og:image" content="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQf4tP_doHLvQi05sPhlZvJYlie8wxH3zRhz-Gu0QFXIJ608cSWUyaor6k&amp;s=10">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@Nayomy_cs">
+<meta name="theme-color" content="#0A0B0F">
 <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22&gt;&lt;rect width=%22100%22 height=%22100%22 fill=%22%230A0B0F%22/&gt;&lt;text x=%2250%22 y=%2268%22 font-size=%2260%22 fill=%22%23FF7A1A%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22bold%22&gt;N&lt;/text&gt;&lt;/svg&gt;">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -21,14 +22,28 @@
 </head>
 <body>
 
+<!-- Boot screen: a fake CS console "connecting" to the page. Click or any key skips it. -->
+<div class="boot" id="boot" aria-hidden="true">
+  <div class="boot-inner">
+    <pre id="boot-log"></pre>
+    <div class="boot-bar"><span id="boot-fill"></span></div>
+    <p class="boot-skip">click or press any key to skip</p>
+  </div>
+</div>
+
+<div class="fx-scan" aria-hidden="true"></div>
+<div class="fx-noise" aria-hidden="true"></div>
+<canvas class="fx-field" id="fx-field" aria-hidden="true"></canvas>
+
 <header class="nav">
-  <a class="brand" href="#top"><span class="brand-mark">N</span>NAYOMY</a>
+  <a class="brand" href="#top"><span class="brand-mark">N</span><span class="glitch" data-text="NAYOMY">NAYOMY</span></a>
   <nav>
-    <a href="#stream" class="nav-stream">Stream<span class="live-dot" hidden>LIVE</span></a>
-    <a href="#about">About</a>
-    <a href="#gear">Gear</a>
+    <a href="#stream">Stream<span class="live-dot" hidden>LIVE</span></a>
+    <a href="#about">Profile</a>
+    <a href="#gear">Loadout</a>
     <a href="#crosshair">Crosshair</a>
     <a href="#socials">Socials</a>
+    <button type="button" class="nav-console" id="open-console" title="Developer console (~)"><i class="fa-solid fa-terminal"></i><kbd>~</kbd></button>
   </nav>
 </header>
 
@@ -36,10 +51,14 @@
 
   <section class="hero">
     <div class="hero-text">
-      <p class="eyebrow"><span class="flag" aria-hidden="true"></span> Netherlands · Counter-Strike 2</p>
+      <p class="eyebrow"><span class="flag" aria-hidden="true"></span> NL · Counter-Strike 2 · Pro</p>
       <a class="live-pill" id="live-pill" href="#stream" hidden><span class="pulse"></span> Live on Twitch now</a>
-      <h1>Naomi <span class="handle">"Nayomy"</span> Janssen</h1>
-      <p class="lede">Dutch professional Counter-Strike 2 player and former CS:GO pro.</p>
+      <h1>
+        <span class="h1-small">Naomi</span>
+        <span class="glitch big" data-text="NAYOMY">NAYOMY</span>
+        <span class="h1-small">Janssen</span>
+      </h1>
+      <p class="lede">Dutch professional Counter-Strike 2 player and former CS:GO pro. <span class="typed" id="typed"></span><span class="caret">_</span></p>
       <div class="socials-row">
         <a href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener" aria-label="Twitch"><i class="fa-brands fa-twitch"></i></a>
         <a href="https://twitter.com/Nayomy_cs" target="_blank" rel="noopener" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a>
@@ -49,95 +68,179 @@
         <a href="https://discord.gg/a628xaAmZy" target="_blank" rel="noopener" aria-label="Discord"><i class="fa-brands fa-discord"></i></a>
       </div>
       <div class="cta">
-        <a class="btn btn-primary" href="#gear"><i class="fa-solid fa-sliders"></i> Gear &amp; settings</a>
-        <a class="btn" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-twitch"></i> Watch on Twitch</a>
+        <a class="btn btn-primary" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-twitch"></i> Watch on Twitch</a>
+        <a class="btn" href="#crosshair"><i class="fa-solid fa-crosshairs"></i> Steal the crosshair</a>
       </div>
     </div>
+
     <div class="hero-photo">
-      <div class="photo-frame">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQf4tP_doHLvQi05sPhlZvJYlie8wxH3zRhz-Gu0QFXIJ608cSWUyaor6k&amp;s=10" alt="Nayomy" referrerpolicy="no-referrer">
+      <div class="photo-frame" id="photo-frame">
+        <img id="photo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQf4tP_doHLvQi05sPhlZvJYlie8wxH3zRhz-Gu0QFXIJ608cSWUyaor6k&amp;s=10" alt="Nayomy" referrerpolicy="no-referrer">
+        <div class="photo-fallback" aria-hidden="true">N</div>
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <span class="photo-tag">TARGET // NAYOMY</span>
+        <span class="photo-scan" aria-hidden="true"></span>
+        <ul class="killfeed" id="killfeed" aria-hidden="true"></ul>
       </div>
+    </div>
+
+    <!-- In-game HUD strip -->
+    <div class="hud" aria-hidden="true">
+      <div class="hud-cell"><i class="fa-solid fa-plus"></i><b>100</b></div>
+      <div class="hud-cell"><i class="fa-solid fa-shield-halved"></i><b>100</b></div>
+      <div class="hud-cell money"><b>$<span id="money">800</span></b></div>
+      <div class="hud-cell hud-round"><span class="ct">CT</span><b id="clock">1:55</b><span class="t">T</span></div>
+      <div class="hud-cell ammo"><b>30</b><span>/ 90</span></div>
     </div>
   </section>
 
-  <section id="stream" class="section">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span>NAYOMY</span><span>CS2</span><span>NETHERLANDS</span><span>496 eDPI</span><span>240 HZ</span><span>1280×960 STRETCHED</span><span>CROSSHAIR STYLE 4</span><span>GL HF</span>
+      <span>NAYOMY</span><span>CS2</span><span>NETHERLANDS</span><span>496 eDPI</span><span>240 HZ</span><span>1280×960 STRETCHED</span><span>CROSSHAIR STYLE 4</span><span>GL HF</span>
+    </div>
+  </div>
+
+  <section id="stream" class="section reveal">
     <h2 class="section-title"><span>01</span> Stream <em class="stream-state" id="stream-state">Checking…</em></h2>
-    <div class="stream">
-      <div class="stream-frame">
-        <div id="twitch-player" class="stream-player"></div>
-        <div class="offline" id="offline">
-          <i class="fa-brands fa-twitch"></i>
-          <p class="offline-title">Nayomy is offline right now</p>
-          <p class="offline-text">Follow on Twitch to get a notification the next time she goes live.</p>
-          <div class="cta">
-            <a class="btn btn-twitch" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-solid fa-heart"></i> Follow on Twitch</a>
-            <a class="btn" href="https://www.youtube.com/channel/UCUvjs8BX6KhAaN4JwF74zWg" target="_blank" rel="noopener"><i class="fa-brands fa-youtube"></i> Watch on YouTube</a>
+    <div class="stream-frame">
+      <div id="twitch-player" class="stream-player"></div>
+      <div class="offline" id="offline">
+        <div class="radar" aria-hidden="true">
+          <span class="radar-sweep"></span>
+          <span class="radar-blip b1"></span><span class="radar-blip b2"></span><span class="radar-blip b3"></span>
+        </div>
+        <p class="offline-kicker">SPECTATING… NO SIGNAL</p>
+        <p class="offline-title">Nayomy is offline</p>
+        <p class="offline-text">Hit follow on Twitch and you'll get a ping the next time she goes live.</p>
+        <div class="cta">
+          <a class="btn btn-twitch" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-solid fa-heart"></i> Follow on Twitch</a>
+          <a class="btn" href="https://www.youtube.com/channel/UCUvjs8BX6KhAaN4JwF74zWg" target="_blank" rel="noopener"><i class="fa-brands fa-youtube"></i> YouTube</a>
+          <a class="btn" href="https://discord.gg/a628xaAmZy" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i> Discord</a>
+        </div>
+      </div>
+      <span class="frame-corner tl"></span><span class="frame-corner br"></span>
+    </div>
+    <a class="stream-link" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener">twitch.tv/nayomy_cs <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+  </section>
+
+  <section id="about" class="section reveal">
+    <h2 class="section-title"><span>02</span> Player profile</h2>
+    <div class="profile">
+      <div class="dossier">
+        <div class="dossier-head">
+          <span>PLAYER FILE</span><span class="dossier-id">ID: NAYOMY</span>
+        </div>
+        <dl>
+          <div><dt>Name</dt><dd>Naomi Janssen</dd></div>
+          <div><dt>Alias</dt><dd class="accent">Nayomy</dd></div>
+          <div><dt>Born</dt><dd>November 5, 2003 <small id="age"></small></dd></div>
+          <div><dt>Nationality</dt><dd><span class="flag sm"></span> Dutch</dd></div>
+          <div><dt>Game</dt><dd>Counter-Strike 2</dd></div>
+          <div><dt>Previously</dt><dd>CS:GO</dd></div>
+        </dl>
+        <div class="birthday" id="birthday"></div>
+      </div>
+      <div class="profile-side">
+        <p class="about-text">
+          Naomi "Nayomy" Janssen is a Dutch professional Counter-Strike 2 player and a former
+          Counter-Strike: Global Offensive player.
+        </p>
+        <div class="duo">
+          <div class="duo-icons" aria-hidden="true"><i class="fa-solid fa-user"></i><i class="fa-solid fa-user"></i></div>
+          <div>
+            <span class="duo-label">DUO QUEUE</span>
+            <p>She's the twin sister of Kiara <b>"Qiyarah"</b> Janssen, so there are two of them.</p>
           </div>
         </div>
       </div>
-      <a class="stream-link" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener">twitch.tv/nayomy_cs <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
     </div>
   </section>
 
-  <section id="about" class="section">
-    <h2 class="section-title"><span>02</span> About</h2>
-    <div class="facts">
-      <div class="fact"><span class="fact-label">Name</span><span class="fact-value">Naomi Janssen</span></div>
-      <div class="fact"><span class="fact-label">Born</span><span class="fact-value">November 5, 2003 <small id="age"></small></span></div>
-      <div class="fact"><span class="fact-label">Nationality</span><span class="fact-value">Dutch</span></div>
-      <div class="fact"><span class="fact-label">Game</span><span class="fact-value">Counter-Strike 2</span></div>
+  <section id="gear" class="section reveal">
+    <h2 class="section-title"><span>03</span> Loadout &amp; settings</h2>
+
+    <div class="settings-grid">
+      <div class="panel">
+        <h3 class="panel-title"><i class="fa-solid fa-computer-mouse"></i> Mouse</h3>
+        <div class="big-stat">
+          <span class="big-num" data-count="496">496</span>
+          <span class="big-label">eDPI</span>
+        </div>
+        <div class="kv">
+          <div><span>DPI</span><b>800</b></div>
+          <div><span>Sensitivity</span><b>0.62</b></div>
+          <div><span>Zoom sens</span><b>1.1</b></div>
+          <div><span>Polling rate</span><b>1000 Hz</b></div>
+          <div><span>cm / 360°</span><b>83.8</b></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3 class="panel-title"><i class="fa-solid fa-display"></i> Video</h3>
+        <div class="aspect">
+          <div class="aspect-native"><span>16:9 native</span></div>
+          <div class="aspect-hers"><span>4:3 stretched<br><b>1280×960</b></span></div>
+        </div>
+        <div class="kv">
+          <div><span>Resolution</span><b>1280×960</b></div>
+          <div><span>Scaling</span><b>Stretched</b></div>
+          <div><span>Refresh rate</span><b>240 Hz</b></div>
+        </div>
+      </div>
     </div>
-    <p class="about-text">
-      Naomi "Nayomy" Janssen is a Dutch professional Counter-Strike 2 player and a former
-      Counter-Strike: Global Offensive player. She is the twin sister of Kiara "Qiyarah" Janssen.
-    </p>
-  </section>
 
-  <section id="gear" class="section">
-    <h2 class="section-title"><span>03</span> Gear &amp; Settings</h2>
-
-    <h3 class="sub">Mouse settings</h3>
-    <div class="stats">
-      <div class="stat stat-accent"><span class="stat-value">496</span><span class="stat-label">eDPI</span></div>
-      <div class="stat"><span class="stat-value">800</span><span class="stat-label">DPI</span></div>
-      <div class="stat"><span class="stat-value">0.62</span><span class="stat-label">Sensitivity</span></div>
-      <div class="stat"><span class="stat-value">1.1</span><span class="stat-label">Zoom sens</span></div>
-      <div class="stat"><span class="stat-value">1000<small>Hz</small></span><span class="stat-label">Polling rate</span></div>
+    <h3 class="sub">Loadout <span class="sub-hint">buy menu style. Press 1–5</span></h3>
+    <div class="buy-grid" id="buy-grid">
+      <div class="buy-card" data-key="1"><kbd>1</kbd><i class="fa-solid fa-computer-mouse"></i><span class="gear-type">Mouse</span><span class="gear-name">Logitech G PRO X SUPERLIGHT</span></div>
+      <div class="buy-card" data-key="2"><kbd>2</kbd><i class="fa-solid fa-display"></i><span class="gear-type">Monitor</span><span class="gear-name">ZOWIE XL2546K</span></div>
+      <div class="buy-card" data-key="3"><kbd>3</kbd><i class="fa-solid fa-keyboard"></i><span class="gear-type">Keyboard</span><span class="gear-name">Razer Huntsman V2 Tenkeyless</span></div>
+      <div class="buy-card" data-key="4"><kbd>4</kbd><i class="fa-solid fa-headphones"></i><span class="gear-type">Headset</span><span class="gear-name">HyperX Cloud II</span></div>
+      <div class="buy-card" data-key="5"><kbd>5</kbd><i class="fa-solid fa-vector-square"></i><span class="gear-type">Mousepad</span><span class="gear-name">Razer Gigantus V2</span></div>
     </div>
 
-    <h3 class="sub">Video</h3>
-    <div class="stats">
-      <div class="stat"><span class="stat-value">1280×960</span><span class="stat-label">Resolution</span></div>
-      <div class="stat"><span class="stat-value">Stretched</span><span class="stat-label">Scaling</span></div>
-      <div class="stat"><span class="stat-value">240<small>Hz</small></span><span class="stat-label">Refresh rate</span></div>
-    </div>
-
-    <h3 class="sub">Hardware</h3>
-    <div class="gear-grid">
-      <div class="gear-card"><i class="fa-solid fa-computer-mouse"></i><div><span class="gear-type">Mouse</span><span class="gear-name">Logitech G PRO X SUPERLIGHT</span></div></div>
-      <div class="gear-card"><i class="fa-solid fa-display"></i><div><span class="gear-type">Monitor</span><span class="gear-name">ZOWIE XL2546K</span></div></div>
-      <div class="gear-card"><i class="fa-solid fa-keyboard"></i><div><span class="gear-type">Keyboard</span><span class="gear-name">Razer Huntsman V2 Tenkeyless</span></div></div>
-      <div class="gear-card"><i class="fa-solid fa-headphones"></i><div><span class="gear-type">Headset</span><span class="gear-name">HyperX Cloud II</span></div></div>
-      <div class="gear-card"><i class="fa-solid fa-square"></i><div><span class="gear-type">Mousepad</span><span class="gear-name">Razer Gigantus V2</span></div></div>
+    <h3 class="sub">Sens converter <span class="sub-hint">play on her sens with your DPI</span></h3>
+    <div class="converter panel">
+      <label>Your DPI
+        <input type="number" id="conv-dpi" value="800" min="50" max="32000" step="50" inputmode="numeric">
+      </label>
+      <label>Game
+        <select id="conv-game">
+          <option value="1">CS2</option>
+          <option value="0.3142857">Valorant</option>
+          <option value="1">Apex Legends</option>
+          <option value="3.3333333">Overwatch 2</option>
+        </select>
+      </label>
+      <div class="conv-out">
+        <span>Your sensitivity</span>
+        <b id="conv-result">0.62</b>
+      </div>
     </div>
     <p class="updated">Settings as of 2024-11-03.</p>
   </section>
 
-  <section id="crosshair" class="section">
+  <section id="crosshair" class="section reveal">
     <h2 class="section-title"><span>04</span> Crosshair</h2>
     <div class="xhair">
-      <div class="xhair-preview" aria-label="Crosshair preview">
-        <svg viewBox="-40 -40 80 80" width="100%" height="100%" aria-hidden="true">
-          <!-- style 4, size 1.4, thickness 0.1, gap -3.6: short 1px lines, almost touching -->
-          <g fill="#00FF00">
-            <rect x="-0.5" y="-6.5" width="1" height="5.5"/>
-            <rect x="-0.5" y="1" width="1" height="5.5"/>
-            <rect x="-6.5" y="-0.5" width="5.5" height="1"/>
-            <rect x="1" y="-0.5" width="5.5" height="1"/>
-          </g>
-        </svg>
-        <span class="xhair-tag">PREVIEW</span>
+      <div class="xhair-side">
+        <div class="xhair-preview bg-dust" id="xhair-preview" aria-label="Crosshair preview">
+          <svg viewBox="-40 -40 80 80" width="100%" height="100%" aria-hidden="true" id="xhair-svg">
+            <!-- style 4, size 1.4, thickness 0.1, gap -3.6: short 1px lines, almost touching -->
+            <g fill="#00FF00">
+              <rect x="-0.5" y="-6.5" width="1" height="5.5"/>
+              <rect x="-0.5" y="1" width="1" height="5.5"/>
+              <rect x="-6.5" y="-0.5" width="5.5" height="1"/>
+              <rect x="1" y="-0.5" width="5.5" height="1"/>
+            </g>
+          </svg>
+          <span class="xhair-tag">PREVIEW · MOVE YOUR MOUSE</span>
+        </div>
+        <div class="bg-switch" role="group" aria-label="Preview background">
+          <button type="button" data-bg="bg-dust" class="on">Dust</button>
+          <button type="button" data-bg="bg-sky">Sky</button>
+          <button type="button" data-bg="bg-dark">Dark</button>
+          <button type="button" data-bg="bg-smoke">Smoke</button>
+        </div>
       </div>
       <div class="xhair-body">
         <div class="xhair-values">
@@ -153,43 +256,193 @@
         </div>
         <div class="console">
           <div class="console-head">
-            <span>Console commands</span>
+            <span><i class="fa-solid fa-terminal"></i> Paste into the CS2 console</span>
             <button type="button" id="copy" class="copy"><i class="fa-regular fa-copy"></i> <span>Copy</span></button>
           </div>
 <pre id="commands">cl_crosshairstyle 4; cl_crosshairsize 1.4; cl_crosshairthickness 0.1; cl_crosshairgap -3.6; cl_crosshair_drawoutline 0; cl_crosshairdot 0; cl_crosshaircolor 5; cl_crosshaircolor_r 0; cl_crosshaircolor_g 255; cl_crosshaircolor_b 0; cl_crosshairusealpha 1; cl_crosshairalpha 255; cl_crosshair_sniper_width 1</pre>
         </div>
+        <p class="xhair-note"><i class="fa-solid fa-circle-info"></i> Fun fact: your cursor on this page is her crosshair.</p>
       </div>
     </div>
   </section>
 
-  <section id="socials" class="section">
+  <section id="socials" class="section reveal">
     <h2 class="section-title"><span>05</span> Follow</h2>
     <div class="social-grid">
-      <a class="social-card tw" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-twitch"></i><span class="s-name">Twitch</span><span class="s-handle">nayomy_cs</span></a>
-      <a class="social-card x" href="https://twitter.com/Nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-x-twitter"></i><span class="s-name">X / Twitter</span><span class="s-handle">@Nayomy_cs</span></a>
-      <a class="social-card tt" href="https://www.tiktok.com/@nayomy.cs" target="_blank" rel="noopener"><i class="fa-brands fa-tiktok"></i><span class="s-name">TikTok</span><span class="s-handle">@nayomy.cs</span></a>
-      <a class="social-card yt" href="https://www.youtube.com/channel/UCUvjs8BX6KhAaN4JwF74zWg" target="_blank" rel="noopener"><i class="fa-brands fa-youtube"></i><span class="s-name">YouTube</span><span class="s-handle">Nayomy</span></a>
-      <a class="social-card ig" href="https://www.instagram.com/nayomy.cs/" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i><span class="s-name">Instagram</span><span class="s-handle">@nayomy.cs</span></a>
-      <a class="social-card dc" href="https://discord.gg/a628xaAmZy" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i><span class="s-name">Discord</span><span class="s-handle">Join the server</span></a>
+      <a class="social-card tw" href="https://www.twitch.tv/nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-twitch"></i><span class="s-name">Twitch</span><span class="s-handle">nayomy_cs</span><span class="s-go">FOLLOW →</span></a>
+      <a class="social-card x" href="https://twitter.com/Nayomy_cs" target="_blank" rel="noopener"><i class="fa-brands fa-x-twitter"></i><span class="s-name">X / Twitter</span><span class="s-handle">@Nayomy_cs</span><span class="s-go">FOLLOW →</span></a>
+      <a class="social-card tt" href="https://www.tiktok.com/@nayomy.cs" target="_blank" rel="noopener"><i class="fa-brands fa-tiktok"></i><span class="s-name">TikTok</span><span class="s-handle">@nayomy.cs</span><span class="s-go">FOLLOW →</span></a>
+      <a class="social-card yt" href="https://www.youtube.com/channel/UCUvjs8BX6KhAaN4JwF74zWg" target="_blank" rel="noopener"><i class="fa-brands fa-youtube"></i><span class="s-name">YouTube</span><span class="s-handle">Nayomy</span><span class="s-go">SUBSCRIBE →</span></a>
+      <a class="social-card ig" href="https://www.instagram.com/nayomy.cs/" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i><span class="s-name">Instagram</span><span class="s-handle">@nayomy.cs</span><span class="s-go">FOLLOW →</span></a>
+      <a class="social-card dc" href="https://discord.gg/a628xaAmZy" target="_blank" rel="noopener"><i class="fa-brands fa-discord"></i><span class="s-name">Discord</span><span class="s-handle">Join the server</span><span class="s-go">JOIN →</span></a>
     </div>
   </section>
 
 </main>
 
 <footer class="footer">
-  <span>© <span id="year"></span> Nayomy</span>
-  <a href="#top">Back to top <i class="fa-solid fa-arrow-up"></i></a>
+  <span>© <span id="year"></span> Nayomy · <span class="gg">GG WP</span></span>
+  <span class="footer-hint">press <kbd>~</kbd> for the console</span>
+  <a href="#top">Back to spawn <i class="fa-solid fa-arrow-up"></i></a>
 </footer>
+
+<!-- Developer console, CS style -->
+<div class="devcon" id="devcon" hidden>
+  <div class="devcon-win" role="dialog" aria-label="Developer console">
+    <div class="devcon-head">
+      <span><i class="fa-solid fa-terminal"></i> Console</span>
+      <button type="button" id="devcon-close" aria-label="Close console"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="devcon-log" id="devcon-log"></div>
+    <form class="devcon-input" id="devcon-form" autocomplete="off">
+      <span>]</span>
+      <input id="devcon-in" type="text" spellcheck="false" placeholder="type help" aria-label="Console command">
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://player.twitch.tv/js/embed/v1.js"></script>
 <script>
-  // Twitch: the embed tells us whether the channel is live. Until it says
-  // ONLINE, the offline panel stays over the player; if the script never
-  // loads, the panel simply stays.
+(function () {
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  function copy(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { toast("Couldn't copy. Select the text instead"); });
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {}
+      ta.remove();
+    }
+  }
+
+  /* ---------- Boot screen (once per tab) ---------- */
   (function () {
-    var state = document.getElementById("stream-state");
-    var offline = document.getElementById("offline");
-    var pill = document.getElementById("live-pill");
+    var boot = $("boot");
+    var seen = false;
+    try { seen = sessionStorage.getItem("nayomy-boot") === "1"; } catch (e) {}
+    if (seen || reduce) { boot.remove(); return; }
+    try { sessionStorage.setItem("nayomy-boot", "1"); } catch (e) {}
+    document.body.classList.add("booting");
+    var lines = [
+      "] connect nayomy",
+      "Connecting to nayomy...",
+      "Steam auth OK",
+      "Loading map de_nayomy",
+      "Precaching models, sounds, materials...",
+      "sensitivity \"0.62\"  zoom_sensitivity_ratio \"1.1\"",
+      "cl_crosshairstyle 4 · cl_crosshaircolor_g 255",
+      "mat_setvideomode 1280 960 · stretched",
+      "Connected. GL HF."
+    ];
+    var log = $("boot-log"), fill = $("boot-fill"), i = 0, timer;
+    function finish() {
+      clearInterval(timer);
+      boot.classList.add("gone");
+      document.body.classList.remove("booting");
+      setTimeout(function () { boot.remove(); }, 500);
+      window.removeEventListener("keydown", finish);
+      boot.removeEventListener("click", finish);
+    }
+    timer = setInterval(function () {
+      if (i >= lines.length) { setTimeout(finish, 350); clearInterval(timer); return; }
+      log.textContent += lines[i] + "\n";
+      i++;
+      fill.style.width = Math.round(i / lines.length * 100) + "%";
+    }, 170);
+    window.addEventListener("keydown", finish);
+    boot.addEventListener("click", finish);
+  })();
+
+  /* ---------- Small facts ---------- */
+  var now = new Date();
+  $("year").textContent = now.getFullYear();
+  var bMonth = 10, bDay = 5;
+  var age = now.getFullYear() - 2003;
+  var thisYearBday = new Date(now.getFullYear(), bMonth, bDay);
+  if (now < thisYearBday) age--;
+  $("age").textContent = "(" + age + ")";
+  (function () {
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var next = thisYearBday < today ? new Date(now.getFullYear() + 1, bMonth, bDay) : thisYearBday;
+    var days = Math.round((next - today) / 86400000);
+    $("birthday").innerHTML = days === 0
+      ? '<i class="fa-solid fa-cake-candles"></i> It\'s her birthday today! Happy birthday Nayomy!'
+      : '<i class="fa-solid fa-cake-candles"></i> Next birthday in <b>' + days + "</b> day" + (days === 1 ? "" : "s");
+  })();
+
+  /* ---------- Photo fallback ---------- */
+  var img = $("photo");
+  function noPhoto() { $("photo-frame").classList.add("no-photo"); }
+  img.addEventListener("error", noPhoto);
+  if (img.complete && !img.naturalWidth) noPhoto();
+
+  /* ---------- Typed tagline ---------- */
+  (function () {
+    var el = $("typed");
+    var words = ["Clicking heads.", "Live on Twitch.", "496 eDPI.", "Style 4, green.", "GL HF."];
+    if (reduce) { el.textContent = words[0]; return; }
+    var w = 0, c = 0, del = false;
+    (function tick() {
+      var word = words[w];
+      el.textContent = word.slice(0, c);
+      if (!del && c < word.length) { c++; setTimeout(tick, 70); }
+      else if (!del) { del = true; setTimeout(tick, 1500); }
+      else if (c > 0) { c--; setTimeout(tick, 35); }
+      else { del = false; w = (w + 1) % words.length; setTimeout(tick, 300); }
+    })();
+  })();
+
+  /* ---------- Kill feed on the photo ---------- */
+  (function () {
+    var feed = $("killfeed");
+    var bots = ["bot_Ivan", "bot_Kurt", "bot_Moe", "bot_Shark", "bot_Rock", "bot_Ringo", "bot_Vitaliy", "bot_Yanni"];
+    var guns = ["AK-47", "M4A1-S", "AWP", "Desert Eagle", "USP-S", "Galil AR"];
+    function add() {
+      var li = document.createElement("li");
+      var hs = Math.random() < 0.6;
+      li.innerHTML = '<b class="kf-me">Nayomy</b> <span class="kf-gun">' + guns[Math.floor(Math.random() * guns.length)] + "</span>" +
+        (hs ? ' <i class="fa-solid fa-skull kf-hs" title="headshot"></i>' : "") +
+        ' <span class="kf-them">' + bots[Math.floor(Math.random() * bots.length)] + "</span>";
+      feed.prepend(li);
+      while (feed.children.length > 4) feed.lastChild.remove();
+      var money = $("money");
+      money.textContent = Math.min(16000, parseInt(money.textContent, 10) + 300);
+    }
+    add();
+    if (!reduce) setInterval(add, 2600);
+  })();
+
+  /* ---------- Round clock ---------- */
+  (function () {
+    var t = 115;
+    setInterval(function () {
+      t = t <= 0 ? 115 : t - 1;
+      $("clock").textContent = Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
+      $("clock").classList.toggle("low", t <= 10);
+    }, 1000);
+  })();
+
+  /* ---------- Twitch: live or not ---------- */
+  // The embed tells us whether the channel is live. Until it says ONLINE,
+  // the offline panel stays over the player; if the script never loads, it simply stays.
+  (function () {
+    var state = $("stream-state"), offline = $("offline"), pill = $("live-pill");
     var dot = document.querySelector(".live-dot");
     function setLive(live) {
       offline.hidden = live;
@@ -197,6 +450,7 @@
       dot.hidden = !live;
       state.textContent = live ? "● Live" : "Offline";
       state.classList.toggle("is-live", live);
+      document.body.classList.toggle("is-live", live);
     }
     if (!window.Twitch || !Twitch.Player) { setLive(false); return; }
     var player = new Twitch.Player("twitch-player", {
@@ -213,36 +467,310 @@
     setTimeout(function () { if (state.textContent === "Checking…") setLive(false); }, 8000);
   })();
 
+  /* ---------- Scroll reveal + count-up ---------- */
   (function () {
-    var now = new Date();
-    document.getElementById("year").textContent = now.getFullYear();
+    var els = document.querySelectorAll(".reveal");
+    if (!("IntersectionObserver" in window) || reduce) {
+      els.forEach(function (e) { e.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.add("in");
+        en.target.querySelectorAll("[data-count]").forEach(function (n) {
+          var end = +n.dataset.count, start = performance.now();
+          (function step(t) {
+            var p = Math.min(1, (t - start) / 900);
+            n.textContent = Math.round(end * (1 - Math.pow(1 - p, 3)));
+            if (p < 1) requestAnimationFrame(step);
+          })(start);
+        });
+        io.unobserve(en.target);
+      });
+    }, { threshold: 0.15 });
+    els.forEach(function (e) { io.observe(e); });
+  })();
 
-    var born = new Date(2003, 10, 5);
-    var age = now.getFullYear() - born.getFullYear();
-    if (now < new Date(now.getFullYear(), born.getMonth(), born.getDate())) age--;
-    document.getElementById("age").textContent = "(" + age + ")";
+  /* ---------- Buy menu: press 1–5 ---------- */
+  function buy(key) {
+    var card = document.querySelector('.buy-card[data-key="' + key + '"]');
+    if (!card) return;
+    card.classList.remove("bought");
+    void card.offsetWidth;
+    card.classList.add("bought");
+    toast("Equipped: " + card.querySelector(".gear-name").textContent);
+  }
+  document.querySelectorAll(".buy-card").forEach(function (c) {
+    c.addEventListener("click", function () { buy(c.dataset.key); });
+  });
 
-    var btn = document.getElementById("copy");
-    btn.addEventListener("click", function () {
-      var text = document.getElementById("commands").textContent;
-      var label = btn.querySelector("span");
-      var done = function () {
-        label.textContent = "Copied";
-        btn.classList.add("ok");
-        setTimeout(function () { label.textContent = "Copy"; btn.classList.remove("ok"); }, 1600);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () {});
-      } else {
-        var range = document.createRange();
-        range.selectNodeContents(document.getElementById("commands"));
-        var sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        try { document.execCommand("copy"); done(); } catch (e) {}
+  /* ---------- Sens converter ---------- */
+  (function () {
+    var dpi = $("conv-dpi"), game = $("conv-game"), out = $("conv-result");
+    function calc() {
+      var d = parseFloat(dpi.value);
+      if (!d || d <= 0) { out.textContent = "—"; return; }
+      var s = 496 / d * parseFloat(game.value);
+      out.textContent = String(parseFloat(s.toFixed(s < 1 ? 3 : 2)));
+    }
+    dpi.addEventListener("input", calc);
+    game.addEventListener("change", calc);
+    calc();
+  })();
+
+  /* ---------- Crosshair preview: backgrounds + follow mouse ---------- */
+  (function () {
+    var prev = $("xhair-preview"), svg = $("xhair-svg");
+    document.querySelectorAll(".bg-switch button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        document.querySelectorAll(".bg-switch button").forEach(function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        prev.className = "xhair-preview " + b.dataset.bg;
+      });
+    });
+    prev.addEventListener("mousemove", function (e) {
+      var r = prev.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      prev.style.backgroundPosition = (50 + x * 12) + "% " + (50 + y * 12) + "%";
+      svg.style.transform = "translate(" + (x * -6) + "px," + (y * -6) + "px)";
+    });
+    prev.addEventListener("mouseleave", function () { svg.style.transform = ""; prev.style.backgroundPosition = ""; });
+  })();
+
+  $("copy").addEventListener("click", function () {
+    var btn = this, label = btn.querySelector("span");
+    copy($("commands").textContent, function () {
+      label.textContent = "Copied";
+      btn.classList.add("ok");
+      toast("Crosshair copied. Paste it into the CS2 console");
+      setTimeout(function () { label.textContent = "Copy"; btn.classList.remove("ok"); }, 1600);
+    });
+  });
+
+  /* ---------- Click = shot: a little muzzle spark where you click ---------- */
+  if (!reduce) {
+    document.addEventListener("pointerdown", function (e) {
+      if (e.pointerType !== "mouse" || e.target.closest("input, select, .devcon, iframe")) return;
+      var s = document.createElement("span");
+      s.className = "shot";
+      s.style.left = e.clientX + "px";
+      s.style.top = e.clientY + "px";
+      document.body.appendChild(s);
+      setTimeout(function () { s.remove(); }, 450);
+    });
+  }
+
+  /* ---------- Developer console ---------- */
+  (function () {
+    var con = $("devcon"), log = $("devcon-log"), input = $("devcon-in");
+    var history = [], hi = 0;
+    function print(text, cls) {
+      var p = document.createElement("div");
+      p.className = "l " + (cls || "");
+      p.textContent = text;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+    function open() {
+      con.hidden = false;
+      if (!log.children.length) {
+        print("Nayomy developer console. Type 'help' for commands.", "dim");
+      }
+      setTimeout(function () { input.focus(); }, 30);
+    }
+    function close() { con.hidden = true; }
+    function go(url) { window.open(url, "_blank", "noopener"); }
+    var links = {
+      twitch: "https://www.twitch.tv/nayomy_cs",
+      twitter: "https://twitter.com/Nayomy_cs",
+      x: "https://twitter.com/Nayomy_cs",
+      tiktok: "https://www.tiktok.com/@nayomy.cs",
+      youtube: "https://www.youtube.com/channel/UCUvjs8BX6KhAaN4JwF74zWg",
+      instagram: "https://www.instagram.com/nayomy.cs/",
+      discord: "https://discord.gg/a628xaAmZy"
+    };
+    var cmds = {
+      help: function () {
+        print("help · sens · crosshair · gear · video · socials · status · twitch · discord · youtube · tiktok · instagram · twitter");
+        print("clear · exit · and a few you'll have to find yourself", "dim");
+      },
+      sens: function () { print('sensitivity "0.62"  ·  dpi 800  ·  eDPI 496  ·  zoom_sensitivity_ratio "1.1"  ·  83.8 cm/360'); },
+      sensitivity: function () { cmds.sens(); },
+      crosshair: function () {
+        print($("commands").textContent, "green");
+        copy($("commands").textContent, function () { print("→ copied to clipboard", "dim"); });
+      },
+      gear: function () {
+        document.querySelectorAll(".buy-card").forEach(function (c) {
+          print(c.querySelector(".gear-type").textContent.padEnd(9) + c.querySelector(".gear-name").textContent);
+        });
+      },
+      video: function () { print("1280×960 · stretched · 240 Hz"); },
+      socials: function () { Object.keys(links).forEach(function (k) { if (k !== "x") print(k.padEnd(10) + links[k]); }); },
+      clear: function () { log.innerHTML = ""; },
+      cls: function () { cmds.clear(); },
+      exit: close,
+      quit: function () { print("You can't quit. You can only rank up.", "warn"); },
+      sv_cheats: function (a) { print(a === "1" ? "Nice try. She doesn't need them." : 'sv_cheats = "0"', "warn"); },
+      noclip: function () {
+        document.body.classList.toggle("noclip");
+        print(document.body.classList.contains("noclip") ? "noclip ON" : "noclip OFF", "warn");
+      },
+      god: function () { print("godmode ON (it was already on for her)", "warn"); },
+      give: function (a) { print("Gave " + (a || "weapon_ak47") + ". Buy time is over, though.", "dim"); },
+      rcon: function () { print("Bad rcon_password.", "warn"); },
+      gg: function () { print("gg wp", "green"); },
+      ez: function () { print("Kicked for toxicity. (just kidding)", "warn"); },
+      kill: function () { print("Nayomy ⌖ you  (headshot)", "warn"); },
+      status: function () {
+        var live = document.body.classList.contains("is-live");
+        print("hostname: nayomy · map: de_nayomy · players: 1 human · stream: " + (live ? "LIVE" : "offline"));
+      }
+    };
+    Object.keys(links).forEach(function (k) {
+      cmds[k] = function () { print("Opening " + links[k], "dim"); go(links[k]); };
+    });
+
+    $("devcon-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var raw = input.value.trim();
+      input.value = "";
+      if (!raw) return;
+      history.push(raw); hi = history.length;
+      print("] " + raw, "echo");
+      var parts = raw.toLowerCase().split(/\s+/);
+      var fn = Object.prototype.hasOwnProperty.call(cmds, parts[0]) && cmds[parts[0]];
+      if (fn) fn(parts[1]);
+      else print("Unknown command: " + parts[0], "err");
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowUp" && hi > 0) { hi--; input.value = history[hi]; e.preventDefault(); }
+      if (e.key === "ArrowDown") { hi = Math.min(history.length, hi + 1); input.value = history[hi] || ""; e.preventDefault(); }
+      if (e.key === "Escape") close();
+    });
+    $("open-console").addEventListener("click", open);
+    $("devcon-close").addEventListener("click", close);
+    con.addEventListener("click", function (e) { if (e.target === con) close(); });
+
+    document.addEventListener("keydown", function (e) {
+      var typing = /input|select|textarea/i.test(e.target.tagName) && e.target !== input;
+      if (!typing && (e.key === "`" || e.key === "~")) {
+        e.preventDefault();
+        if (con.hidden) open(); else close();
+        return;
+      }
+      if (typing || !con.hidden || document.body.classList.contains("booting")) return;
+      if (/^[1-5]$/.test(e.key)) buy(e.key);
+    });
+  })();
+
+  /* ---------- Interactive background: a dot grid that reacts to the mouse ---------- */
+  // Dots near the cursor light up orange and get pushed aside; a click sends
+  // a shockwave through the grid. Redraws only while something is moving.
+  (function () {
+    var cv = $("fx-field"), ctx = cv.getContext("2d");
+    if (!ctx) return;
+    var GAP = 30, R = 170, dpr = 1, w = 0, h = 0, dots = [];
+    var mx = -9999, my = -9999, tx = -9999, ty = -9999;
+    var waves = [], running = false, lastMove = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = innerWidth; h = innerHeight;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + "px"; cv.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dots = [];
+      for (var y = GAP / 2; y < h + GAP; y += GAP)
+        for (var x = GAP / 2; x < w + GAP; x += GAP)
+          dots.push({ x: x, y: y, ox: 0, oy: 0 });
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      if (mx > -999) {
+        var g = ctx.createRadialGradient(mx, my, 0, mx, my, R * 1.6);
+        g.addColorStop(0, "rgba(255,122,26,0.10)");
+        g.addColorStop(1, "rgba(255,122,26,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(mx - R * 1.6, my - R * 1.6, R * 3.2, R * 3.2);
+      }
+      var now = performance.now(), moving = false;
+      for (var i = 0; i < dots.length; i++) {
+        var d = dots[i], fx = 0, fy = 0, heat = 0;
+        var dx = d.x - mx, dy = d.y - my, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < R && dist > 0.01) {
+          var f = Math.pow(1 - dist / R, 2);
+          fx += dx / dist * f * 16; fy += dy / dist * f * 16;
+          heat = f;
+        }
+        for (var k = 0; k < waves.length; k++) {
+          var wv = waves[k], age = (now - wv.t) / 1000, rad = age * 700;
+          var wdx = d.x - wv.x, wdy = d.y - wv.y, wd = Math.sqrt(wdx * wdx + wdy * wdy);
+          var band = 1 - Math.abs(wd - rad) / 60;
+          if (band > 0 && wd > 0.01) {
+            var s = band * (1 - age / 1.2);
+            fx += wdx / wd * s * 22; fy += wdy / wd * s * 22;
+            heat = Math.max(heat, s);
+          }
+        }
+        // Ease toward the target offset so the grid springs back smoothly.
+        d.ox += (fx - d.ox) * 0.18; d.oy += (fy - d.oy) * 0.18;
+        if (Math.abs(fx - d.ox) > 0.05 || Math.abs(fy - d.oy) > 0.05) moving = true;
+        var px = d.x + d.ox, py = d.y + d.oy;
+        if (heat > 0.02) {
+          ctx.fillStyle = "rgba(255," + Math.round(122 + 80 * heat) + ",26," + (0.25 + heat * 0.75).toFixed(3) + ")";
+          var sz = 1.4 + heat * 2.2;
+          ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.07)";
+          ctx.fillRect(px - 0.7, py - 0.7, 1.4, 1.4);
+        }
+      }
+      waves = waves.filter(function (wv) { return now - wv.t < 1200; });
+      return moving || waves.length > 0;
+    }
+
+    function loop() {
+      // Glide the glow toward the cursor rather than snapping to it.
+      mx += (tx - mx) * 0.25; my += (ty - my) * 0.25;
+      var busy = draw() || Math.abs(tx - mx) > 0.5 || Math.abs(ty - my) > 0.5 || performance.now() - lastMove < 120;
+      if (busy) requestAnimationFrame(loop); else running = false;
+    }
+    function kick() { if (!running && !reduce) { running = true; requestAnimationFrame(loop); } }
+
+    window.addEventListener("pointermove", function (e) {
+      if (mx < -999) { mx = e.clientX; my = e.clientY; }
+      tx = e.clientX; ty = e.clientY; lastMove = performance.now();
+      kick();
+    }, { passive: true });
+    document.addEventListener("pointerleave", function () { tx = ty = mx = my = -9999; draw(); });
+    window.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("input, select, .devcon, iframe")) return;
+      waves.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+      kick();
+    });
+    var rt;
+    window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(resize, 120); });
+    resize();
+  })();
+
+  /* ---------- Konami code ---------- */
+  (function () {
+    var seq = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"], pos = 0;
+    document.addEventListener("keydown", function (e) {
+      pos = e.key === seq[pos] ? pos + 1 : (e.key === seq[0] ? 1 : 0);
+      if (pos === seq.length) {
+        pos = 0;
+        document.body.classList.add("ace");
+        toast("ACE! 5 kills, 1 round.");
+        setTimeout(function () { document.body.classList.remove("ace"); }, 2500);
       }
     });
   })();
+})();
 </script>
 </body>
 </html>
