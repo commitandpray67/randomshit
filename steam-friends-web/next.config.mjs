@@ -70,8 +70,6 @@ const nextConfig = {
       { source: "/jayc", destination: "/jayc/index.html" },
       // The wedding seating planner is a static page too (public/toy/).
       { source: "/toy", destination: "/toy/index.html" },
-      // Nayomy's player page (public/nayomy/).
-      { source: "/nayomy", destination: "/nayomy/index.html" },
     ];
   },
 };
