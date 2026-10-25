@@ -33,6 +33,7 @@
 
 <div class="fx-scan" aria-hidden="true"></div>
 <div class="fx-noise" aria-hidden="true"></div>
+<canvas class="fx-field" id="fx-field" aria-hidden="true"></canvas>
 
 <header class="nav">
   <a class="brand" href="#top"><span class="brand-mark">N</span><span class="glitch" data-text="NAYOMY">NAYOMY</span></a>
@@ -662,6 +663,98 @@
       if (typing || !con.hidden || document.body.classList.contains("booting")) return;
       if (/^[1-5]$/.test(e.key)) buy(e.key);
     });
+  })();
+
+  /* ---------- Interactive background: a dot grid that reacts to the mouse ---------- */
+  // Dots near the cursor light up orange and get pushed aside; a click sends
+  // a shockwave through the grid. Redraws only while something is moving.
+  (function () {
+    var cv = $("fx-field"), ctx = cv.getContext("2d");
+    if (!ctx) return;
+    var GAP = 30, R = 170, dpr = 1, w = 0, h = 0, dots = [];
+    var mx = -9999, my = -9999, tx = -9999, ty = -9999;
+    var waves = [], running = false, lastMove = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = innerWidth; h = innerHeight;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + "px"; cv.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dots = [];
+      for (var y = GAP / 2; y < h + GAP; y += GAP)
+        for (var x = GAP / 2; x < w + GAP; x += GAP)
+          dots.push({ x: x, y: y, ox: 0, oy: 0 });
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      if (mx > -999) {
+        var g = ctx.createRadialGradient(mx, my, 0, mx, my, R * 1.6);
+        g.addColorStop(0, "rgba(255,122,26,0.10)");
+        g.addColorStop(1, "rgba(255,122,26,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(mx - R * 1.6, my - R * 1.6, R * 3.2, R * 3.2);
+      }
+      var now = performance.now(), moving = false;
+      for (var i = 0; i < dots.length; i++) {
+        var d = dots[i], fx = 0, fy = 0, heat = 0;
+        var dx = d.x - mx, dy = d.y - my, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < R && dist > 0.01) {
+          var f = Math.pow(1 - dist / R, 2);
+          fx += dx / dist * f * 16; fy += dy / dist * f * 16;
+          heat = f;
+        }
+        for (var k = 0; k < waves.length; k++) {
+          var wv = waves[k], age = (now - wv.t) / 1000, rad = age * 700;
+          var wdx = d.x - wv.x, wdy = d.y - wv.y, wd = Math.sqrt(wdx * wdx + wdy * wdy);
+          var band = 1 - Math.abs(wd - rad) / 60;
+          if (band > 0 && wd > 0.01) {
+            var s = band * (1 - age / 1.2);
+            fx += wdx / wd * s * 22; fy += wdy / wd * s * 22;
+            heat = Math.max(heat, s);
+          }
+        }
+        // Ease toward the target offset so the grid springs back smoothly.
+        d.ox += (fx - d.ox) * 0.18; d.oy += (fy - d.oy) * 0.18;
+        if (Math.abs(fx - d.ox) > 0.05 || Math.abs(fy - d.oy) > 0.05) moving = true;
+        var px = d.x + d.ox, py = d.y + d.oy;
+        if (heat > 0.02) {
+          ctx.fillStyle = "rgba(255," + Math.round(122 + 80 * heat) + ",26," + (0.25 + heat * 0.75).toFixed(3) + ")";
+          var sz = 1.4 + heat * 2.2;
+          ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,0.07)";
+          ctx.fillRect(px - 0.7, py - 0.7, 1.4, 1.4);
+        }
+      }
+      waves = waves.filter(function (wv) { return now - wv.t < 1200; });
+      return moving || waves.length > 0;
+    }
+
+    function loop() {
+      // Glide the glow toward the cursor rather than snapping to it.
+      mx += (tx - mx) * 0.25; my += (ty - my) * 0.25;
+      var busy = draw() || Math.abs(tx - mx) > 0.5 || Math.abs(ty - my) > 0.5 || performance.now() - lastMove < 120;
+      if (busy) requestAnimationFrame(loop); else running = false;
+    }
+    function kick() { if (!running && !reduce) { running = true; requestAnimationFrame(loop); } }
+
+    window.addEventListener("pointermove", function (e) {
+      if (mx < -999) { mx = e.clientX; my = e.clientY; }
+      tx = e.clientX; ty = e.clientY; lastMove = performance.now();
+      kick();
+    }, { passive: true });
+    document.addEventListener("pointerleave", function () { tx = ty = mx = my = -9999; draw(); });
+    window.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("input, select, .devcon, iframe")) return;
+      waves.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+      kick();
+    });
+    var rt;
+    window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(resize, 120); });
+    resize();
   })();
 
   /* ---------- Konami code ---------- */

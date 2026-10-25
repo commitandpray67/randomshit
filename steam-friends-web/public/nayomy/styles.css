@@ -191,6 +191,9 @@ kbd {
 }
 @keyframes blink { 50% { opacity: 0.45; } }
 
+.fx-field { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+main, .footer { position: relative; z-index: 1; }
+
 main { max-width: 1160px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 56px); }
 
 /* ---------- Hero ---------- */
